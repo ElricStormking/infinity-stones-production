@@ -3,7 +3,7 @@ window.GameConfig = {
     GRID_COLS: 6,
     GRID_ROWS: 5,
     SYMBOL_SIZE: 130,  // Symbol size optimized for ui_box cells at 1920x1080
-    GRID_SPACING: 7,   // Spacing optimized to match ui_box grid structure
+    GRID_SPACING: 19,   // Spacing optimized to match ui_box grid structure
     
     // Game Settings
     MIN_MATCH_COUNT: 8,

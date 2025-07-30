@@ -240,33 +240,65 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load sprite sheets:', error);
         }
         
-        // Load burst mode assets
+        // Load burst mode assets individually
         try {
-            // Burst mode backgrounds
-            this.loadImageWithFallback('ui_burstbg', 'assets/images/burstmode/ui_burstbg.png', 0x1a1a1a);
-            this.loadImageWithFallback('ui_threebg01', 'assets/images/burstmode/ui_threebg01.png', 0x2a2a2a);
-            this.loadImageWithFallback('ui_threebg02', 'assets/images/burstmode/ui_threebg02.png', 0x2a2a2a);
-            this.loadImageWithFallback('ui_threebg03_1', 'assets/images/burstmode/ui_threebg03_1.png', 0x2a2a2a);
-            this.loadImageWithFallback('ui_burstbox', 'assets/images/burstmode/ui_burstbox.png', 0x3a3a3a);
+            console.log('Loading burst mode assets...');
             
-            // Burst mode buttons
-            this.loadImageWithFallback('ui_burst_buttonplay', 'assets/images/burstmode/ui_burst_buttonplay.png', 0x4a4a4a);
-            this.loadImageWithFallback('ui_burst_buttonplayloop', 'assets/images/burstmode/ui_burst_buttonplayloop.png', 0x4a4a4a);
-            this.loadImageWithFallback('ui_burst_buttonexit', 'assets/images/burstmode/ui_burst_buttonexit.png', 0x5a5a5a);
+            // Load burst mode backgrounds and UI elements
+            this.loadImageWithFallback('ui_bn_bg', 'assets/images/burstmode/ui_bn_bg.png', 0x1a1a1a);
+            this.loadImageWithFallback('ui_bn_under', 'assets/images/burstmode/ui_bn_under.png', 0x2a2a2a);
+            this.loadImageWithFallback('ui_bn_box', 'assets/images/burstmode/ui_bn_box.png', 0x3a3a3a);
             
-            // Burst mode animations
-            this.load.spritesheet('ui_burst_buttonplayloop_sprites', 'assets/images/burstmode/ui_burst_buttonplayloop_sprites.png', {
-                frameWidth: 256,
-                frameHeight: 128
+            // Load burst mode number displays
+            this.loadImageWithFallback('ui_bn_number_score', 'assets/images/burstmode/ui_bn_number_score.png', 0x4a4a4a);
+            this.loadImageWithFallback('ui_bn_number_win', 'assets/images/burstmode/ui_bn_number_win.png', 0x4a4a4a);
+            this.loadImageWithFallback('ui_bn_number_bet', 'assets/images/burstmode/ui_bn_number_bet.png', 0x4a4a4a);
+            this.loadImageWithFallback('ui_bn_number_bet-', 'assets/images/burstmode/ui_bn_number_bet-.png', 0x4a4a4a);
+            this.loadImageWithFallback('ui_bn_number_bet+', 'assets/images/burstmode/ui_bn_number_bet+.png', 0x4a4a4a);
+            
+            // Load burst mode buttons
+            this.loadImageWithFallback('ui_bn_small_burst', 'assets/images/burstmode/ui_bn_small_burst.png', 0x5a5a5a);
+            this.loadImageWithFallback('ui_bn_small_menu', 'assets/images/burstmode/ui_bn_small_menu.png', 0x5a5a5a);
+            this.loadImageWithFallback('ui_bn_small_stop', 'assets/images/burstmode/ui_bn_small_stop.png', 0x5a5a5a);
+            this.loadImageWithFallback('ui_burst_spin1', 'assets/images/burstmode/ui_burst_spin1.png', 0x5a5a5a);
+            
+            // Load burst mode spin button sprite sheet
+            this.load.spritesheet('ui_bn_spin', 'assets/images/burstmode/ui_bn_spin.png', {
+                frameWidth: 244,
+                frameHeight: 244
             });
             
-            this.load.spritesheet('ui_scoreup_light_sprite', 'assets/images/burstmode/ui_scoreup_light_sprite.png', {
-                frameWidth: 256,
-                frameHeight: 256
+            // Set up error handler for spin sprite sheet
+            this.load.once('fileerror-spritesheet-ui_bn_spin', () => {
+                console.warn('Failed to load ui_bn_spin sprite sheet, creating fallback');
+                const fallbackTexture = this.generateColoredTexture(0x777777, 'SPIN');
+                this.textures.addBase64('ui_bn_spin', fallbackTexture);
             });
             
-            // Load burst mode animation JSON
-            this.load.json('burst_animations', 'assets/images/burstmode/ui_burst_animation.json');
+            // Load all magic animation frames
+            console.log('Loading burst magic animation frames...');
+            for (let i = 0; i < 48; i++) {
+                const frameNum = String(i).padStart(2, '0');
+                this.loadImageWithFallback(
+                    `ui_bn_magic-an_${frameNum}`, 
+                    `assets/images/burstmode/ui_burst_magic/ui_bn_magic-an_${frameNum}.png`, 
+                    0x6a6a6a
+                );
+            }
+            
+            // Load burst mode animation JSONs
+            this.load.json('burst_spin_animation_data', 'assets/images/burstmode/ui_bn_spin.json');
+            this.load.json('burst_magic_animation_data', 'assets/images/burstmode/ui_burst_magic/ui_bn_magic.json');
+            
+            // Set up error handlers for JSON files
+            this.load.once('fileerror-json-burst_spin_animation_data', () => {
+                console.warn('Failed to load burst spin animation data');
+            });
+            
+            this.load.once('fileerror-json-burst_magic_animation_data', () => {
+                console.warn('Failed to load burst magic animation data');
+            });
+            
         } catch (error) {
             console.warn('Failed to load burst mode assets:', error);
         }
@@ -448,17 +480,6 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     }
     
     loadImageWithFallback(key, path, fallbackColor) {
-        // Check if we're running locally (file:// protocol)
-        const isFileProtocol = window.location.protocol === 'file:';
-        
-        // If running from file:// protocol, create fallback immediately
-        if (isFileProtocol) {
-            console.log(`File protocol detected - creating fallback for ${key}`);
-            const fallbackTexture = this.generateColoredTexture(fallbackColor, key.replace(/_/g, ' ').toUpperCase());
-            this.textures.addBase64(key, fallbackTexture);
-            return;
-        }
-        
         // Try to load the image
         try {
             this.load.image(key, path);

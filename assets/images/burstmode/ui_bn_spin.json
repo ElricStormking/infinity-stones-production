@@ -1,101 +1,101 @@
 {
     "anims": [
         {
-            "key": "ui_burst_buttonplayloop_animation",
+            "key": "spin",
             "type": "frame",
             "frames": [
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 0,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 1,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 2,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 3,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 4,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 5,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 6,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 7,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 8,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 9,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 10,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 11,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 12,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 13,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 14,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_burst_buttonplayloop_sprites",
+                    "key": "ui_bn_spin",
                     "frame": 15,
                     "duration": 0,
                     "keyframe": false
@@ -104,45 +104,6 @@
             "frameRate": 24,
             "skipMissedFrames": true,
             "repeat": -1,
-            "randomFrame": false
-        },
-        {
-            "key": "ui_scoreup_light_animation",
-            "type": "frame",
-            "frames": [
-                {
-                    "key": "ui_scoreup_light_sprite",
-                    "frame": 0,
-                    "duration": 0,
-                    "keyframe": false
-                },
-                {
-                    "key": "ui_scoreup_light_sprite",
-                    "frame": 1,
-                    "duration": 0,
-                    "keyframe": false
-                },
-                {
-                    "key": "ui_scoreup_light_sprite",
-                    "frame": 2,
-                    "duration": 0,
-                    "keyframe": false
-                },
-                {
-                    "key": "ui_scoreup_light_sprite",
-                    "frame": 3,
-                    "duration": 0,
-                    "keyframe": false
-                },
-                {
-                    "key": "ui_scoreup_light_sprite",
-                    "frame": 4,
-                    "duration": 0,
-                    "keyframe": false
-                }
-            ],
-            "frameRate": 24,
-            "skipMissedFrames": true,
             "randomFrame": false
         }
     ],

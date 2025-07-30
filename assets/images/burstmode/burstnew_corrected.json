@@ -1,0 +1,74 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/images/burstmode/ui_bn_bg.png",
+                "type": "image",
+                "key": "ui_bn_bg"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_box.png",
+                "type": "image",
+                "key": "ui_bn_box"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_under.png",
+                "type": "image",
+                "key": "ui_bn_under"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_number_bet.png",
+                "type": "image",
+                "key": "ui_bn_number_bet"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_number_bet-.png",
+                "type": "image",
+                "key": "ui_bn_number_bet-"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_number_bet+.png",
+                "type": "image",
+                "key": "ui_bn_number_bet+"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_number_score.png",
+                "type": "image",
+                "key": "ui_bn_number_score"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_number_win.png",
+                "type": "image",
+                "key": "ui_bn_number_win"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_small_burst.png",
+                "type": "image",
+                "key": "ui_bn_small_burst"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_small_menu.png",
+                "type": "image",
+                "key": "ui_bn_small_menu"
+            },
+            {
+                "url": "assets/images/burstmode/ui_bn_small_stop.png",
+                "type": "image",
+                "key": "ui_bn_small_stop"
+            },
+            {
+                "url": "assets/images/burstmode/ui_burst_spin1.png",
+                "type": "image",
+                "key": "ui_burst_spin1"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

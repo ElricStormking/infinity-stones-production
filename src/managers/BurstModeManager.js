@@ -13,7 +13,6 @@ window.BurstModeManager = class BurstModeManager {
         this.burstBetText = null;
         this.burstAutoBtn = null;
         this.burstResultsContainer = null;
-        this.burstScoreLights = [];
     }
     
     toggle() {
@@ -21,6 +20,17 @@ window.BurstModeManager = class BurstModeManager {
             this.scene.showMessage('Cannot toggle Burst Mode while spinning!');
             return;
         }
+        
+        // Prevent rapid toggling with cooldown
+        if (this.toggleCooldown) {
+            console.log('Burst mode toggle on cooldown');
+            return;
+        }
+        
+        this.toggleCooldown = true;
+        this.scene.time.delayedCall(500, () => {
+            this.toggleCooldown = false;
+        });
         
         this.burstModeActive = !this.burstModeActive;
         
@@ -60,6 +70,13 @@ window.BurstModeManager = class BurstModeManager {
         this.burstBalanceText = null;
         this.burstWinText = null;
         this.burstBetText = null;
+        this.biggestWinText = null;
+        this.bonusRoundsText = null;
+        this.bonusWinsText = null;
+        this.roundsPlayedText = null;
+        this.magicAnimation = null;
+        this.spinBtn = null;
+        this.autoToggleBtn = null;
         
         // Stop burst auto spinning
         this.burstAutoSpinning = false;
@@ -134,54 +151,74 @@ window.BurstModeManager = class BurstModeManager {
     }
     
     createUI() {
+        // Debug: Check which burst mode textures are loaded
+        console.log('Burst Mode Textures Check:');
+        const burstTextures = [
+            'ui_bn_bg', 'ui_bn_under', 'ui_bn_box',
+            'ui_bn_number_score', 'ui_bn_number_win', 'ui_bn_number_bet',
+            'ui_bn_number_bet-', 'ui_bn_number_bet+',
+            'ui_bn_small_burst', 'ui_bn_small_menu', 'ui_bn_small_stop',
+            'ui_bn_spin', 'ui_burst_spin1'
+        ];
+        burstTextures.forEach(texture => {
+            console.log(`${texture}: ${this.scene.textures.exists(texture) ? '✓ Loaded' : '✗ Missing'}`);
+        });
+        
         const width = this.scene.cameras.main.width;
         const height = this.scene.cameras.main.height;
         
         this.burstModeUI = this.scene.add.container(0, 0);
         this.burstModeUI.setDepth(2000); // Set high depth for entire burst mode UI
         
-        // Scale factors based on canvas size (burst.js uses 1280x720 design)
+        // Scale factors based on canvas size (burstnew.scene uses 1280x720 design)
         const scaleX = width / 1280;
         const scaleY = height / 720;
-        const uiScale = 0.67; // Base scale from burst.js
+        const uiScale = 0.67; // Base scale from burstnew.scene
         
-        // Background - ui_burstbg
-        const bg = this.scene.add.image(641 * scaleX, 361 * scaleY, 'ui_burstbg');
+        // Background - ui_bn_bg
+        const bg = this.scene.add.image(638 * scaleX, 360 * scaleY, 'ui_bn_bg');
         bg.setScale(0.68 * scaleX, 0.68 * scaleY);
         this.burstModeUI.add(bg);
         
-        // Three background panels
-        const threebg03 = this.scene.add.image(643 * scaleX, 320 * scaleY, 'ui_threebg03_1');
-        threebg03.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(threebg03);
+        // Under panel - ui_bn_under
+        const underPanel = this.scene.add.image(639 * scaleX, 664 * scaleY, 'ui_bn_under');
+        underPanel.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(underPanel);
         
-        const threebg01 = this.scene.add.image(385 * scaleX, 365 * scaleY, 'ui_threebg01');
-        threebg01.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(threebg01);
+        // Four info boxes - ui_bn_box
+        const box1 = this.scene.add.image(335 * scaleX, 480 * scaleY, 'ui_bn_box');
+        box1.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(box1);
         
-        const threebg02 = this.scene.add.image(904 * scaleX, 365 * scaleY, 'ui_threebg02');
-        threebg02.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(threebg02);
+        const box2 = this.scene.add.image(535 * scaleX, 480 * scaleY, 'ui_bn_box');
+        box2.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(box2);
         
-        // Burst boxes for value displays
-        const burstbox1 = this.scene.add.image(386 * scaleX, 570 * scaleY, 'ui_burstbox');
-        burstbox1.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(burstbox1);
+        const box3 = this.scene.add.image(735 * scaleX, 480 * scaleY, 'ui_bn_box');
+        box3.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(box3);
         
-        const burstbox2 = this.scene.add.image(644 * scaleX, 570 * scaleY, 'ui_burstbox');
-        burstbox2.setScale(0.85 * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(burstbox2);
+        const box4 = this.scene.add.image(935 * scaleX, 480 * scaleY, 'ui_bn_box');
+        box4.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(box4);
         
-        const burstbox3 = this.scene.add.image(906 * scaleX, 570 * scaleY, 'ui_burstbox');
-        burstbox3.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(burstbox3);
+        // Magic animation sprite in the center
+        if (this.scene.textures.exists('ui_bn_magic-an_00')) {
+            this.magicAnimation = this.scene.add.sprite(632 * scaleX, 215 * scaleY, 'ui_bn_magic-an_00');
+            this.magicAnimation.setScale(uiScale * scaleX, uiScale * scaleY);
+            this.burstModeUI.add(this.magicAnimation);
+        } else {
+            console.warn('Magic animation frame not found, creating placeholder');
+            this.magicAnimation = this.scene.add.rectangle(632 * scaleX, 215 * scaleY, 100, 100, 0x6a6a6a);
+            this.burstModeUI.add(this.magicAnimation);
+        }
         
-        // Results container for scrolling text
-        this.burstResultsContainer = this.scene.add.container(643 * scaleX - 400, 220 * scaleY);
+        // Results container for scrolling text (positioned above magic animation)
+        this.burstResultsContainer = this.scene.add.container(width / 2 - 400, 50 * scaleY);
         this.burstModeUI.add(this.burstResultsContainer);
         
         // Add a subtle background for the results area
-        const resultsBg = this.scene.add.rectangle(400, 100, 800, 200, 0x000000, 0.3);
+        const resultsBg = this.scene.add.rectangle(400, 60, 800, 120, 0x000000, 0.3);
         resultsBg.setStrokeStyle(1, 0x666666);
         this.burstResultsContainer.add(resultsBg);
         
@@ -191,113 +228,71 @@ window.BurstModeManager = class BurstModeManager {
         // Create text displays
         this.createTextDisplays(scaleX, scaleY);
         
-        // Title at top
-        const title = this.scene.add.text(width / 2, 50 * scaleY, 'BURST MODE', {
-            fontSize: Math.floor(48 * Math.min(scaleX, scaleY)) + 'px',
-            fontFamily: 'Arial Black',
-            color: '#FFD700',
-            stroke: '#000000',
-            strokeThickness: 4
-        });
-        title.setOrigin(0.5);
-        this.burstModeUI.add(title);
+        // Create score value displays for the four boxes
+        this.createScoreDisplays(scaleX, scaleY);
         
-        // Create score light effects (initially invisible)
-        this.createScoreLights(scaleX, scaleY, uiScale);
+        // Play magic animation
+        if (this.magicAnimation && this.scene.anims.exists('burst_magic_animation')) {
+            try {
+                this.magicAnimation.play('burst_magic_animation');
+            } catch (e) {
+                console.warn('Failed to play burst magic animation:', e);
+            }
+        }
     }
     
     createButtons(scaleX, scaleY, uiScale) {
-        // Single spin button
-        const singleSpinBtn = this.scene.add.image(455 * scaleX, 652 * scaleY, 'ui_burst_buttonplay');
-        singleSpinBtn.setScale(uiScale * scaleX, uiScale * scaleY);
-        singleSpinBtn.setInteractive({ useHandCursor: true });
-        this.burstModeUI.add(singleSpinBtn);
+        // Main spin button - animated sprite
+        this.spinBtn = this.scene.add.sprite(639 * scaleX, 660 * scaleY, 'ui_bn_spin');
+        this.spinBtn.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.spinBtn.setInteractive({ useHandCursor: true });
+        this.burstModeUI.add(this.spinBtn);
         
-        singleSpinBtn.on('pointerup', () => {
-            if (!this.scene.isSpinning) {
+        this.spinBtn.on('pointerup', () => {
+            if (!this.scene.isSpinning && !this.burstAutoSpinning) {
                 window.SafeSound.play(this.scene, 'click');
                 this.singleSpin();
+            } else if (this.burstAutoSpinning) {
+                // Stop auto spin
+                this.toggleAutoSpin();
             }
         });
         
-        singleSpinBtn.on('pointerover', () => {
-            singleSpinBtn.setScale(singleSpinBtn.scaleX * 1.1, singleSpinBtn.scaleY * 1.1);
-            singleSpinBtn.setTint(0xFFFFFF);
+        this.spinBtn.on('pointerover', () => {
+            if (!this.scene.isSpinning) {
+                this.spinBtn.setScale(this.spinBtn.scaleX * 1.05, this.spinBtn.scaleY * 1.05);
+            }
         });
         
-        singleSpinBtn.on('pointerout', () => {
-            singleSpinBtn.setScale(singleSpinBtn.scaleX / 1.1, singleSpinBtn.scaleY / 1.1);
-            singleSpinBtn.clearTint();
+        this.spinBtn.on('pointerout', () => {
+            if (!this.scene.isSpinning) {
+                this.spinBtn.setScale(this.spinBtn.scaleX / 1.05, this.spinBtn.scaleY / 1.05);
+            }
         });
         
-        // Auto spin button - animated sprite
-        this.burstAutoBtn = this.scene.add.sprite(646 * scaleX, 652 * scaleY, 'ui_burst_buttonplayloop_sprites');
-        this.burstAutoBtn.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstAutoBtn.setInteractive({ useHandCursor: true });
-        this.burstModeUI.add(this.burstAutoBtn);
+        // Auto spin toggle button - stop button
+        this.autoToggleBtn = this.scene.add.image(1055 * scaleX, 556 * scaleY, 'ui_bn_small_stop');
+        this.autoToggleBtn.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.autoToggleBtn.setInteractive({ useHandCursor: true });
+        this.burstModeUI.add(this.autoToggleBtn);
         
-        this.burstAutoBtn.on('pointerup', () => {
+        this.autoToggleBtn.on('pointerup', () => {
             window.SafeSound.play(this.scene, 'click');
             this.toggleAutoSpin();
         });
         
-        this.burstAutoBtn.on('pointerover', () => {
-            if (!this.burstAutoSpinning) {
-                this.burstAutoBtn.setScale(this.burstAutoBtn.scaleX * 1.1, this.burstAutoBtn.scaleY * 1.1);
-            }
+        this.autoToggleBtn.on('pointerover', () => {
+            this.autoToggleBtn.setScale(this.autoToggleBtn.scaleX * 1.1, this.autoToggleBtn.scaleY * 1.1);
+            this.autoToggleBtn.setTint(0xFFFFFF);
         });
         
-        this.burstAutoBtn.on('pointerout', () => {
-            if (!this.burstAutoSpinning) {
-                this.burstAutoBtn.setScale(this.burstAutoBtn.scaleX / 1.1, this.burstAutoBtn.scaleY / 1.1);
-            }
+        this.autoToggleBtn.on('pointerout', () => {
+            this.autoToggleBtn.setScale(this.autoToggleBtn.scaleX / 1.1, this.autoToggleBtn.scaleY / 1.1);
+            this.autoToggleBtn.clearTint();
         });
         
-        // Bet adjustment buttons
-        const betMinus = this.scene.add.image(543 * scaleX, 652 * scaleY, 'ui_number_bet-');
-        betMinus.setScale(uiScale * scaleX, uiScale * scaleY);
-        betMinus.setInteractive({ useHandCursor: true });
-        this.burstModeUI.add(betMinus);
-        
-        betMinus.on('pointerup', () => {
-            window.SafeSound.play(this.scene, 'click');
-            this.scene.adjustBet(-1);
-            this.updateDisplays();
-        });
-        
-        betMinus.on('pointerover', () => {
-            betMinus.setScale(betMinus.scaleX * 1.1, betMinus.scaleY * 1.1);
-            betMinus.setTint(0xFFFFFF);
-        });
-        
-        betMinus.on('pointerout', () => {
-            betMinus.setScale(betMinus.scaleX / 1.1, betMinus.scaleY / 1.1);
-            betMinus.clearTint();
-        });
-        
-        const betPlus = this.scene.add.image(750 * scaleX, 652 * scaleY, 'ui_number_bet+');
-        betPlus.setScale(uiScale * scaleX, uiScale * scaleY);
-        betPlus.setInteractive({ useHandCursor: true });
-        this.burstModeUI.add(betPlus);
-        
-        betPlus.on('pointerup', () => {
-            window.SafeSound.play(this.scene, 'click');
-            this.scene.adjustBet(1);
-            this.updateDisplays();
-        });
-        
-        betPlus.on('pointerover', () => {
-            betPlus.setScale(betPlus.scaleX * 1.1, betPlus.scaleY * 1.1);
-            betPlus.setTint(0xFFFFFF);
-        });
-        
-        betPlus.on('pointerout', () => {
-            betPlus.setScale(betPlus.scaleX / 1.1, betPlus.scaleY / 1.1);
-            betPlus.clearTint();
-        });
-        
-        // Exit button
-        const exitBtn = this.scene.add.image(840 * scaleX, 652 * scaleY, 'ui_burst_buttonexit');
+        // Exit/Burst button
+        const exitBtn = this.scene.add.image(1114 * scaleX, 497 * scaleY, 'ui_bn_small_burst');
         exitBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         exitBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(exitBtn);
@@ -316,70 +311,230 @@ window.BurstModeManager = class BurstModeManager {
             exitBtn.setScale(exitBtn.scaleX / 1.1, exitBtn.scaleY / 1.1);
             exitBtn.clearTint();
         });
+        
+        // Menu button 
+        const menuBtn = this.scene.add.image(1201 * scaleX, 487 * scaleY, 'ui_bn_small_menu');
+        menuBtn.setScale(uiScale * scaleX, uiScale * scaleY);
+        menuBtn.setInteractive({ useHandCursor: true });
+        this.burstModeUI.add(menuBtn);
+        
+        menuBtn.on('pointerup', () => {
+            window.SafeSound.play(this.scene, 'click');
+            // TODO: Implement menu functionality
+            this.scene.showMessage('Menu coming soon!');
+        });
+        
+        menuBtn.on('pointerover', () => {
+            menuBtn.setScale(menuBtn.scaleX * 1.1, menuBtn.scaleY * 1.1);
+            menuBtn.setTint(0xFFFFFF);
+        });
+        
+        menuBtn.on('pointerout', () => {
+            menuBtn.setScale(menuBtn.scaleX / 1.1, menuBtn.scaleY / 1.1);
+            menuBtn.clearTint();
+        });
     }
     
     createTextDisplays(scaleX, scaleY) {
-        // Text labels
+        // Bottom row labels
         const labelStyle = {
-            fontSize: Math.floor(30 * Math.min(scaleX, scaleY)) + 'px',
+            fontSize: Math.floor(20 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial Bold',
             color: '#FFFFFF'
         };
         
-        const totalLabel = this.scene.add.text(339 * scaleX, 498 * scaleY, 'TOTAL', labelStyle);
-        totalLabel.setOrigin(0.5);
-        this.burstModeUI.add(totalLabel);
+        const uiScale = 0.67; // Base scale from burstnew.scene
         
-        const winLabel = this.scene.add.text(614 * scaleX, 498 * scaleY, 'WIN', labelStyle);
-        winLabel.setOrigin(0.5);
+        // Win label (left)
+        const winLabel = this.scene.add.image(254 * scaleX, 658 * scaleY, 'ui_bn_number_win');
+        winLabel.setScale(uiScale * scaleX, uiScale * scaleY);
         this.burstModeUI.add(winLabel);
         
-        const betLabel = this.scene.add.text(877 * scaleX, 498 * scaleY, 'BET', labelStyle);
-        betLabel.setOrigin(0.5);
+        // Score label (center)
+        const scoreLabel = this.scene.add.image(576 * scaleX, 658 * scaleY, 'ui_bn_number_score');
+        scoreLabel.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(scoreLabel);
+        
+        // Bet label (right)
+        const betLabel = this.scene.add.image(929 * scaleX, 662 * scaleY, 'ui_bn_number_bet');
+        betLabel.setScale(uiScale * scaleX, 0.674 * scaleY);
         this.burstModeUI.add(betLabel);
         
-        // Value displays
+        // Value displays for bottom row
         const valueStyle = {
-            fontSize: Math.floor(36 * Math.min(scaleX, scaleY)) + 'px',
+            fontSize: Math.floor(28 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial Black',
             color: '#FFD700'
         };
         
-        this.burstBalanceText = this.scene.add.text(339 * scaleX, 545 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
-        this.burstBalanceText.setOrigin(0.5);
-        this.burstModeUI.add(this.burstBalanceText);
-        
-        this.burstWinText = this.scene.add.text(614 * scaleX, 545 * scaleY, '$0.00', {
+        // Win amount
+        this.burstWinText = this.scene.add.text(350 * scaleX, 658 * scaleY, '$0.00', {
             ...valueStyle,
             color: '#00FF00'
         });
-        this.burstWinText.setOrigin(0.5);
+        this.burstWinText.setOrigin(0, 0.5);
         this.burstModeUI.add(this.burstWinText);
         
-        this.burstBetText = this.scene.add.text(877 * scaleX, 545 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
+        // Balance/Score
+        this.burstBalanceText = this.scene.add.text(450 * scaleX, 658 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
+        this.burstBalanceText.setOrigin(0, 0.5);
+        this.burstModeUI.add(this.burstBalanceText);
+        
+        // Bet amount
+        this.burstBetText = this.scene.add.text(950 * scaleX, 662 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
             ...valueStyle,
             color: '#FFFFFF'
         });
-        this.burstBetText.setOrigin(0.5);
+        this.burstBetText.setOrigin(0.5, 0.5);
         this.burstModeUI.add(this.burstBetText);
+        
+        // Bet adjustment buttons - added after bet label to ensure they appear on top
+        // Note: uiScale is already defined above
+        
+        // Check if bet minus texture exists
+        if (this.scene.textures.exists('ui_bn_number_bet-')) {
+            const betMinus = this.scene.add.image(832 * scaleX, 660 * scaleY, 'ui_bn_number_bet-');
+            betMinus.setScale(uiScale * scaleX, uiScale * scaleY);
+            betMinus.setInteractive({ useHandCursor: true });
+            this.burstModeUI.add(betMinus);
+            
+            betMinus.on('pointerup', () => {
+                window.SafeSound.play(this.scene, 'click');
+                this.scene.adjustBet(-1);
+                this.updateDisplays();
+            });
+            
+            betMinus.on('pointerover', () => {
+                betMinus.setScale(betMinus.scaleX * 1.1, betMinus.scaleY * 1.1);
+                betMinus.setTint(0xFFFFFF);
+            });
+            
+            betMinus.on('pointerout', () => {
+                betMinus.setScale(betMinus.scaleX / 1.1, betMinus.scaleY / 1.1);
+                betMinus.clearTint();
+            });
+        } else {
+            console.warn('ui_bn_number_bet- texture not found, creating fallback button');
+            // Create a fallback button
+            const betMinus = this.scene.add.text(832 * scaleX, 660 * scaleY, '-', {
+                fontSize: Math.floor(32 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial Black',
+                color: '#FFFFFF',
+                backgroundColor: '#444444',
+                padding: { left: 10, right: 10, top: 5, bottom: 5 }
+            });
+            betMinus.setOrigin(0.5);
+            betMinus.setInteractive({ useHandCursor: true });
+            this.burstModeUI.add(betMinus);
+            
+            betMinus.on('pointerup', () => {
+                window.SafeSound.play(this.scene, 'click');
+                this.scene.adjustBet(-1);
+                this.updateDisplays();
+            });
+        }
+        
+        // Check if bet plus texture exists
+        if (this.scene.textures.exists('ui_bn_number_bet+')) {
+            const betPlus = this.scene.add.image(1028 * scaleX, 660 * scaleY, 'ui_bn_number_bet+');
+            betPlus.setScale(uiScale * scaleX, uiScale * scaleY);
+            betPlus.setInteractive({ useHandCursor: true });
+            this.burstModeUI.add(betPlus);
+            
+            betPlus.on('pointerup', () => {
+                window.SafeSound.play(this.scene, 'click');
+                this.scene.adjustBet(1);
+                this.updateDisplays();
+            });
+            
+            betPlus.on('pointerover', () => {
+                betPlus.setScale(betPlus.scaleX * 1.1, betPlus.scaleY * 1.1);
+                betPlus.setTint(0xFFFFFF);
+            });
+            
+            betPlus.on('pointerout', () => {
+                betPlus.setScale(betPlus.scaleX / 1.1, betPlus.scaleY / 1.1);
+                betPlus.clearTint();
+            });
+        } else {
+            console.warn('ui_bn_number_bet+ texture not found, creating fallback button');
+            // Create a fallback button
+            const betPlus = this.scene.add.text(1028 * scaleX, 660 * scaleY, '+', {
+                fontSize: Math.floor(32 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial Black',
+                color: '#FFFFFF',
+                backgroundColor: '#444444',
+                padding: { left: 10, right: 10, top: 5, bottom: 5 }
+            });
+            betPlus.setOrigin(0.5);
+            betPlus.setInteractive({ useHandCursor: true });
+            this.burstModeUI.add(betPlus);
+            
+            betPlus.on('pointerup', () => {
+                window.SafeSound.play(this.scene, 'click');
+                this.scene.adjustBet(1);
+                this.updateDisplays();
+            });
+        }
     }
     
-    createScoreLights(scaleX, scaleY, uiScale) {
-        this.burstScoreLights = [];
-        const lightPositions = [
-            { x: 339 * scaleX, y: 570 * scaleY }, // Total box
-            { x: 614 * scaleX, y: 570 * scaleY }, // Win box
-            { x: 877 * scaleX, y: 570 * scaleY }  // Bet box
-        ];
+    createScoreDisplays(scaleX, scaleY) {
+        // Text labels for the four info boxes
+        const labelStyle = {
+            fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF'
+        };
         
-        lightPositions.forEach((pos, index) => {
-            const light = this.scene.add.sprite(pos.x, pos.y, 'ui_scoreup_light_sprite');
-            light.setScale(uiScale * scaleX * 1.5, uiScale * scaleY * 1.5);
-            light.setAlpha(0);
-            light.setBlendMode(Phaser.BlendModes.ADD);
-            this.burstScoreLights.push(light);
-            this.burstModeUI.add(light);
-        });
+        const valueStyle = {
+            fontSize: Math.floor(24 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700'
+        };
+        
+        // Box 1 - Biggest Win
+        const biggestWinLabel = this.scene.add.text(335 * scaleX, 444 * scaleY, 'Biggest Win', labelStyle);
+        biggestWinLabel.setOrigin(0.5);
+        this.burstModeUI.add(biggestWinLabel);
+        
+        this.biggestWinText = this.scene.add.text(335 * scaleX, 480 * scaleY, '$0.00', valueStyle);
+        this.biggestWinText.setOrigin(0.5);
+        this.burstModeUI.add(this.biggestWinText);
+        
+        // Box 2 - Bonus Rounds
+        const bonusRoundsLabel = this.scene.add.text(535 * scaleX, 444 * scaleY, 'Bonus Rounds', labelStyle);
+        bonusRoundsLabel.setOrigin(0.5);
+        this.burstModeUI.add(bonusRoundsLabel);
+        
+        this.bonusRoundsText = this.scene.add.text(535 * scaleX, 480 * scaleY, '0', valueStyle);
+        this.bonusRoundsText.setOrigin(0.5);
+        this.burstModeUI.add(this.bonusRoundsText);
+        
+        // Box 3 - Bonus Wins
+        const bonusWinsLabel = this.scene.add.text(735 * scaleX, 444 * scaleY, 'Bonus Wins', labelStyle);
+        bonusWinsLabel.setOrigin(0.5);
+        this.burstModeUI.add(bonusWinsLabel);
+        
+        this.bonusWinsText = this.scene.add.text(735 * scaleX, 480 * scaleY, '$0.00', valueStyle);
+        this.bonusWinsText.setOrigin(0.5);
+        this.burstModeUI.add(this.bonusWinsText);
+        
+        // Box 4 - Rounds Played
+        const roundsPlayedLabel = this.scene.add.text(935 * scaleX, 444 * scaleY, 'Rounds played', labelStyle);
+        roundsPlayedLabel.setOrigin(0.5);
+        this.burstModeUI.add(roundsPlayedLabel);
+        
+        this.roundsPlayedText = this.scene.add.text(935 * scaleX, 480 * scaleY, '0', valueStyle);
+        this.roundsPlayedText.setOrigin(0.5);
+        this.burstModeUI.add(this.roundsPlayedText);
+        
+        // Initialize burst statistics
+        this.burstStats = {
+            biggestWin: 0,
+            bonusRounds: 0,
+            bonusWins: 0,
+            roundsPlayed: 0
+        };
     }
     
     async singleSpin() {
@@ -419,18 +574,24 @@ window.BurstModeManager = class BurstModeManager {
         this.burstAutoSpinning = !this.burstAutoSpinning;
         
         if (this.burstAutoSpinning) {
-            // Start button animation
-            if (this.burstAutoBtn) {
-                this.burstAutoBtn.play('ui_burst_buttonplayloop_animation');
-                this.burstAutoBtn.setTint(0x00FF00); // Green tint when auto-spinning
+            // Start spin button animation
+            if (this.spinBtn && this.scene.anims.exists('burst_spin_animation')) {
+                this.spinBtn.play('burst_spin_animation');
+            }
+            // Change auto toggle button appearance
+            if (this.autoToggleBtn) {
+                this.autoToggleBtn.setTint(0x00FF00); // Green tint when auto-spinning
             }
             this.startAutoSpin();
         } else {
-            // Stop button animation
-            if (this.burstAutoBtn) {
-                this.burstAutoBtn.stop();
-                this.burstAutoBtn.setFrame(0);
-                this.burstAutoBtn.clearTint();
+            // Stop spin button animation
+            if (this.spinBtn) {
+                this.spinBtn.stop();
+                this.spinBtn.setFrame(0);
+            }
+            // Reset auto toggle button appearance
+            if (this.autoToggleBtn) {
+                this.autoToggleBtn.clearTint();
             }
         }
     }
@@ -474,10 +635,12 @@ window.BurstModeManager = class BurstModeManager {
                     if (!this.scene.stateManager.freeSpinsData.active) {
                         this.burstAutoSpinning = false;
                         // Reset button appearance
-                        if (this.burstAutoBtn) {
-                            this.burstAutoBtn.stop();
-                            this.burstAutoBtn.setFrame(0);
-                            this.burstAutoBtn.clearTint();
+                        if (this.spinBtn) {
+                            this.spinBtn.stop();
+                            this.spinBtn.setFrame(0);
+                        }
+                        if (this.autoToggleBtn) {
+                            this.autoToggleBtn.clearTint();
                         }
                         this.scene.showMessage('Insufficient Balance!');
                         break;
@@ -487,10 +650,12 @@ window.BurstModeManager = class BurstModeManager {
         } catch (error) {
             console.error('Error in burst auto spin:', error);
             this.burstAutoSpinning = false;
-            if (this.burstAutoBtn) {
-                this.burstAutoBtn.stop();
-                this.burstAutoBtn.setFrame(0);
-                this.burstAutoBtn.clearTint();
+            if (this.spinBtn) {
+                this.spinBtn.stop();
+                this.spinBtn.setFrame(0);
+            }
+            if (this.autoToggleBtn) {
+                this.autoToggleBtn.clearTint();
             }
             this.scene.showMessage('Auto-spin stopped due to error');
         }
@@ -690,6 +855,21 @@ window.BurstModeManager = class BurstModeManager {
     addResult(result) {
         console.log('Adding burst result:', result);
         
+        // Update burst statistics
+        this.burstStats.roundsPlayed++;
+        if (result.win > this.burstStats.biggestWin) {
+            this.burstStats.biggestWin = result.win;
+        }
+        if (result.bonusTriggered) {
+            this.burstStats.bonusRounds++;
+        }
+        if (result.freeSpinsActive && result.win > 0) {
+            this.burstStats.bonusWins += result.win;
+        }
+        
+        // Update statistics displays
+        this.updateStatisticsDisplays();
+        
         // Safety check for burst results container
         if (!this.burstResultsContainer) {
             console.warn('Burst results container not found, skipping result display');
@@ -709,15 +889,15 @@ window.BurstModeManager = class BurstModeManager {
                     if (index < this.burstResultsContainer.list.length - 1) {
                         this.scene.tweens.add({
                             targets: text,
-                            y: text.y - 30,
+                            y: text.y - 20,
                             duration: 200,
                             ease: 'Power2'
                         });
                     }
                 });
                 
-                // Remove old results if too many
-                if (this.burstResultsContainer.list.length > 15) {
+                // Remove old results if too many (reduced to fit smaller container)
+                if (this.burstResultsContainer.list.length > 5) {
                     const oldText = this.burstResultsContainer.list[0];
                     this.burstResultsContainer.remove(oldText);
                     oldText.destroy();
@@ -779,9 +959,9 @@ window.BurstModeManager = class BurstModeManager {
                 resultString += ` | FREE SPINS COMPLETE`;
             }
             
-            const yPosition = (this.burstResultsContainer.list ? this.burstResultsContainer.list.length : 0) * 30;
+            const yPosition = (this.burstResultsContainer.list ? this.burstResultsContainer.list.length : 0) * 20 + 10;
             const text = this.scene.add.text(0, yPosition, resultString, {
-                fontSize: '16px',
+                fontSize: '14px',
                 fontFamily: 'Arial',
                 color: color,
                 stroke: '#000000',
@@ -814,54 +994,31 @@ window.BurstModeManager = class BurstModeManager {
     
     updateDisplays() {
         if (this.burstBalanceText) {
-            const oldBalance = parseFloat(this.burstBalanceText.text.replace('$', ''));
             const newBalance = this.scene.stateManager.gameData.balance;
             this.burstBalanceText.setText(`$${newBalance.toFixed(2)}`);
-            
-            // Show light effect if balance changed
-            if (Math.abs(oldBalance - newBalance) > 0.01 && this.burstScoreLights) {
-                this.showScoreLight(0); // Total box light
-            }
         }
         if (this.burstWinText) {
-            const oldWin = parseFloat(this.burstWinText.text.replace('$', ''));
             const newWin = this.scene.totalWin;
             this.burstWinText.setText(`$${newWin.toFixed(2)}`);
-            
-            // Show light effect if win changed and is positive
-            if (newWin > 0 && Math.abs(oldWin - newWin) > 0.01 && this.burstScoreLights) {
-                this.showScoreLight(1); // Win box light
-            }
         }
         if (this.burstBetText) {
             this.burstBetText.setText(`$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`);
         }
     }
     
-    showScoreLight(index) {
-        if (!this.burstScoreLights || !this.burstScoreLights[index]) return;
-        
-        const light = this.burstScoreLights[index];
-        
-        // Reset any existing tweens
-        this.scene.tweens.killTweensOf(light);
-        
-        // Play the light animation
-        light.setAlpha(1);
-        light.play('ui_scoreup_light_animation');
-        
-        // Fade out after animation
-        this.scene.time.delayedCall(500, () => {
-            this.scene.tweens.add({
-                targets: light,
-                alpha: 0,
-                duration: 300,
-                ease: 'Power2',
-                onComplete: () => {
-                    light.stop();
-                }
-            });
-        });
+    updateStatisticsDisplays() {
+        if (this.biggestWinText) {
+            this.biggestWinText.setText(`$${this.burstStats.biggestWin.toFixed(2)}`);
+        }
+        if (this.bonusRoundsText) {
+            this.bonusRoundsText.setText(this.burstStats.bonusRounds.toString());
+        }
+        if (this.bonusWinsText) {
+            this.bonusWinsText.setText(`$${this.burstStats.bonusWins.toFixed(2)}`);
+        }
+        if (this.roundsPlayedText) {
+            this.roundsPlayedText.setText(this.burstStats.roundsPlayed.toString());
+        }
     }
     
     // Getters

@@ -1,0 +1,264 @@
+{
+    "anims": [
+        {
+            "key": "animation",
+            "type": "frame",
+            "frames": [
+                {
+                    "key": "ui_bn_magic-an_00",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_01",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_02",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_03",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_04",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_05",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_06",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_07",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_08",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_09",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_10",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_11",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_12",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_13",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_14",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_15",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_16",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_17",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_18",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_19",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_20",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_21",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_22",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_23",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_24",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_25",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_26",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_27",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_28",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_29",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_30",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_31",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_32",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_33",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_34",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_35",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_36",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_37",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_38",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_39",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_40",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_41",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_42",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_43",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_44",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_45",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_46",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "ui_bn_magic-an_47",
+                    "duration": 0,
+                    "keyframe": false
+                }
+            ],
+            "frameRate": 14,
+            "skipMissedFrames": true,
+            "repeat": -1,
+            "randomFrame": false
+        }
+    ],
+    "globalTimeScale": 1,
+    "meta": {
+        "app": "Phaser Editor 2D v3",
+        "contentType": "Phaser v3 Animations"
+    },
+    "settings": {
+        "sourceLang": "JAVA_SCRIPT",
+        "esModule": false,
+        "generateCode": false
+    }
+}

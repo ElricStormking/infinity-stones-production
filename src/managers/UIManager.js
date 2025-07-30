@@ -46,11 +46,11 @@ window.UIManager = class UIManager {
         if (this.ui_bottom_panel) this.ui_bottom_panel.setDepth(2);
         
         // Grid background (ui_plane)
-        this.ui_plane = safeCreateImage(632, 347, 'ui_box');
+        this.ui_plane = safeCreateImage(650, 347, 'ui_box');
         if (this.ui_plane) this.ui_plane.setDepth(-1);
         
         // Title
-        this.ui_title = safeCreateImage(631, 74, 'ui_title');
+        this.ui_title = safeCreateImage(650, 74, 'ui_title');
         if (this.ui_title) this.ui_title.setDepth(3);
         
         // Top elements
@@ -269,7 +269,17 @@ window.UIManager = class UIManager {
         if (this.ui_small_burst) {
             this.ui_small_burst.setDepth(3);
             this.ui_small_burst.setInteractive();
-            this.ui_small_burst.on('pointerdown', () => this.scene.toggleBurstMode());
+            this.ui_small_burst.on('pointerup', () => {
+                // Add cooldown to prevent double-triggering
+                if (!this.burstButtonCooldown) {
+                    this.burstButtonCooldown = true;
+                    this.scene.toggleBurstMode();
+                    // Reset cooldown after 500ms
+                    this.scene.time.delayedCall(500, () => {
+                        this.burstButtonCooldown = false;
+                    });
+                }
+            });
         }
         
         this.ui_small_menu = this.safeCreateImage(1182, 499, 'ui_small_menu');
@@ -280,8 +290,8 @@ window.UIManager = class UIManager {
         }
         
         // Accumulated multiplier indicator
-        const accumulatedMultiplierX = 632 + 320;
-        const accumulatedMultiplierY = 347 - 180;
+        const accumulatedMultiplierX = 977;
+        const accumulatedMultiplierY = 102;
         this.ui_accumulated_multiplier = this.safeCreateImage(accumulatedMultiplierX, accumulatedMultiplierY, 'ui_accumulated_multiplier');
         if (this.ui_accumulated_multiplier) {
             this.ui_accumulated_multiplier.setDepth(4);
@@ -426,7 +436,17 @@ window.UIManager = class UIManager {
         
         if (!this.ui_small_burst) {
             console.log('Creating fallback BURST button');
-            this.scene.fallbackBurstButton = this.scene.createSmallButton(width - 100, height - 50, 'BURST', () => this.scene.toggleBurstMode());
+            this.scene.fallbackBurstButton = this.scene.createSmallButton(width - 100, height - 50, 'BURST', () => {
+                // Add cooldown to prevent double-triggering
+                if (!this.burstButtonCooldown) {
+                    this.burstButtonCooldown = true;
+                    this.scene.toggleBurstMode();
+                    // Reset cooldown after 500ms
+                    this.scene.time.delayedCall(500, () => {
+                        this.burstButtonCooldown = false;
+                    });
+                }
+            });
         }
     }
     

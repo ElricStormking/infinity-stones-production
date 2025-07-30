@@ -1,0 +1,327 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/burstnew/ui_bn_bg.png",
+                "type": "image",
+                "key": "ui_bn_bg"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_box.png",
+                "type": "image",
+                "key": "ui_bn_box"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_00.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_00"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_01.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_01"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_02.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_02"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_03.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_03"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_04.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_04"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_05.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_05"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_06.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_06"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_07.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_07"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_08.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_08"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_09.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_09"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_10.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_10"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_11.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_11"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_12.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_12"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_13.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_13"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_14.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_14"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_15.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_15"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_16.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_16"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_17.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_17"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_18.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_18"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_19.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_19"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_20.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_20"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_21.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_21"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_22.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_22"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_23.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_23"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_24.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_24"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_25.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_25"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_26.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_26"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_27.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_27"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_28.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_28"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_29.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_29"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_30.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_30"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_31.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_31"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_32.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_32"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_33.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_33"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_34.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_34"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_35.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_35"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_36.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_36"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_37.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_37"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_38.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_38"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_39.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_39"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_40.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_40"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_41.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_41"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_42.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_42"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_43.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_43"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_44.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_44"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_45.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_45"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_46.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_46"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_47.png",
+                "type": "image",
+                "key": "ui_bn_magic-an_47"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_number_bet.png",
+                "type": "image",
+                "key": "ui_bn_number_bet"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_number_bet-.png",
+                "type": "image",
+                "key": "ui_bn_number_bet-"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_number_bet+.png",
+                "type": "image",
+                "key": "ui_bn_number_bet+"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_number_score.png",
+                "type": "image",
+                "key": "ui_bn_number_score"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_number_win.png",
+                "type": "image",
+                "key": "ui_bn_number_win"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_small_burst.png",
+                "type": "image",
+                "key": "ui_bn_small_burst"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_small_menu.png",
+                "type": "image",
+                "key": "ui_bn_small_menu"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_small_stop.png",
+                "type": "image",
+                "key": "ui_bn_small_stop"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_spin.png",
+                "frameConfig": {
+                    "frameWidth": 244,
+                    "frameHeight": 244,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "ui_bn_spin"
+            },
+            {
+                "url": "assets/burstnew/ui_bn_under.png",
+                "type": "image",
+                "key": "ui_bn_under"
+            },
+            {
+                "url": "assets/burstnew/ui_burst_spin1.png",
+                "type": "image",
+                "key": "ui_burst_spin1"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

@@ -1,0 +1,247 @@
+{
+    "id": "01c3872a-d527-4630-9337-c8b5e00b4f57",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "importFileExtension": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "burstnew",
+        "borderWidth": 1280,
+        "borderHeight": 720
+    },
+    "displayList": [
+        {
+            "type": "Image",
+            "id": "1d076e54-c887-45ea-bcb0-847c48074725",
+            "label": "ui_bn_bg",
+            "texture": {
+                "key": "ui_bn_bg"
+            },
+            "x": 638,
+            "y": 360,
+            "scaleX": 0.68,
+            "scaleY": 0.68
+        },
+        {
+            "type": "Image",
+            "id": "adc8ff4b-ce69-4663-b5aa-5687681eaf7b",
+            "label": "ui_bn_under",
+            "texture": {
+                "key": "ui_bn_under"
+            },
+            "x": 639,
+            "y": 664,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "5262730d-1ba6-4dd1-a7f6-cfb551eec7e1",
+            "label": "ui_bn_box",
+            "texture": {
+                "key": "ui_bn_box"
+            },
+            "x": 335,
+            "y": 480,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "46fb5c78-8b1b-470a-bc46-aa527f8eddff",
+            "label": "ui_bn_box_1",
+            "texture": {
+                "key": "ui_bn_box"
+            },
+            "x": 535,
+            "y": 480,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "73ae3422-4a46-4e47-89e2-ff162d5f2f5e",
+            "label": "ui_bn_box_2",
+            "texture": {
+                "key": "ui_bn_box"
+            },
+            "x": 735,
+            "y": 480,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "5722b05b-50a5-4e63-83e1-9a7462a75da8",
+            "label": "ui_bn_box_3",
+            "texture": {
+                "key": "ui_bn_box"
+            },
+            "x": 935,
+            "y": 480,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "33be87a1-4375-44f7-a749-4e40f833d55e",
+            "label": "ui_bn_number_score",
+            "texture": {
+                "key": "ui_bn_number_score"
+            },
+            "x": 576,
+            "y": 658,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "9b349e9e-85f7-4f1e-95d5-c5c7d2f001b4",
+            "label": "ui_bn_number_win",
+            "texture": {
+                "key": "ui_bn_number_win"
+            },
+            "x": 254,
+            "y": 658,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "b7354ddb-77bb-4469-8d76-5d090d919c26",
+            "label": "ui_number_bet",
+            "texture": {
+                "key": "ui_number_bet"
+            },
+            "x": 929,
+            "y": 662,
+            "scaleX": 0.67,
+            "scaleY": 0.674
+        },
+        {
+            "type": "Image",
+            "id": "ee1ffd09-3cd6-45a0-a125-40aaafe41bdc",
+            "label": "ui_bn_number_bet_",
+            "texture": {
+                "key": "ui_bn_number_bet+"
+            },
+            "x": 1028,
+            "y": 660,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "7c2e981e-6d6d-4390-a2a1-cbf3a4b9f044",
+            "label": "ui_bn_number_bet",
+            "texture": {
+                "key": "ui_bn_number_bet-"
+            },
+            "x": 832,
+            "y": 660,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "dd62c0ca-830a-4ade-bdf9-cf622860db91",
+            "label": "ui_bn_small_stop",
+            "texture": {
+                "key": "ui_bn_small_stop"
+            },
+            "x": 1055,
+            "y": 556,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "c1034e9d-96fe-450f-9bc3-31e9bf912b99",
+            "label": "ui_bn_small_menu",
+            "texture": {
+                "key": "ui_bn_small_menu"
+            },
+            "x": 1201,
+            "y": 487,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "bac42d60-be36-4aae-b347-97d788833741",
+            "label": "ui_bn_small_burst",
+            "texture": {
+                "key": "ui_bn_small_burst"
+            },
+            "x": 1114,
+            "y": 497,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "ed4aea63-dcd0-4798-b6be-a67f7e48ab68",
+            "label": "ui_burst_spin1",
+            "texture": {
+                "key": "ui_burst_spin1"
+            },
+            "x": 1179,
+            "y": 616,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Text",
+            "id": "016bf4a1-f328-4581-98f5-861fdee1a7dc",
+            "label": "text_1",
+            "x": 285,
+            "y": 444,
+            "text": "Biggest Win"
+        },
+        {
+            "type": "Text",
+            "id": "08df4827-7e5b-421a-87f0-24d4a70fa5b7",
+            "label": "text",
+            "x": 479,
+            "y": 444,
+            "text": "Bonus Rounds"
+        },
+        {
+            "type": "Text",
+            "id": "48e95afe-d514-4d26-9124-84e3c0e94c28",
+            "label": "text_2",
+            "x": 688,
+            "y": 444,
+            "text": "Bonus Wins"
+        },
+        {
+            "type": "Text",
+            "id": "c76b5c3a-cb4b-4d55-a8ec-77e94973c772",
+            "label": "text_3",
+            "x": 874,
+            "y": 444,
+            "text": "Rounds played"
+        },
+        {
+            "type": "Image",
+            "id": "ab4d3ad2-5b4e-42f7-8f5d-65f85d92de1b",
+            "label": "ui_bn_magic_an_02",
+            "texture": {
+                "key": "ui_bn_magic-an_02"
+            },
+            "x": 632,
+            "y": 215,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

@@ -17,21 +17,74 @@ window.AnimationManager = class AnimationManager {
             });
         }
         
-        // Create burst mode animations
+        // Create new burst mode animations
         try {
-            const animsData = this.scene.cache.json.get('burst_animations');
-            if (animsData && animsData.anims) {
-                animsData.anims.forEach(animConfig => {
-                    if (!this.scene.anims.exists(animConfig.key)) {
+            // Create burst spin button animation
+            const animKey = 'burst_spin_animation';
+            if (!this.scene.anims.exists(animKey) && this.scene.textures.exists('ui_bn_spin')) {
+                try {
+                    this.scene.anims.create({
+                        key: animKey,
+                        frames: this.scene.anims.generateFrameNumbers('ui_bn_spin', { start: 0, end: 15 }),
+                        frameRate: 24,
+                        repeat: -1
+                    });
+                    console.log('✓ Created burst spin button animation');
+                } catch (e) {
+                    console.warn('Failed to create burst spin animation:', e);
+                }
+            }
+            
+            // Create burst magic animation using individual frames
+            const magicAnimKey = 'burst_magic_animation';
+            if (!this.scene.anims.exists(magicAnimKey)) {
+                // Check if at least some magic frames exist
+                const frames = [];
+                let foundFrames = 0;
+                for (let i = 0; i < 48; i++) {
+                    const frameNum = String(i).padStart(2, '0');
+                    const frameKey = `ui_bn_magic-an_${frameNum}`;
+                    if (this.scene.textures.exists(frameKey)) {
+                        frames.push({ key: frameKey });
+                        foundFrames++;
+                    }
+                }
+                
+                if (foundFrames > 0) {
+                    try {
                         this.scene.anims.create({
-                            key: animConfig.key,
-                            frames: animConfig.frames.map(frame => ({
-                                key: frame.key,
-                                frame: frame.frame
-                            })),
-                            frameRate: animConfig.frameRate,
-                            repeat: animConfig.repeat
+                            key: magicAnimKey,
+                            frames: frames,
+                            frameRate: 14,
+                            repeat: -1
                         });
+                        console.log(`✓ Created burst magic animation with ${foundFrames} frames`);
+                    } catch (e) {
+                        console.warn('Failed to create burst magic animation:', e);
+                    }
+                } else {
+                    console.warn('No burst magic animation frames found');
+                }
+            }
+            
+            // Keep legacy burst animations for backward compatibility
+            const legacyAnimsData = this.scene.cache.json.get('burst_animations');
+            if (legacyAnimsData && legacyAnimsData.anims) {
+                legacyAnimsData.anims.forEach(animConfig => {
+                    if (!this.scene.anims.exists(animConfig.key)) {
+                        try {
+                            this.scene.anims.create({
+                                key: animConfig.key,
+                                frames: animConfig.frames.map(frame => ({
+                                    key: frame.key,
+                                    frame: frame.frame
+                                })),
+                                frameRate: animConfig.frameRate,
+                                repeat: animConfig.repeat
+                            });
+                        } catch (e) {
+                            console.warn(`Failed to create animation ${animConfig.key}:`, e);
+                        }
                     }
                 });
             }

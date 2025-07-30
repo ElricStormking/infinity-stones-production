@@ -50,8 +50,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // The ui_plane (ui_box) is positioned at (632, 347) in the 1280x720 design
         // This is the center of the ui_box
-        const uiBoxCenterX = 632 * uiScaleX;
-        const uiBoxCenterY = 347 * uiScaleY;
+        const uiBoxCenterX = 656 * uiScaleX;
+        const uiBoxCenterY = 353 * uiScaleY;
         
         // The ui_box has a 0.67 scale factor applied, we need to account for this
         const uiBoxScale = 0.67 * Math.min(uiScaleX, uiScaleY);
