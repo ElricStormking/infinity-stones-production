@@ -1,0 +1,194 @@
+{
+    "id": "f8d70bf2-d032-4979-9a52-99ff6026788e",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "importFileExtension": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "burst",
+        "borderWidth": 1280,
+        "borderHeight": 720
+    },
+    "displayList": [
+        {
+            "type": "Image",
+            "id": "896eb34b-46d9-4615-b920-9e961a0cb090",
+            "label": "ui_burstbg",
+            "texture": {
+                "key": "ui_burstbg"
+            },
+            "x": 641,
+            "y": 361,
+            "scaleX": 0.68,
+            "scaleY": 0.68
+        },
+        {
+            "type": "Image",
+            "id": "585e5ad4-2ebf-4a3a-9540-eea83aa7a674",
+            "label": "ui_threebg03_1",
+            "texture": {
+                "key": "ui_threebg03_1"
+            },
+            "x": 643,
+            "y": 320,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "1739409a-ffaa-48bf-9229-f2b5cc096103",
+            "label": "ui_threebg01",
+            "texture": {
+                "key": "ui_threebg01"
+            },
+            "x": 385,
+            "y": 365,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "01eedd26-1673-479d-962c-7a8195391482",
+            "label": "ui_threebg02",
+            "texture": {
+                "key": "ui_threebg02"
+            },
+            "x": 904,
+            "y": 365,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "270ac04a-30a1-4994-b704-622e71396e04",
+            "label": "ui_burstbox",
+            "texture": {
+                "key": "ui_burstbox"
+            },
+            "x": 386,
+            "y": 570,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "2a764eee-620d-4a98-92d6-781249c18c30",
+            "label": "ui_burstbox_1",
+            "texture": {
+                "key": "ui_burstbox"
+            },
+            "x": 644,
+            "y": 570,
+            "scaleX": 0.85,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "a0366a10-e7da-4787-96f1-193146539a0a",
+            "label": "ui_burstbox_2",
+            "texture": {
+                "key": "ui_burstbox"
+            },
+            "x": 906,
+            "y": 570,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "b8deeee8-4a04-452d-9ea0-07aaa945698a",
+            "label": "ui_burst_buttonplayloop",
+            "texture": {
+                "key": "ui_burst_buttonplayloop"
+            },
+            "x": 646,
+            "y": 652,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "f5867055-6091-4d68-b352-65f7cd31b6d8",
+            "label": "ui_number_bet_",
+            "texture": {
+                "key": "ui_number_bet+"
+            },
+            "x": 750,
+            "y": 652,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "2ebd9d71-f5ab-46c4-8bab-aed84e303e2f",
+            "label": "ui_number_bet",
+            "texture": {
+                "key": "ui_number_bet-"
+            },
+            "x": 543,
+            "y": 652,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "ee54387a-8424-4d3e-a630-9a20a5d2119c",
+            "label": "ui_burst_buttonexit",
+            "texture": {
+                "key": "ui_burst_buttonexit"
+            },
+            "x": 840,
+            "y": 652,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "87d2ce30-d659-4baf-a895-0972b78acec6",
+            "label": "ui_burst_buttonplay",
+            "texture": {
+                "key": "ui_burst_buttonplay"
+            },
+            "x": 455,
+            "y": 652,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Text",
+            "id": "603805a2-231e-4d4f-8413-1e3539ab2354",
+            "label": "text_1",
+            "x": 614,
+            "y": 498,
+            "text": "WIN",
+            "fontSize": "30px"
+        },
+        {
+            "type": "Text",
+            "id": "776ddff2-3a34-4abd-ad51-22caa1549186",
+            "label": "text",
+            "x": 339,
+            "y": 498,
+            "text": "TOTAL",
+            "fontSize": "30px"
+        },
+        {
+            "type": "Text",
+            "id": "b5f9c8b2-d3d5-44dd-a18d-4a7bff156602",
+            "label": "text_2",
+            "x": 877,
+            "y": 498,
+            "text": "BET",
+            "fontSize": "30px"
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

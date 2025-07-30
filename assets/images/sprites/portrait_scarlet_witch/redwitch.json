@@ -1,0 +1,174 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/redwitch/redwitch01.png",
+                "type": "image",
+                "key": "redwitch01"
+            },
+            {
+                "url": "assets/redwitch/redwitch02.png",
+                "type": "image",
+                "key": "redwitch02"
+            },
+            {
+                "url": "assets/redwitch/redwitch03.png",
+                "type": "image",
+                "key": "redwitch03"
+            },
+            {
+                "url": "assets/redwitch/redwitch04.png",
+                "type": "image",
+                "key": "redwitch04"
+            },
+            {
+                "url": "assets/redwitch/redwitch05.png",
+                "type": "image",
+                "key": "redwitch05"
+            },
+            {
+                "url": "assets/redwitch/redwitch06.png",
+                "type": "image",
+                "key": "redwitch06"
+            },
+            {
+                "url": "assets/redwitch/redwitch07.png",
+                "type": "image",
+                "key": "redwitch07"
+            },
+            {
+                "url": "assets/redwitch/redwitch08.png",
+                "type": "image",
+                "key": "redwitch08"
+            },
+            {
+                "url": "assets/redwitch/redwitch09.png",
+                "type": "image",
+                "key": "redwitch09"
+            },
+            {
+                "url": "assets/redwitch/redwitch10.png",
+                "type": "image",
+                "key": "redwitch10"
+            },
+            {
+                "url": "assets/redwitch/redwitch11.png",
+                "type": "image",
+                "key": "redwitch11"
+            },
+            {
+                "url": "assets/redwitch/redwitch12.png",
+                "type": "image",
+                "key": "redwitch12"
+            },
+            {
+                "url": "assets/redwitch/redwitch13.png",
+                "type": "image",
+                "key": "redwitch13"
+            },
+            {
+                "url": "assets/redwitch/redwitch14.png",
+                "type": "image",
+                "key": "redwitch14"
+            },
+            {
+                "url": "assets/redwitch/redwitch15.png",
+                "type": "image",
+                "key": "redwitch15"
+            },
+            {
+                "url": "assets/redwitch/redwitch16.png",
+                "type": "image",
+                "key": "redwitch16"
+            },
+            {
+                "url": "assets/redwitch/redwitch17.png",
+                "type": "image",
+                "key": "redwitch17"
+            },
+            {
+                "url": "assets/redwitch/redwitch18.png",
+                "type": "image",
+                "key": "redwitch18"
+            },
+            {
+                "url": "assets/redwitch/redwitch19.png",
+                "type": "image",
+                "key": "redwitch19"
+            },
+            {
+                "url": "assets/redwitch/redwitch20.png",
+                "type": "image",
+                "key": "redwitch20"
+            },
+            {
+                "url": "assets/redwitch/redwitch21.png",
+                "type": "image",
+                "key": "redwitch21"
+            },
+            {
+                "url": "assets/redwitch/redwitch22.png",
+                "type": "image",
+                "key": "redwitch22"
+            },
+            {
+                "url": "assets/redwitch/redwitch23.png",
+                "type": "image",
+                "key": "redwitch23"
+            },
+            {
+                "url": "assets/redwitch/redwitch24.png",
+                "type": "image",
+                "key": "redwitch24"
+            },
+            {
+                "url": "assets/redwitch/redwitch25.png",
+                "type": "image",
+                "key": "redwitch25"
+            },
+            {
+                "url": "assets/redwitch/redwitch26.png",
+                "type": "image",
+                "key": "redwitch26"
+            },
+            {
+                "url": "assets/redwitch/redwitch27.png",
+                "type": "image",
+                "key": "redwitch27"
+            },
+            {
+                "url": "assets/redwitch/redwitch28.png",
+                "type": "image",
+                "key": "redwitch28"
+            },
+            {
+                "url": "assets/redwitch/redwitch29.png",
+                "type": "image",
+                "key": "redwitch29"
+            },
+            {
+                "url": "assets/redwitch/redwitch30.png",
+                "type": "image",
+                "key": "redwitch30"
+            },
+            {
+                "url": "assets/redwitch/redwitch31.png",
+                "type": "image",
+                "key": "redwitch31"
+            },
+            {
+                "url": "assets/redwitch/redwitch32.png",
+                "type": "image",
+                "key": "redwitch32"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

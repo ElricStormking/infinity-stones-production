@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=D://PhaserThantos//infinity-storm//infinity-storm-server"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_f5d02897889821d3cd8cd9c9680e55ed847215da"
+      }
+    }
+  }
+}

@@ -1,0 +1,263 @@
+{
+    "id": "8299465e-cd96-4704-bb80-041e377a5fd5",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "importFileExtension": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "gamebattle",
+        "borderWidth": 1280,
+        "borderHeight": 720
+    },
+    "displayList": [
+        {
+            "type": "Image",
+            "id": "b093e032-1679-408e-a7cd-cf6c2734a326",
+            "label": "ui_bg",
+            "texture": {
+                "key": "ui_bg"
+            },
+            "x": 640,
+            "y": 361,
+            "scaleX": 0.68,
+            "scaleY": 0.68
+        },
+        {
+            "type": "Image",
+            "id": "6c223b35-a337-4165-a832-60907de1f664",
+            "label": "portrait_scarlet_witch",
+            "texture": {
+                "key": "portrait_scarlet_witch"
+            },
+            "x": 1155,
+            "y": 500,
+            "scaleX": -0.72,
+            "scaleY": 0.72
+        },
+        {
+            "type": "Image",
+            "id": "4a1da5ef-26a4-427c-a92b-49ac402ad89f",
+            "label": "portrait_thanos",
+            "texture": {
+                "key": "portrait_thanos"
+            },
+            "x": 147,
+            "y": 341,
+            "scaleX": 0.28,
+            "scaleY": 0.28
+        },
+        {
+            "type": "Image",
+            "id": "c3fec02e-2c2d-4cfe-aa69-97ccd4f98741",
+            "label": "ui_bottom_panel",
+            "texture": {
+                "key": "ui_bottom_panel"
+            },
+            "x": 633,
+            "y": 685,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "8edeae1f-319e-44d0-92f5-90c8ade6fa27",
+            "label": "ui_plane",
+            "texture": {
+                "key": "ui_plane"
+            },
+            "x": 632,
+            "y": 347,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "c397ea26-1562-48e0-87dd-abd79c8be1ba",
+            "label": "ui_title",
+            "texture": {
+                "key": "ui_title"
+            },
+            "x": 631,
+            "y": 74,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "77d668cd-76da-4577-be2a-9891b589ca0e",
+            "label": "ui_top",
+            "texture": {
+                "key": "ui_top"
+            },
+            "x": 354,
+            "y": 14,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "8705a2a7-5870-4042-a0aa-0ee655dd4eaa",
+            "label": "ui_top_1",
+            "texture": {
+                "key": "ui_top"
+            },
+            "x": 538,
+            "y": 14,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "82a95c93-7689-43e8-b611-36bea64b6bfe",
+            "label": "ui_top_2",
+            "texture": {
+                "key": "ui_top"
+            },
+            "x": 722,
+            "y": 14,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "7aca5c55-e013-49a9-bcb1-17c39405ce88",
+            "label": "ui_top_3",
+            "texture": {
+                "key": "ui_top"
+            },
+            "x": 906,
+            "y": 14,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "dfd82d33-4791-442c-98ef-cc8119185b17",
+            "label": "ui_freegame",
+            "texture": {
+                "key": "ui_freegame"
+            },
+            "x": 168,
+            "y": 549,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "1ba97b3a-b891-4d1c-8355-60d0a0303f35",
+            "label": "ui_number_score",
+            "texture": {
+                "key": "ui_number_score"
+            },
+            "x": 250,
+            "y": 675,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "7a370515-8184-43cc-adce-befad59c96e6",
+            "label": "ui_number_win",
+            "texture": {
+                "key": "ui_number_win"
+            },
+            "x": 561,
+            "y": 675,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "d1331ee5-e97d-41ba-b583-95f37ddfe1f7",
+            "label": "ui_number_bet",
+            "texture": {
+                "key": "ui_number_bet"
+            },
+            "x": 931,
+            "y": 675,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "91c4470d-81d6-47a4-9127-b462c8b5506c",
+            "label": "ui_spin",
+            "texture": {
+                "key": "ui_spin"
+            },
+            "x": 1161,
+            "y": 636,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "37db4786-7d6a-4004-9ff2-c93ab61fcac8",
+            "label": "ui_small_stop",
+            "texture": {
+                "key": "ui_small_stop"
+            },
+            "x": 1038,
+            "y": 578,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "0f0aa1ee-8eec-45b4-b65b-decbb7237866",
+            "label": "ui_small_burst",
+            "texture": {
+                "key": "ui_small_burst"
+            },
+            "x": 1102,
+            "y": 512,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "a1667163-0015-4ef4-99d1-0e268ef40c40",
+            "label": "ui_small_menu",
+            "texture": {
+                "key": "ui_small_menu"
+            },
+            "x": 1182,
+            "y": 499,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "a24afd3c-6a69-4451-a821-5abf8e5728b4",
+            "label": "ui_number_bet_",
+            "texture": {
+                "key": "ui_number_bet+"
+            },
+            "x": 1034,
+            "y": 675,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "8bc3ace2-a79a-4798-8079-7f2809926a00",
+            "label": "ui_number_bet_1",
+            "texture": {
+                "key": "ui_number_bet-"
+            },
+            "x": 830,
+            "y": 675,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

@@ -1,0 +1,134 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/images/BG_infinity_storm.png",
+                "type": "image",
+                "key": "ui_bg"
+            },
+            {
+                "url": "assets/images/ui_bottom_panel.png",
+                "type": "image",
+                "key": "ui_bottom_panel"
+            },
+            {
+                "url": "assets/images/ui_freegame.png",
+                "type": "image",
+                "key": "ui_freegame"
+            },
+            {
+                "url": "assets/images/time_gem.png",
+                "type": "image",
+                "key": "time_gem"
+            },
+            {
+                "url": "assets/images/reality_gem.png",
+                "type": "image",
+                "key": "reality_gem"
+            },
+            {
+                "url": "assets/images/power_gem.png",
+                "type": "image",
+                "key": "power_gem"
+            },
+            {
+                "url": "assets/images/space_gem.png",
+                "type": "image",
+                "key": "space_gem"
+            },
+            {
+                "url": "assets/images/soul_gem.png",
+                "type": "image",
+                "key": "soul_gem"
+            },
+            {
+                "url": "assets/images/mind_gem.png",
+                "type": "image",
+                "key": "mind_gem"
+            },
+            {
+                "url": "assets/images/ui_number_bet.png",
+                "type": "image",
+                "key": "ui_number_bet"
+            },
+            {
+                "url": "assets/images/ui_number_bet-.png",
+                "type": "image",
+                "key": "ui_number_bet-"
+            },
+            {
+                "url": "assets/images/ui_number_bet+.png",
+                "type": "image",
+                "key": "ui_number_bet+"
+            },
+            {
+                "url": "assets/images/ui_number_score.png",
+                "type": "image",
+                "key": "ui_number_score"
+            },
+            {
+                "url": "assets/images/ui_number_win.png",
+                "type": "image",
+                "key": "ui_number_win"
+            },
+            {
+                "url": "assets/images/ui_box.png",
+                "type": "image",
+                "key": "ui_plane"
+            },
+            {
+                "url": "assets/images/portrait_scarlet_witch.png",
+                "type": "image",
+                "key": "portrait_scarlet_witch"
+            },
+            {
+                "url": "assets/images/ui_accumulated_multiplier.png",
+                "type": "image",
+                "key": "ui_accumulated_multiplier"
+            },
+            {
+                "url": "assets/images/ui_small_burst.png",
+                "type": "image",
+                "key": "ui_small_burst"
+            },
+            {
+                "url": "assets/images/ui_small_menu.png",
+                "type": "image",
+                "key": "ui_small_menu"
+            },
+            {
+                "url": "assets/images/ui_small_stop.png",
+                "type": "image",
+                "key": "ui_small_stop"
+            },
+            {
+                "url": "assets/images/ui_spin.png",
+                "type": "image",
+                "key": "ui_spin"
+            },
+            {
+                "url": "assets/images/portrait_thanos.png",
+                "type": "image",
+                "key": "portrait_thanos"
+            },
+            {
+                "url": "assets/images/ui_title.png",
+                "type": "image",
+                "key": "ui_title"
+            },
+            {
+                "url": "assets/images/ui_top.png",
+                "type": "image",
+                "key": "ui_top"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

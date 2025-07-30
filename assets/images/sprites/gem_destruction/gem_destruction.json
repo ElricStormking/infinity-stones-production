@@ -1,0 +1,92 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/images/sprites/gem_destruction/timegem_des.png",
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "timegem_destruction"
+            },
+            {
+                "url": "assets/images/sprites/gem_destruction/realitygem_des.png",
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "realitygem_destruction"
+            },
+            {
+                "url": "assets/images/sprites/gem_destruction/powergem_des.png",
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "powergem_destruction"
+            },
+            {
+                "url": "assets/images/sprites/gem_destruction/spacegem_des.png",
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "spacegem_destruction"
+            },
+            {
+                "url": "assets/images/sprites/gem_destruction/soulgem_des.png", 
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "soulgem_destruction"
+            },
+            {
+                "url": "assets/images/sprites/gem_destruction/mindgem_des.png",
+                "frameConfig": {
+                    "frameWidth": 240,
+                    "frameHeight": 240,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "mindgem_destruction"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

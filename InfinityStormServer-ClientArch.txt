@@ -1,0 +1,124 @@
+# Infinity Storm Server-Client Architecture
+
+## Project Structure
+
+```
+infinity-storm-server/
+├── src/
+│   ├── server.js                 # Main server entry point
+│   ├── config/
+│   │   ├── database.js          # Database configuration
+│   │   ├── redis.js             # Redis configuration
+│   │   ├── game.js              # Game constants (RTP, payouts, etc.)
+│   │   └── auth.js              # Authentication config
+│   │
+│   ├── middleware/
+│   │   ├── auth.js              # JWT authentication middleware
+│   │   ├── rateLimiter.js       # Rate limiting
+│   │   ├── validator.js         # Request validation
+│   │   └── errorHandler.js      # Global error handler
+│   │
+│   ├── controllers/
+│   │   ├── authController.js    # Login/Register/Logout
+│   │   ├── gameController.js    # Game actions via HTTP
+│   │   ├── walletController.js  # Balance/Transactions
+│   │   └── playerController.js  # Profile management
+│   │
+│   ├── services/
+│   │   ├── authService.js       # Authentication logic
+│   │   ├── gameEngine.js        # Core game logic
+│   │   ├── rngService.js        # Cryptographic RNG
+│   │   ├── walletService.js     # Balance management
+│   │   ├── sessionService.js    # Session management
+│   │   └── antiCheatService.js  # Anti-cheat detection
+│   │
+│   ├── models/
+│   │   ├── Player.js            # Player model
+│   │   ├── Wallet.js            # Wallet model
+│   │   ├── Session.js           # Session model
+│   │   ├── Transaction.js       # Transaction model
+│   │   ├── SpinResult.js        # Spin result model
+│   │   └── SpinDetail.js        # Spin detail model
+│   │
+│   ├── websocket/
+│   │   ├── socketServer.js      # Socket.io server
+│   │   ├── handlers/
+│   │   │   ├── gameHandler.js   # Game WebSocket events
+│   │   │   ├── chatHandler.js   # Chat events (optional)
+│   │   │   └── stateHandler.js  # State sync events
+│   │   └── socketAuth.js        # WebSocket authentication
+│   │
+│   ├── routes/
+│   │   ├── auth.js              # Auth routes
+│   │   ├── game.js              # Game routes
+│   │   ├── wallet.js            # Wallet routes
+│   │   └── player.js            # Player routes
+│   │
+│   ├── database/
+│   │   ├── migrations/          # Database migrations
+│   │   ├── seeds/               # Seed data
+│   │   └── connection.js        # Database connection
+│   │
+│   └── utils/
+│       ├── logger.js            # Winston logger
+│       ├── crypto.js            # Crypto utilities
+│       ├── validators.js        # Input validators
+│       └── gameHelpers.js       # Game calculation helpers
+│
+├── tests/
+│   ├── unit/                    # Unit tests
+│   ├── integration/             # Integration tests
+│   └── e2e/                     # End-to-end tests
+│
+├── scripts/
+│   ├── setup.js                 # Initial setup script
+│   ├── migrate.js               # Database migration runner
+│   └── seed.js                  # Database seeder
+│
+├── .env.example                 # Environment variables example
+├── package.json                 # Dependencies
+├── docker-compose.yml           # Docker setup
+└── README.md                    # Documentation
+```
+
+## Client-Side Updates
+
+```
+infinity-storm/src/
+├── network/
+│   ├── api/
+│   │   ├── authAPI.js          # Authentication API calls
+│   │   ├── gameAPI.js          # Game API calls
+│   │   └── walletAPI.js        # Wallet API calls
+│   │
+│   ├── websocket/
+│   │   ├── socketClient.js     # Socket.io client
+│   │   ├── gameEvents.js       # Game event handlers
+│   │   └── stateSync.js        # State synchronization
+│   │
+│   └── httpClient.js           # Axios instance with interceptors
+│
+├── services/
+│   ├── authService.js          # Client auth service
+│   ├── gameService.js          # Client game service
+│   └── storageService.js       # Local storage management
+│
+├── scenes/
+│   ├── LoginScene.js           # New login scene
+│   ├── RegisterScene.js        # New register scene
+│   └── GameScene.js            # Modified game scene
+│
+└── state/
+    ├── store.js                # Global state management
+    └── playerState.js          # Player state
+```
+
+## Security Measures
+
+1. **Server-Side RNG**: All random number generation happens on server
+2. **State Validation**: Server validates all game states
+3. **Rate Limiting**: Prevent spam and DoS attacks
+4. **JWT Authentication**: Secure token-based auth
+5. **WebSocket Security**: Authenticated WebSocket connections
+6. **Database Transactions**: Atomic balance updates
+7. **Audit Logging**: Complete audit trail of all actions 

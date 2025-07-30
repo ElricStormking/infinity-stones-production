@@ -1,0 +1,184 @@
+{
+    "anims": [
+        {
+            "key": "thanos",
+            "type": "frame",
+            "frames": [
+                {
+                    "key": "thanos-animation_00",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_01",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_02",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_03",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_04",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_05",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_06",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_07",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_08",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_09",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_10",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_11",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_12",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_13",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_14",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_15",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_16",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_17",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_18",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_19",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_20",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_21",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_22",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_23",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_24",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_25",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_26",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_27",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_28",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_29",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_30",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-animation_31",
+                    "duration": 0,
+                    "keyframe": false
+                }
+            ],
+            "frameRate": 20,
+            "skipMissedFrames": true,
+            "repeat": -1,
+            "randomFrame": false
+        }
+    ],
+    "globalTimeScale": 1,
+    "meta": {
+        "app": "Phaser Editor 2D v3",
+        "contentType": "Phaser v3 Animations"
+    },
+    "settings": {
+        "sourceLang": "JAVA_SCRIPT",
+        "esModule": false,
+        "generateCode": false
+    }
+}

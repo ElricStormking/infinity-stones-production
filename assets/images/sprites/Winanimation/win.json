@@ -1,0 +1,79 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/win/win_01_sprite.png",
+                "frameConfig": {
+                    "frameWidth": 529,
+                    "frameHeight": 222,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "win_01_sprite_1"
+            },
+            {
+                "url": "assets/win/win_02big_sprite.png",
+                "frameConfig": {
+                    "frameWidth": 529,
+                    "frameHeight": 395,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "win_02big_sprite"
+            },
+            {
+                "url": "assets/win/win_03mega_sprite.png",
+                "frameConfig": {
+                    "frameWidth": 625,
+                    "frameHeight": 398,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "win_03mega_sprite"
+            },
+            {
+                "url": "assets/win/win_04ultra.png",
+                "frameConfig": {
+                    "frameWidth": 666,
+                    "frameHeight": 395,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "win_04ultra"
+            },
+            {
+                "url": "assets/win/win_05leg_sprite.png",
+                "frameConfig": {
+                    "frameWidth": 1018,
+                    "frameHeight": 379,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "win_05leg_sprite"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

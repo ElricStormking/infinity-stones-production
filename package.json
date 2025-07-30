@@ -1,0 +1,19 @@
+{
+  "name": "infinity-storm",
+  "version": "1.0.0",
+  "description": "Infinity Storm - Marvel themed casino slot game with Candy Crush mechanics",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "http-server -c-1 -p 8080 -o",
+    "dev": "http-server -c-1 -p 8080 -o"
+  },
+  "keywords": ["phaser", "game", "slot", "casino", "marvel"],
+  "author": "Infinity Storm Development Team",
+  "license": "Proprietary",
+  "dependencies": {
+    "phaser": "^3.70.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+} 
