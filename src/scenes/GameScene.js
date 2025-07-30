@@ -964,8 +964,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (this.portrait_scarlet_witch.anims) {
                 if (visible) {
                     // Resume animation if it was paused
-                    if (this.anims.exists('scarlet_witch_portrait_animation')) {
-                        this.portrait_scarlet_witch.play('scarlet_witch_portrait_animation');
+                    if (this.anims.exists('scarlet_witch_idle_animation')) {
+                        this.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
                     }
                 } else {
                     // Pause animation when hidden
@@ -981,8 +981,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (this.portrait_thanos.anims) {
                 if (visible) {
                     // Resume animation if it was paused
-                    if (this.anims.exists('thanos_portrait_animation')) {
-                        this.portrait_thanos.play('thanos_portrait_animation');
+                    if (this.anims.exists('thanos_idle_animation')) {
+                        this.portrait_thanos.play('thanos_idle_animation');
                     }
                 } else {
                     // Pause animation when hidden

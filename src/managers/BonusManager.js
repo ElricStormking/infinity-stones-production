@@ -37,8 +37,15 @@ window.BonusManager = class BonusManager {
         console.log(`Position: (${col}, ${row})`);
         console.log(`Original Win: $${this.scene.totalWin.toFixed(2)}`);
         
-        // Show Thanos power grip animation
-        await this.showThanosRandomMultiplier(col, row, multiplier);
+        // Randomly choose between Thanos and Scarlet Witch
+        const useThanos = Math.random() < 0.5;
+        
+        // Show character-specific animation
+        if (useThanos) {
+            await this.showThanosRandomMultiplier(col, row, multiplier);
+        } else {
+            await this.showScarletWitchRandomMultiplier(col, row, multiplier);
+        }
         
         // Apply multiplier to total win
         const originalWin = this.scene.totalWin;
@@ -62,6 +69,9 @@ window.BonusManager = class BonusManager {
             // Get the symbol position on screen
             const symbolX = this.scene.gridManager.getSymbolScreenX(col);
             const symbolY = this.scene.gridManager.getSymbolScreenY(row);
+            
+            // Trigger Thanos attack animation
+            this.triggerThanosAttack();
             
             // Create Thanos power grip effect
             const thanosGrip = this.scene.add.image(symbolX, symbolY, 'thanos');
@@ -132,6 +142,101 @@ window.BonusManager = class BonusManager {
                                         ease: 'Power2',
                                         onComplete: () => {
                                             thanosGrip.destroy();
+                                            multiplierText.destroy();
+                                            particles.destroy();
+                                            resolve();
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+            
+            // Play bonus sound
+            window.SafeSound.play(this.scene, 'bonus');
+        });
+    }
+    
+    async showScarletWitchRandomMultiplier(col, row, multiplier) {
+        return new Promise(resolve => {
+            // Get the symbol position on screen
+            const symbolX = this.scene.gridManager.getSymbolScreenX(col);
+            const symbolY = this.scene.gridManager.getSymbolScreenY(row);
+            
+            // Trigger Scarlet Witch attack animation
+            this.triggerScarletWitchAttack();
+            
+            // Create Scarlet Witch power effect
+            const scarletWitch = this.scene.add.image(symbolX, symbolY, 'scarlet_witch');
+            scarletWitch.setScale(0.3);
+            scarletWitch.setAlpha(0);
+            scarletWitch.setDepth(1000);
+            scarletWitch.setTint(0xFF1493); // Pink tint for chaos magic
+            
+            // Create multiplier text
+            const multiplierText = this.scene.add.text(symbolX, symbolY - 50, `x${multiplier}`, {
+                fontSize: '48px',
+                fontFamily: 'Arial Black',
+                color: '#FFD700',
+                stroke: '#FF1493',
+                strokeThickness: 4
+            });
+            multiplierText.setOrigin(0.5);
+            multiplierText.setScale(0);
+            multiplierText.setDepth(1001);
+            
+            // Create energy particles around the symbol
+            const particles = this.scene.add.particles(symbolX, symbolY, 'reality_gem', {
+                speed: { min: 50, max: 150 },
+                scale: { start: 0.3, end: 0 },
+                lifespan: 1000,
+                quantity: 2,
+                frequency: 100,
+                blendMode: 'ADD',
+                tint: 0xFF1493
+            });
+            particles.setDepth(999);
+            
+            // Animation sequence
+            this.scene.tweens.add({
+                targets: scarletWitch,
+                alpha: 0.8,
+                scaleX: 0.5,
+                scaleY: 0.5,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => {
+                    // Show multiplier text
+                    this.scene.tweens.add({
+                        targets: multiplierText,
+                        scaleX: 1,
+                        scaleY: 1,
+                        duration: 400,
+                        ease: 'Back.out',
+                        onComplete: () => {
+                            // Pulsing effect
+                            this.scene.tweens.add({
+                                targets: [scarletWitch, multiplierText],
+                                scaleX: 1.2,
+                                scaleY: 1.2,
+                                duration: 200,
+                                yoyo: true,
+                                repeat: 2,
+                                ease: 'Sine.easeInOut',
+                                onComplete: () => {
+                                    // Fade out
+                                    particles.stop();
+                                    this.scene.tweens.add({
+                                        targets: [scarletWitch, multiplierText],
+                                        alpha: 0,
+                                        scaleX: 0,
+                                        scaleY: 0,
+                                        duration: 500,
+                                        ease: 'Power2',
+                                        onComplete: () => {
+                                            scarletWitch.destroy();
                                             multiplierText.destroy();
                                             particles.destroy();
                                             resolve();
@@ -255,6 +360,13 @@ window.BonusManager = class BonusManager {
                 const useThanos = Math.random() < 0.5;
                 const characterKey = useThanos ? 'thanos' : 'scarlet_witch';
                 const characterTint = useThanos ? 0x6B46C1 : 0xFF1493; // Purple for Thanos, Pink for Scarlet Witch
+                
+                // Trigger character attack animation based on which one is shown
+                if (useThanos) {
+                    this.triggerThanosAttack();
+                } else {
+                    this.triggerScarletWitchAttack();
+                }
                 
                 // Create character power effect
                 const character = this.scene.add.image(symbolX, symbolY, characterKey);
@@ -434,6 +546,48 @@ window.BonusManager = class BonusManager {
                 this.scene.stateManager.accumulateMultiplier(multiplier);
                 this.scene.updateAccumulatedMultiplierDisplay();
             }
+        }
+    }
+    
+    triggerScarletWitchAttack() {
+        // Trigger Scarlet Witch attack animation if available
+        if (this.scene.portrait_scarlet_witch && 
+            this.scene.portrait_scarlet_witch.anims && 
+            this.scene.anims.exists('scarlet_witch_attack_animation')) {
+            
+            // Stop current animation and play attack
+            this.scene.portrait_scarlet_witch.stop();
+            this.scene.portrait_scarlet_witch.play('scarlet_witch_attack_animation');
+            
+            // Return to idle animation after attack completes
+            this.scene.portrait_scarlet_witch.once('animationcomplete', () => {
+                if (this.scene.anims.exists('scarlet_witch_idle_animation')) {
+                    this.scene.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                }
+            });
+            
+            console.log('✓ Scarlet Witch attack animation triggered for Random Multiplier');
+        }
+    }
+    
+    triggerThanosAttack() {
+        // Trigger Thanos attack animation if available
+        if (this.scene.portrait_thanos && 
+            this.scene.portrait_thanos.anims && 
+            this.scene.anims.exists('thanos_attack_animation')) {
+            
+            // Stop current animation and play attack
+            this.scene.portrait_thanos.stop();
+            this.scene.portrait_thanos.play('thanos_attack_animation');
+            
+            // Return to idle animation after attack completes
+            this.scene.portrait_thanos.once('animationcomplete', () => {
+                if (this.scene.anims.exists('thanos_idle_animation')) {
+                    this.scene.portrait_thanos.play('thanos_idle_animation');
+                }
+            });
+            
+            console.log('✓ Thanos attack animation triggered for Random Multiplier');
         }
     }
 }; 

@@ -131,34 +131,38 @@ window.UIManager = class UIManager {
     createCharacterPortraits(scaleX, scaleY) {
         // Create animated Scarlet Witch portrait sprite
         try {
-            const hasAnimation = this.scene.anims.exists('scarlet_witch_portrait_animation');
-            const hasFirstFrame = this.scene.textures.exists('redwitch01');
+            const hasIdleAnimation = this.scene.anims.exists('scarlet_witch_idle_animation');
+            const hasAttackAnimation = this.scene.anims.exists('scarlet_witch_attack_animation');
+            const hasFirstFrame = this.scene.textures.exists('redwitch-idle2_32');
             
-            console.log(`Scarlet Witch setup - Animation exists: ${hasAnimation}, First frame exists: ${hasFirstFrame}`);
+            console.log(`Scarlet Witch setup - Idle animation exists: ${hasIdleAnimation}, Attack animation exists: ${hasAttackAnimation}, First frame exists: ${hasFirstFrame}`);
             
-            if (hasAnimation && hasFirstFrame) {
-                this.portrait_scarlet_witch = this.scene.add.sprite(1255 * scaleX, 450 * scaleY, 'redwitch01');
-                this.portrait_scarlet_witch.setScale(-0.4464 * scaleX, 0.4464 * scaleY);
+            if (hasIdleAnimation && hasFirstFrame) {
+                this.portrait_scarlet_witch = this.scene.add.sprite(1123 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
+                this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
                 this.portrait_scarlet_witch.setDepth(1);
                 
+                // Set reference on scene for BonusManager access
+                this.scene.portrait_scarlet_witch = this.portrait_scarlet_witch;
+                
                 try {
-                    this.portrait_scarlet_witch.play('scarlet_witch_portrait_animation');
-                    console.log('✓ Scarlet Witch sprite created and animation started successfully');
+                    this.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                    console.log('✓ Scarlet Witch sprite created and idle animation started successfully');
                 } catch (animError) {
                     console.error('✗ Failed to start Scarlet Witch animation:', animError);
                 }
             } else {
-                console.warn(`Scarlet Witch animation not available - Animation exists: ${hasAnimation}, First frame exists: ${hasFirstFrame}`);
+                console.warn(`Scarlet Witch animation not available - Idle animation exists: ${hasIdleAnimation}, First frame exists: ${hasFirstFrame}`);
                 
                 if (hasFirstFrame) {
-                    this.portrait_scarlet_witch = this.scene.add.sprite(1255 * scaleX, 450 * scaleY, 'redwitch01');
-                    this.portrait_scarlet_witch.setScale(-0.4464 * scaleX, 0.4464 * scaleY);
+                    this.portrait_scarlet_witch = this.scene.add.sprite(1123 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
+                    this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
                     this.portrait_scarlet_witch.setDepth(1);
                     console.log('✓ Created Scarlet Witch as sprite with first frame (no animation)');
                 } else {
-                    this.portrait_scarlet_witch = this.safeCreateImage(1255, 450, 'portrait_scarlet_witch', -0.4464);
+                    this.portrait_scarlet_witch = this.safeCreateImage(1123, 320, 'portrait_scarlet_witch', 0.4464);
                     if (this.portrait_scarlet_witch) {
-                        this.portrait_scarlet_witch.setScale(-0.4464 * scaleX, 0.4464 * scaleY);
+                        this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
                         this.portrait_scarlet_witch.setDepth(1);
                         console.log('✓ Created Scarlet Witch as static image fallback');
                     }
@@ -166,43 +170,47 @@ window.UIManager = class UIManager {
             }
         } catch (error) {
             console.warn('Failed to create animated Scarlet Witch portrait:', error);
-            this.portrait_scarlet_witch = this.safeCreateImage(1255, 450, 'portrait_scarlet_witch', -0.4464);
+            this.portrait_scarlet_witch = this.safeCreateImage(1123, 320, 'portrait_scarlet_witch', 0.4464);
             if (this.portrait_scarlet_witch) {
-                this.portrait_scarlet_witch.setScale(-0.4464 * scaleX, 0.4464 * scaleY);
+                this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
                 this.portrait_scarlet_witch.setDepth(1);
             }
         }
         
         // Create animated Thanos portrait sprite
         try {
-            const hasAnimation = this.scene.anims.exists('thanos_portrait_animation');
-            const hasFirstFrame = this.scene.textures.exists('thanos-animation_00');
+            const hasIdleAnimation = this.scene.anims.exists('thanos_idle_animation');
+            const hasAttackAnimation = this.scene.anims.exists('thanos_attack_animation');
+            const hasFirstFrame = this.scene.textures.exists('thanos-idle_00');
             
-            console.log(`Thanos setup - Animation exists: ${hasAnimation}, First frame exists: ${hasFirstFrame}`);
+            console.log(`Thanos setup - Idle animation exists: ${hasIdleAnimation}, Attack animation exists: ${hasAttackAnimation}, First frame exists: ${hasFirstFrame}`);
             
-            if (hasAnimation && hasFirstFrame) {
-                this.portrait_thanos = this.scene.add.sprite(147 * scaleX, 441 * scaleY, 'thanos-animation_00');
-                this.portrait_thanos.setScale(0.56 * scaleX, 0.56 * scaleY);
+            if (hasIdleAnimation && hasFirstFrame) {
+                this.portrait_thanos = this.scene.add.sprite(221 * scaleX, 380 * scaleY, 'thanos-idle_00');
+                this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
                 this.portrait_thanos.setDepth(1);
                 
+                // Set reference on scene for BonusManager access
+                this.scene.portrait_thanos = this.portrait_thanos;
+                
                 try {
-                    this.portrait_thanos.play('thanos_portrait_animation');
-                    console.log('✓ Thanos sprite created and animation started successfully');
+                    this.portrait_thanos.play('thanos_idle_animation');
+                    console.log('✓ Thanos sprite created and idle animation started successfully');
                 } catch (animError) {
                     console.error('✗ Failed to start Thanos animation:', animError);
                 }
             } else {
-                console.warn(`Thanos animation not available - Animation exists: ${hasAnimation}, First frame exists: ${hasFirstFrame}`);
+                console.warn(`Thanos animation not available - Idle animation exists: ${hasIdleAnimation}, First frame exists: ${hasFirstFrame}`);
                 
                 if (hasFirstFrame) {
-                    this.portrait_thanos = this.scene.add.sprite(147 * scaleX, 441 * scaleY, 'thanos-animation_00');
-                    this.portrait_thanos.setScale(0.56 * scaleX, 0.56 * scaleY);
+                    this.portrait_thanos = this.scene.add.sprite(221 * scaleX, 380 * scaleY, 'thanos-idle_00');
+                    this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
                     this.portrait_thanos.setDepth(1);
                     console.log('✓ Created Thanos as sprite with first frame (no animation)');
                 } else {
-                    this.portrait_thanos = this.safeCreateImage(147, 441, 'portrait_thanos', 0.56);
+                    this.portrait_thanos = this.safeCreateImage(221, 380, 'portrait_thanos', 0.56);
                     if (this.portrait_thanos) {
-                        this.portrait_thanos.setScale(0.56 * scaleX, 0.56 * scaleY);
+                        this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
                         this.portrait_thanos.setDepth(1);
                         console.log('✓ Created Thanos as static image fallback');
                     }
@@ -210,9 +218,9 @@ window.UIManager = class UIManager {
             }
         } catch (error) {
             console.warn('Failed to create animated Thanos portrait:', error);
-            this.portrait_thanos = this.safeCreateImage(147, 441, 'portrait_thanos', 0.56);
+            this.portrait_thanos = this.safeCreateImage(221, 380, 'portrait_thanos', 0.56);
             if (this.portrait_thanos) {
-                this.portrait_thanos.setScale(0.56 * scaleX, 0.56 * scaleY);
+                this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
                 this.portrait_thanos.setDepth(1);
             }
         }

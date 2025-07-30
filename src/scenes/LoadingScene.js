@@ -137,14 +137,22 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         
         // Load character images that exist
         this.loadImageWithFallback('portrait_thanos', 'assets/images/portrait_thanos.png', 0x4B0082);
-        // Load Scarlet Witch animation frames
+        // Load Scarlet Witch animation frames - new idle2 and attack animations
         try {
-            for (let i = 1; i <= 32; i++) {
+            // Load redwitch-attack animation frames (0-31)
+            for (let i = 0; i <= 31; i++) {
                 const frameNum = i.toString().padStart(2, '0');
-                this.load.image(`redwitch${frameNum}`, `assets/images/sprites/portrait_scarlet_witch/redwitch${frameNum}.png`);
+                this.load.image(`redwitch-attack_${frameNum}`, `assets/images/sprites/portrait_scarlet_witch/redwitch-attack_${frameNum}.png`);
             }
-            // Load the JSON animation file (not .anim)
-            this.load.json('scarlet_witch_animations', 'assets/images/sprites/portrait_scarlet_witch/redwitch_animation.json');
+            
+            // Load redwitch-idle2 animation frames (32-63)
+            for (let i = 32; i <= 63; i++) {
+                const frameNum = i.toString().padStart(2, '0');
+                this.load.image(`redwitch-idle2_${frameNum}`, `assets/images/sprites/portrait_scarlet_witch/redwitch-idle2_${frameNum}.png`);
+            }
+            
+            // Load the new JSON animation file
+            this.load.json('scarlet_witch_animations', 'assets/images/sprites/portrait_scarlet_witch/redwitchnew_an.json');
             
             // Set up error handler for Scarlet Witch animations
             this.load.once('fileerror-json-scarlet_witch_animations', () => {
@@ -156,17 +164,24 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.createFallbackScarletWitchAnimation();
         }
         
-        // Load Thanos animation frames
+        // Load Thanos idle animation frames (0-31)
         try {
             for (let i = 0; i <= 31; i++) {
                 const frameNum = i.toString().padStart(2, '0');
-                this.load.image(`thanos-animation_${frameNum}`, `assets/images/sprites/portrait_thanos/thanos-animation_${frameNum}.png`);
+                this.load.image(`thanos-idle_${frameNum}`, `assets/images/sprites/portrait_thanos/thanos-idle_${frameNum}.png`);
             }
-            // Load the JSON animation file (not .anim) - fix the filename
-            this.load.json('thanos_animations', 'assets/images/sprites/portrait_thanos/thanos_animation.json');
+            
+            // Load Thanos attack animation frames (0-27)
+            for (let i = 0; i <= 27; i++) {
+                const frameNum = i.toString().padStart(2, '0');
+                this.load.image(`thanos-attack_${frameNum}`, `assets/images/sprites/portrait_thanos/thanos-attack_${frameNum}.png`);
+            }
+            
+            // Load the JSON animation file
+            this.load.json('thanos_new_animations', 'assets/images/sprites/portrait_thanos/thanosnew_an.json');
             
             // Set up error handler for Thanos animations
-            this.load.once('fileerror-json-thanos_animations', () => {
+            this.load.once('fileerror-json-thanos_new_animations', () => {
                 console.warn('Failed to load Thanos animations JSON, creating fallback');
                 this.createFallbackThanosAnimation();
             });
@@ -663,51 +678,85 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     
     createFallbackScarletWitchAnimation() {
         console.log('Creating fallback Scarlet Witch animation');
-        // Create a simple fallback animation configuration
+        // Create fallback animation configuration with both idle and attack animations
         const fallbackAnimation = {
-            anims: [{
-                key: 'scarlet_witch_portrait_animation',
-                frames: [],
-                frameRate: 24,
-                repeat: -1
-            }]
+            anims: [
+                {
+                    key: 'idle',
+                    frames: [],
+                    frameRate: 20,
+                    repeat: -1
+                },
+                {
+                    key: 'attack',
+                    frames: [],
+                    frameRate: 24,
+                    repeat: -1
+                }
+            ]
         };
         
-        // Generate frames array for available frames (1-32)
-        for (let i = 1; i <= 32; i++) {
-            const frameKey = `redwitch${i.toString().padStart(2, '0')}`;
+        // Generate frames array for idle animation (frames 32-63)
+        for (let i = 32; i <= 63; i++) {
+            const frameKey = `redwitch-idle2_${i.toString().padStart(2, '0')}`;
             fallbackAnimation.anims[0].frames.push({
+                key: frameKey,
+                frame: 0
+            });
+        }
+        
+        // Generate frames array for attack animation (frames 0-31)
+        for (let i = 0; i <= 31; i++) {
+            const frameKey = `redwitch-attack_${i.toString().padStart(2, '0')}`;
+            fallbackAnimation.anims[1].frames.push({
                 key: frameKey,
                 frame: 0
             });
         }
         
         this.cache.json.add('scarlet_witch_animations', fallbackAnimation);
-        console.log('Fallback Scarlet Witch animation created');
+        console.log('Fallback Scarlet Witch animations created');
     }
     
     createFallbackThanosAnimation() {
         console.log('Creating fallback Thanos animation');
-        // Create a simple fallback animation configuration
+        // Create fallback animation configuration with both idle and attack
         const fallbackAnimation = {
-            anims: [{
-                key: 'thanos_portrait_animation',
-                frames: [],
-                frameRate: 24,
-                repeat: -1
-            }]
+            anims: [
+                {
+                    key: 'idle',
+                    frames: [],
+                    frameRate: 24,
+                    repeat: -1
+                },
+                {
+                    key: 'attack',
+                    frames: [],
+                    frameRate: 18,
+                    repeat: 0
+                }
+            ]
         };
         
-        // Generate frames array for available frames (0-31)
+        // Generate idle frames array (0-31)
         for (let i = 0; i <= 31; i++) {
-            const frameKey = `thanos-animation_${i.toString().padStart(2, '0')}`;
+            const frameKey = `thanos-idle_${i.toString().padStart(2, '0')}`;
             fallbackAnimation.anims[0].frames.push({
                 key: frameKey,
                 frame: 0
             });
         }
         
-        this.cache.json.add('thanos_animations', fallbackAnimation);
+        // Generate attack frames array (0-27)
+        for (let i = 0; i <= 27; i++) {
+            const frameKey = `thanos-attack_${i.toString().padStart(2, '0')}`;
+            fallbackAnimation.anims[1].frames.push({
+                key: frameKey,
+                frame: 0
+            });
+        }
+        
+        this.cache.json.add('thanos_new_animations', fallbackAnimation);
         console.log('Fallback Thanos animation created');
     }
     

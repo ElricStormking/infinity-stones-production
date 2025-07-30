@@ -116,116 +116,180 @@ window.AnimationManager = class AnimationManager {
             console.warn('Failed to create win presentation animations:', error);
         }
         
-        // Create Scarlet Witch portrait animation - MOST IMPORTANT
+        // Create Scarlet Witch portrait animations - IDLE and ATTACK
         try {
             const scarletWitchAnimsData = this.scene.cache.json.get('scarlet_witch_animations');
             if (scarletWitchAnimsData && scarletWitchAnimsData.anims) {
-                const animConfig = scarletWitchAnimsData.anims[0]; // Get the first animation config
-                const animKey = 'scarlet_witch_portrait_animation';
+                // Create idle animation
+                const idleConfig = scarletWitchAnimsData.anims.find(anim => anim.key === 'idle');
+                const idleAnimKey = 'scarlet_witch_idle_animation';
                 
-                if (!this.scene.anims.exists(animKey)) {
-                    // Handle both Phaser Editor format and fallback format
-                    let frames;
-                    if (animConfig.frames && animConfig.frames.length > 0) {
-                        // Check if it's Phaser Editor format (has duration) or fallback format (just key/frame)
-                        if (animConfig.frames[0].duration !== undefined) {
-                            // Phaser Editor format
-                            frames = animConfig.frames.map(frame => ({
-                                key: frame.key,
-                                duration: frame.duration || 0
-                            }));
-                        } else {
-                            // Fallback format - convert to Phaser animation frames
-                            frames = animConfig.frames.map(frame => ({
-                                key: frame.key,
-                                frame: frame.frame || 0
-                            }));
-                        }
-                        
-                        // Filter out frames that don't exist
-                        const validFrames = frames.filter(frame => this.scene.textures.exists(frame.key));
-                        
-                        if (validFrames.length > 0) {
-                            this.scene.anims.create({
-                                key: animKey,
-                                frames: validFrames,
-                                frameRate: animConfig.frameRate || 20,
-                                repeat: animConfig.repeat !== undefined ? animConfig.repeat : -1,
-                                skipMissedFrames: true
-                            });
-                            console.log(`✓ Created Scarlet Witch animation with ${validFrames.length} frames at ${animConfig.frameRate || 20} FPS`);
-                        } else {
-                            console.warn('No valid frames found for Scarlet Witch animation');
-                            this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch01');
-                        }
+                if (idleConfig && !this.scene.anims.exists(idleAnimKey)) {
+                    // Handle idle animation
+                    let idleFrames = idleConfig.frames.map(frame => ({
+                        key: frame.key,
+                        frame: frame.frame || 0
+                    }));
+                    
+                    // Filter out frames that don't exist
+                    const validIdleFrames = idleFrames.filter(frame => this.scene.textures.exists(frame.key));
+                    
+                    if (validIdleFrames.length > 0) {
+                        this.scene.anims.create({
+                            key: idleAnimKey,
+                            frames: validIdleFrames,
+                            frameRate: idleConfig.frameRate || 20,
+                            repeat: idleConfig.repeat !== undefined ? idleConfig.repeat : -1,
+                            skipMissedFrames: true
+                        });
+                        console.log(`✓ Created Scarlet Witch idle animation with ${validIdleFrames.length} frames at ${idleConfig.frameRate || 20} FPS`);
                     } else {
-                        console.warn('No frames found in Scarlet Witch animation config');
-                        this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch01');
+                        console.warn('No valid frames found for Scarlet Witch idle animation');
+                        this.createFallbackPortraitAnimation(idleAnimKey, 'redwitch-idle2_32');
+                    }
+                }
+                
+                // Create attack animation
+                const attackConfig = scarletWitchAnimsData.anims.find(anim => anim.key === 'attack');
+                const attackAnimKey = 'scarlet_witch_attack_animation';
+                
+                if (attackConfig && !this.scene.anims.exists(attackAnimKey)) {
+                    // Handle attack animation
+                    let attackFrames = attackConfig.frames.map(frame => ({
+                        key: frame.key,
+                        frame: frame.frame || 0
+                    }));
+                    
+                    // Filter out frames that don't exist
+                    const validAttackFrames = attackFrames.filter(frame => this.scene.textures.exists(frame.key));
+                    
+                    if (validAttackFrames.length > 0) {
+                        this.scene.anims.create({
+                            key: attackAnimKey,
+                            frames: validAttackFrames,
+                            frameRate: attackConfig.frameRate || 24,
+                            repeat: 0, // Attack animation plays once
+                            skipMissedFrames: true
+                        });
+                        console.log(`✓ Created Scarlet Witch attack animation with ${validAttackFrames.length} frames at ${attackConfig.frameRate || 24} FPS`);
+                    } else {
+                        console.warn('No valid frames found for Scarlet Witch attack animation');
+                        this.createFallbackPortraitAnimation(attackAnimKey, 'redwitch-attack_00');
+                    }
+                }
+                
+                // Create the legacy animation key for compatibility
+                if (!this.scene.anims.exists('scarlet_witch_portrait_animation')) {
+                    // Default to idle animation for compatibility
+                    const idleAnim = this.scene.anims.get(idleAnimKey);
+                    if (idleAnim) {
+                        this.scene.anims.create({
+                            key: 'scarlet_witch_portrait_animation',
+                            frames: idleAnim.frames.map(frame => ({ key: frame.textureKey, frame: frame.textureFrame })),
+                            frameRate: idleAnim.frameRate,
+                            repeat: idleAnim.repeat,
+                            skipMissedFrames: true
+                        });
+                        console.log('✓ Created legacy Scarlet Witch animation for compatibility');
                     }
                 }
             } else {
                 console.warn('Scarlet Witch animation data not found in cache');
-                this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch01');
+                this.createFallbackPortraitAnimation('scarlet_witch_idle_animation', 'redwitch-idle2_32');
+                this.createFallbackPortraitAnimation('scarlet_witch_attack_animation', 'redwitch-attack_00');
+                this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch-idle2_32');
             }
         } catch (error) {
-            console.warn('Failed to create Scarlet Witch portrait animation:', error);
-            this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch01');
+            console.warn('Failed to create Scarlet Witch portrait animations:', error);
+            this.createFallbackPortraitAnimation('scarlet_witch_idle_animation', 'redwitch-idle2_32');
+            this.createFallbackPortraitAnimation('scarlet_witch_attack_animation', 'redwitch-attack_00');
+            this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch-idle2_32');
         }
         
-        // Create Thanos portrait animation
+        // Create Thanos portrait animations (idle and attack)
         try {
-            const thanosAnimsData = this.scene.cache.json.get('thanos_animations');
+            const thanosAnimsData = this.scene.cache.json.get('thanos_new_animations');
             if (thanosAnimsData && thanosAnimsData.anims) {
-                const animConfig = thanosAnimsData.anims[0]; // Get the first animation config
-                const animKey = 'thanos_portrait_animation';
+                // Create idle animation
+                const idleConfig = thanosAnimsData.anims.find(anim => anim.key === 'idle');
+                const idleAnimKey = 'thanos_idle_animation';
                 
-                if (!this.scene.anims.exists(animKey)) {
-                    // Handle both Phaser Editor format and fallback format
-                    let frames;
-                    if (animConfig.frames && animConfig.frames.length > 0) {
-                        // Check if it's Phaser Editor format (has duration) or fallback format (just key/frame)
-                        if (animConfig.frames[0].duration !== undefined) {
+                if (idleConfig && !this.scene.anims.exists(idleAnimKey)) {
+                    let idleFrames;
+                    if (idleConfig.frames && idleConfig.frames.length > 0) {
+                        if (idleConfig.frames[0].duration !== undefined) {
                             // Phaser Editor format
-                            frames = animConfig.frames.map(frame => ({
+                            idleFrames = idleConfig.frames.map(frame => ({
                                 key: frame.key,
                                 duration: frame.duration || 0
                             }));
                         } else {
-                            // Fallback format - convert to Phaser animation frames
-                            frames = animConfig.frames.map(frame => ({
+                            // Fallback format
+                            idleFrames = idleConfig.frames.map(frame => ({
                                 key: frame.key,
                                 frame: frame.frame || 0
                             }));
                         }
                         
-                        // Filter out frames that don't exist
-                        const validFrames = frames.filter(frame => this.scene.textures.exists(frame.key));
+                        const validIdleFrames = idleFrames.filter(frame => this.scene.textures.exists(frame.key));
                         
-                        if (validFrames.length > 0) {
+                        if (validIdleFrames.length > 0) {
                             this.scene.anims.create({
-                                key: animKey,
-                                frames: validFrames,
-                                frameRate: animConfig.frameRate || 20,
-                                repeat: animConfig.repeat !== undefined ? animConfig.repeat : -1,
+                                key: idleAnimKey,
+                                frames: validIdleFrames,
+                                frameRate: idleConfig.frameRate || 24,
+                                repeat: idleConfig.repeat !== undefined ? idleConfig.repeat : -1,
                                 skipMissedFrames: true
                             });
-                            console.log(`✓ Created Thanos animation with ${validFrames.length} frames at ${animConfig.frameRate || 20} FPS`);
-                        } else {
-                            console.warn('No valid frames found for Thanos animation');
-                            this.createFallbackPortraitAnimation('thanos_portrait_animation', 'thanos-animation_00');
+                            console.log(`✓ Created Thanos idle animation with ${validIdleFrames.length} frames`);
                         }
-                    } else {
-                        console.warn('No frames found in Thanos animation config');
-                        this.createFallbackPortraitAnimation('thanos_portrait_animation', 'thanos-animation_00');
+                    }
+                }
+                
+                // Create attack animation
+                const attackConfig = thanosAnimsData.anims.find(anim => anim.key === 'attack');
+                const attackAnimKey = 'thanos_attack_animation';
+                
+                if (attackConfig && !this.scene.anims.exists(attackAnimKey)) {
+                    let attackFrames;
+                    if (attackConfig.frames && attackConfig.frames.length > 0) {
+                        if (attackConfig.frames[0].duration !== undefined) {
+                            // Phaser Editor format
+                            attackFrames = attackConfig.frames.map(frame => ({
+                                key: frame.key,
+                                duration: frame.duration || 0
+                            }));
+                        } else {
+                            // Fallback format
+                            attackFrames = attackConfig.frames.map(frame => ({
+                                key: frame.key,
+                                frame: frame.frame || 0
+                            }));
+                        }
+                        
+                        const validAttackFrames = attackFrames.filter(frame => this.scene.textures.exists(frame.key));
+                        
+                        if (validAttackFrames.length > 0) {
+                            this.scene.anims.create({
+                                key: attackAnimKey,
+                                frames: validAttackFrames,
+                                frameRate: attackConfig.frameRate || 18,
+                                repeat: 0, // Force attack animation to play only once
+                                skipMissedFrames: true
+                            });
+                            console.log(`✓ Created Thanos attack animation with ${validAttackFrames.length} frames`);
+                        }
                     }
                 }
             } else {
                 console.warn('Thanos animation data not found in cache');
-                this.createFallbackPortraitAnimation('thanos_portrait_animation', 'thanos-animation_00');
+                this.createFallbackPortraitAnimation('thanos_idle_animation', 'thanos-idle_00');
+                this.createFallbackPortraitAnimation('thanos_attack_animation', 'thanos-attack_00');
             }
         } catch (error) {
-            console.warn('Failed to create Thanos portrait animation:', error);
-            this.createFallbackPortraitAnimation('thanos_portrait_animation', 'thanos-animation_00');
+            console.warn('Failed to create Thanos portrait animations:', error);
+            this.createFallbackPortraitAnimation('thanos_idle_animation', 'thanos-idle_00');
+            this.createFallbackPortraitAnimation('thanos_attack_animation', 'thanos-attack_00');
         }
         
         console.log('All animations created.');
@@ -382,28 +446,45 @@ window.AnimationManager = class AnimationManager {
         console.log('=== SCARLET WITCH ANIMATION TEST ===');
         
         if (this.scene.portrait_scarlet_witch) {
-            const hasAnimation = this.scene.anims.exists('scarlet_witch_portrait_animation');
+            const hasIdleAnimation = this.scene.anims.exists('scarlet_witch_idle_animation');
+            const hasAttackAnimation = this.scene.anims.exists('scarlet_witch_attack_animation');
             const isSprite = this.scene.portrait_scarlet_witch.anims !== undefined;
             const portraitType = this.scene.portrait_scarlet_witch.type;
             
-            console.log(`Animation exists: ${hasAnimation}`);
+            console.log(`Idle animation exists: ${hasIdleAnimation}`);
+            console.log(`Attack animation exists: ${hasAttackAnimation}`);
             console.log(`Portrait is sprite: ${isSprite}`);
             console.log(`Portrait type: ${portraitType}`);
             console.log(`Portrait texture key: ${this.scene.portrait_scarlet_witch.texture.key}`);
             
-            if (hasAnimation && isSprite) {
+            if (hasIdleAnimation && isSprite) {
                 if (this.scene.portrait_scarlet_witch.anims.isPlaying) {
                     this.scene.portrait_scarlet_witch.stop();
                     console.log('✓ Scarlet Witch animation stopped');
                 } else {
-                    this.scene.portrait_scarlet_witch.play('scarlet_witch_portrait_animation');
-                    console.log('✓ Scarlet Witch animation started');
+                    // Play idle animation by default
+                    this.scene.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                    console.log('✓ Scarlet Witch idle animation started');
+                    
+                    // Test attack animation after 3 seconds
+                    this.scene.time.delayedCall(3000, () => {
+                        if (this.scene.portrait_scarlet_witch) {
+                            this.scene.portrait_scarlet_witch.play('scarlet_witch_attack_animation');
+                            console.log('✓ Scarlet Witch attack animation started');
+                            
+                            // Return to idle after attack completes
+                            this.scene.portrait_scarlet_witch.once('animationcomplete', () => {
+                                this.scene.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                                console.log('✓ Returned to idle animation');
+                            });
+                        }
+                    });
                 }
             } else {
                 console.warn('✗ Scarlet Witch animation not available or portrait is not a sprite');
                 
                 // Try to force create as sprite if it's not
-                if (!isSprite && this.scene.textures.exists('redwitch01')) {
+                if (!isSprite && this.scene.textures.exists('redwitch-idle2_32')) {
                     console.log('Attempting to recreate as sprite...');
                     const x = this.scene.portrait_scarlet_witch.x;
                     const y = this.scene.portrait_scarlet_witch.y;
@@ -412,13 +493,13 @@ window.AnimationManager = class AnimationManager {
                     const depth = this.scene.portrait_scarlet_witch.depth;
                     
                     this.scene.portrait_scarlet_witch.destroy();
-                    this.scene.portrait_scarlet_witch = this.scene.add.sprite(x, y, 'redwitch01');
+                    this.scene.portrait_scarlet_witch = this.scene.add.sprite(x, y, 'redwitch-idle2_32');
                     this.scene.portrait_scarlet_witch.setScale(scaleX, scaleY);
                     this.scene.portrait_scarlet_witch.setDepth(depth);
                     
-                    if (hasAnimation) {
-                        this.scene.portrait_scarlet_witch.play('scarlet_witch_portrait_animation');
-                        console.log('✓ Recreated as sprite and started animation');
+                    if (this.scene.anims.exists('scarlet_witch_idle_animation')) {
+                        this.scene.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                        console.log('✓ Recreated as sprite and started idle animation');
                     }
                 }
             }
@@ -428,23 +509,37 @@ window.AnimationManager = class AnimationManager {
         
         // Show debug info
         const debugInfo = [];
-        debugInfo.push(`Animation exists: ${this.scene.anims.exists('scarlet_witch_portrait_animation')}`);
+        debugInfo.push(`Idle animation exists: ${this.scene.anims.exists('scarlet_witch_idle_animation')}`);
+        debugInfo.push(`Attack animation exists: ${this.scene.anims.exists('scarlet_witch_attack_animation')}`);
         debugInfo.push(`Portrait exists: ${this.scene.portrait_scarlet_witch !== undefined}`);
         debugInfo.push(`Portrait is sprite: ${this.scene.portrait_scarlet_witch && this.scene.portrait_scarlet_witch.anims !== undefined}`);
         debugInfo.push(`Portrait type: ${this.scene.portrait_scarlet_witch ? this.scene.portrait_scarlet_witch.type : 'N/A'}`);
         
-        // Check frame textures
-        for (let i = 1; i <= 5; i++) {
-            const frameKey = `redwitch${i.toString().padStart(2, '0')}`;
-            debugInfo.push(`Frame ${i} exists: ${this.scene.textures.exists(frameKey)}`);
+        // Check idle frame textures
+        for (let i = 32; i <= 36; i++) {
+            const frameKey = `redwitch-idle2_${i.toString().padStart(2, '0')}`;
+            debugInfo.push(`Idle frame ${i} exists: ${this.scene.textures.exists(frameKey)}`);
+        }
+        
+        // Check attack frame textures
+        for (let i = 0; i <= 4; i++) {
+            const frameKey = `redwitch-attack_${i.toString().padStart(2, '0')}`;
+            debugInfo.push(`Attack frame ${i} exists: ${this.scene.textures.exists(frameKey)}`);
         }
         
         // Check animation details
-        if (this.scene.anims.exists('scarlet_witch_portrait_animation')) {
-            const anim = this.scene.anims.get('scarlet_witch_portrait_animation');
-            debugInfo.push(`Animation frames: ${anim.frames.length}`);
-            debugInfo.push(`Frame rate: ${anim.frameRate}`);
-            debugInfo.push(`Repeat: ${anim.repeat}`);
+        if (this.scene.anims.exists('scarlet_witch_idle_animation')) {
+            const anim = this.scene.anims.get('scarlet_witch_idle_animation');
+            debugInfo.push(`Idle animation frames: ${anim.frames.length}`);
+            debugInfo.push(`Idle frame rate: ${anim.frameRate}`);
+            debugInfo.push(`Idle repeat: ${anim.repeat}`);
+        }
+        
+        if (this.scene.anims.exists('scarlet_witch_attack_animation')) {
+            const anim = this.scene.anims.get('scarlet_witch_attack_animation');
+            debugInfo.push(`Attack animation frames: ${anim.frames.length}`);
+            debugInfo.push(`Attack frame rate: ${anim.frameRate}`);
+            debugInfo.push(`Attack repeat: ${anim.repeat}`);
         }
         
         const message = this.scene.add.text(this.scene.cameras.main.width / 2, 150, 
@@ -476,33 +571,52 @@ window.AnimationManager = class AnimationManager {
         console.log('=== END SCARLET WITCH ANIMATION TEST ===');
     }
     
-    // Test method for Thanos animation
+    // Test method for Thanos animations (idle and attack)
     testThanosAnimation() {
         console.log('=== THANOS ANIMATION TEST ===');
         
         if (this.scene.portrait_thanos) {
-            const hasAnimation = this.scene.anims.exists('thanos_portrait_animation');
+            const hasIdleAnimation = this.scene.anims.exists('thanos_idle_animation');
+            const hasAttackAnimation = this.scene.anims.exists('thanos_attack_animation');
             const isSprite = this.scene.portrait_thanos.anims !== undefined;
             const portraitType = this.scene.portrait_thanos.type;
             
-            console.log(`Animation exists: ${hasAnimation}`);
+            console.log(`Idle animation exists: ${hasIdleAnimation}`);
+            console.log(`Attack animation exists: ${hasAttackAnimation}`);
             console.log(`Portrait is sprite: ${isSprite}`);
             console.log(`Portrait type: ${portraitType}`);
             console.log(`Portrait texture key: ${this.scene.portrait_thanos.texture.key}`);
             
-            if (hasAnimation && isSprite) {
+            if (hasIdleAnimation && hasAttackAnimation && isSprite) {
+                // Test sequence: play idle for 3 seconds, then attack, then back to idle
                 if (this.scene.portrait_thanos.anims.isPlaying) {
                     this.scene.portrait_thanos.stop();
                     console.log('✓ Thanos animation stopped');
                 } else {
-                    this.scene.portrait_thanos.play('thanos_portrait_animation');
-                    console.log('✓ Thanos animation started');
+                    this.scene.portrait_thanos.play('thanos_idle_animation');
+                    console.log('✓ Thanos idle animation started');
+                    
+                    // After 3 seconds, play attack animation
+                    this.scene.time.delayedCall(3000, () => {
+                        if (this.scene.portrait_thanos) {
+                            this.scene.portrait_thanos.play('thanos_attack_animation');
+                            console.log('✓ Thanos attack animation started');
+                            
+                            // Return to idle after attack completes
+                            this.scene.portrait_thanos.once('animationcomplete', () => {
+                                if (this.scene.portrait_thanos && hasIdleAnimation) {
+                                    this.scene.portrait_thanos.play('thanos_idle_animation');
+                                    console.log('✓ Returned to Thanos idle animation');
+                                }
+                            });
+                        }
+                    });
                 }
             } else {
-                console.warn('✗ Thanos animation not available or portrait is not a sprite');
+                console.warn('✗ Thanos animations not available or portrait is not a sprite');
                 
                 // Try to force create as sprite if it's not
-                if (!isSprite && this.scene.textures.exists('thanos-animation_00')) {
+                if (!isSprite && this.scene.textures.exists('thanos-idle_00')) {
                     console.log('Attempting to recreate as sprite...');
                     const x = this.scene.portrait_thanos.x;
                     const y = this.scene.portrait_thanos.y;
@@ -511,13 +625,13 @@ window.AnimationManager = class AnimationManager {
                     const depth = this.scene.portrait_thanos.depth;
                     
                     this.scene.portrait_thanos.destroy();
-                    this.scene.portrait_thanos = this.scene.add.sprite(x, y, 'thanos-animation_00');
+                    this.scene.portrait_thanos = this.scene.add.sprite(x, y, 'thanos-idle_00');
                     this.scene.portrait_thanos.setScale(scaleX, scaleY);
                     this.scene.portrait_thanos.setDepth(depth);
                     
-                    if (hasAnimation) {
-                        this.scene.portrait_thanos.play('thanos_portrait_animation');
-                        console.log('✓ Recreated as sprite and started animation');
+                    if (hasIdleAnimation) {
+                        this.scene.portrait_thanos.play('thanos_idle_animation');
+                        console.log('✓ Recreated as sprite and started idle animation');
                     }
                 }
             }
@@ -527,27 +641,34 @@ window.AnimationManager = class AnimationManager {
         
         // Show debug info
         const debugInfo = [];
-        debugInfo.push(`Animation exists: ${this.scene.anims.exists('thanos_portrait_animation')}`);
+        debugInfo.push(`Idle animation exists: ${this.scene.anims.exists('thanos_idle_animation')}`);
+        debugInfo.push(`Attack animation exists: ${this.scene.anims.exists('thanos_attack_animation')}`);
         debugInfo.push(`Portrait exists: ${this.scene.portrait_thanos !== undefined}`);
         debugInfo.push(`Portrait is sprite: ${this.scene.portrait_thanos && this.scene.portrait_thanos.anims !== undefined}`);
         debugInfo.push(`Portrait type: ${this.scene.portrait_thanos ? this.scene.portrait_thanos.type : 'N/A'}`);
         
         // Check frame textures
         for (let i = 0; i <= 5; i++) {
-            const frameKey = `thanos-animation_${i.toString().padStart(2, '0')}`;
-            debugInfo.push(`Frame ${i} exists: ${this.scene.textures.exists(frameKey)}`);
+            const idleFrameKey = `thanos-idle_${i.toString().padStart(2, '0')}`;
+            const attackFrameKey = `thanos-attack_${i.toString().padStart(2, '0')}`;
+            debugInfo.push(`Idle frame ${i} exists: ${this.scene.textures.exists(idleFrameKey)}`);
+            debugInfo.push(`Attack frame ${i} exists: ${this.scene.textures.exists(attackFrameKey)}`);
         }
         
         // Check animation details
-        if (this.scene.anims.exists('thanos_portrait_animation')) {
-            const anim = this.scene.anims.get('thanos_portrait_animation');
-            debugInfo.push(`Animation frames: ${anim.frames.length}`);
-            debugInfo.push(`Frame rate: ${anim.frameRate}`);
-            debugInfo.push(`Repeat: ${anim.repeat}`);
+        if (this.scene.anims.exists('thanos_idle_animation')) {
+            const anim = this.scene.anims.get('thanos_idle_animation');
+            debugInfo.push(`Idle animation frames: ${anim.frames.length}`);
+            debugInfo.push(`Idle frame rate: ${anim.frameRate}`);
+        }
+        if (this.scene.anims.exists('thanos_attack_animation')) {
+            const anim = this.scene.anims.get('thanos_attack_animation');
+            debugInfo.push(`Attack animation frames: ${anim.frames.length}`);
+            debugInfo.push(`Attack frame rate: ${anim.frameRate}`);
         }
         
         const message = this.scene.add.text(this.scene.cameras.main.width / 2, 150, 
-            'Thanos Animation Test\nPress T to toggle\n\n' + debugInfo.join('\n'), {
+            'Thanos Animation Test\nPress T to toggle\nWill play idle → attack → idle\n\n' + debugInfo.join('\n'), {
             fontSize: '16px',
             fontFamily: 'Arial',
             color: '#FFD700',

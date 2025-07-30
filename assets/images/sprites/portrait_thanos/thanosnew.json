@@ -1,0 +1,314 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/thanosnew/thanos-attack_00.png",
+                "type": "image",
+                "key": "thanos-attack_00"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_01.png",
+                "type": "image",
+                "key": "thanos-attack_01"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_02.png",
+                "type": "image",
+                "key": "thanos-attack_02"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_03.png",
+                "type": "image",
+                "key": "thanos-attack_03"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_04.png",
+                "type": "image",
+                "key": "thanos-attack_04"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_05.png",
+                "type": "image",
+                "key": "thanos-attack_05"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_06.png",
+                "type": "image",
+                "key": "thanos-attack_06"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_07.png",
+                "type": "image",
+                "key": "thanos-attack_07"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_08.png",
+                "type": "image",
+                "key": "thanos-attack_08"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_09.png",
+                "type": "image",
+                "key": "thanos-attack_09"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_10.png",
+                "type": "image",
+                "key": "thanos-attack_10"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_11.png",
+                "type": "image",
+                "key": "thanos-attack_11"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_12.png",
+                "type": "image",
+                "key": "thanos-attack_12"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_13.png",
+                "type": "image",
+                "key": "thanos-attack_13"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_14.png",
+                "type": "image",
+                "key": "thanos-attack_14"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_15.png",
+                "type": "image",
+                "key": "thanos-attack_15"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_16.png",
+                "type": "image",
+                "key": "thanos-attack_16"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_17.png",
+                "type": "image",
+                "key": "thanos-attack_17"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_18.png",
+                "type": "image",
+                "key": "thanos-attack_18"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_19.png",
+                "type": "image",
+                "key": "thanos-attack_19"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_20.png",
+                "type": "image",
+                "key": "thanos-attack_20"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_21.png",
+                "type": "image",
+                "key": "thanos-attack_21"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_22.png",
+                "type": "image",
+                "key": "thanos-attack_22"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_23.png",
+                "type": "image",
+                "key": "thanos-attack_23"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_24.png",
+                "type": "image",
+                "key": "thanos-attack_24"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_25.png",
+                "type": "image",
+                "key": "thanos-attack_25"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_26.png",
+                "type": "image",
+                "key": "thanos-attack_26"
+            },
+            {
+                "url": "assets/thanosnew/thanos-attack_27.png",
+                "type": "image",
+                "key": "thanos-attack_27"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_00.png",
+                "type": "image",
+                "key": "thanos-idle_00"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_01.png",
+                "type": "image",
+                "key": "thanos-idle_01"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_02.png",
+                "type": "image",
+                "key": "thanos-idle_02"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_03.png",
+                "type": "image",
+                "key": "thanos-idle_03"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_04.png",
+                "type": "image",
+                "key": "thanos-idle_04"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_05.png",
+                "type": "image",
+                "key": "thanos-idle_05"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_06.png",
+                "type": "image",
+                "key": "thanos-idle_06"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_07.png",
+                "type": "image",
+                "key": "thanos-idle_07"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_08.png",
+                "type": "image",
+                "key": "thanos-idle_08"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_09.png",
+                "type": "image",
+                "key": "thanos-idle_09"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_10.png",
+                "type": "image",
+                "key": "thanos-idle_10"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_11.png",
+                "type": "image",
+                "key": "thanos-idle_11"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_12.png",
+                "type": "image",
+                "key": "thanos-idle_12"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_13.png",
+                "type": "image",
+                "key": "thanos-idle_13"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_14.png",
+                "type": "image",
+                "key": "thanos-idle_14"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_15.png",
+                "type": "image",
+                "key": "thanos-idle_15"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_16.png",
+                "type": "image",
+                "key": "thanos-idle_16"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_17.png",
+                "type": "image",
+                "key": "thanos-idle_17"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_18.png",
+                "type": "image",
+                "key": "thanos-idle_18"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_19.png",
+                "type": "image",
+                "key": "thanos-idle_19"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_20.png",
+                "type": "image",
+                "key": "thanos-idle_20"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_21.png",
+                "type": "image",
+                "key": "thanos-idle_21"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_22.png",
+                "type": "image",
+                "key": "thanos-idle_22"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_23.png",
+                "type": "image",
+                "key": "thanos-idle_23"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_24.png",
+                "type": "image",
+                "key": "thanos-idle_24"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_25.png",
+                "type": "image",
+                "key": "thanos-idle_25"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_26.png",
+                "type": "image",
+                "key": "thanos-idle_26"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_27.png",
+                "type": "image",
+                "key": "thanos-idle_27"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_28.png",
+                "type": "image",
+                "key": "thanos-idle_28"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_29.png",
+                "type": "image",
+                "key": "thanos-idle_29"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_30.png",
+                "type": "image",
+                "key": "thanos-idle_30"
+            },
+            {
+                "url": "assets/thanosnew/thanos-idle_31.png",
+                "type": "image",
+                "key": "thanos-idle_31"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}
