@@ -17,7 +17,9 @@
       "Bash(copy:*)",
       "Bash(cp:*)",
       "Bash(del \"D:\\infinity-gauntlet\\src\\managers\\BurstModeManager_fixed.js\")",
-      "Bash(claude doctor)"
+      "Bash(claude doctor)",
+      "Bash(start http://localhost:3000)",
+      "Bash(cmd.exe /c start http://localhost:3000)"
     ],
     "deny": []
   }

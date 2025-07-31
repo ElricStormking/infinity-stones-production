@@ -243,7 +243,7 @@ window.BurstModeManager = class BurstModeManager {
     
     createButtons(scaleX, scaleY, uiScale) {
         // Main spin button - animated sprite
-        this.spinBtn = this.scene.add.sprite(639 * scaleX, 660 * scaleY, 'ui_bn_spin');
+        this.spinBtn = this.scene.add.sprite(1179 * scaleX, 616 * scaleY, 'ui_bn_spin');
         this.spinBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         this.spinBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(this.spinBtn);
@@ -368,7 +368,7 @@ window.BurstModeManager = class BurstModeManager {
         };
         
         // Win amount
-        this.burstWinText = this.scene.add.text(350 * scaleX, 658 * scaleY, '$0.00', {
+        this.burstWinText = this.scene.add.text(125 * scaleX, 658 * scaleY, '$0.00', {
             ...valueStyle,
             color: '#00FF00'
         });

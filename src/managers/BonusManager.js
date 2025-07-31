@@ -38,14 +38,22 @@ window.BonusManager = class BonusManager {
         console.log(`Original Win: $${this.scene.totalWin.toFixed(2)}`);
         
         // Randomly choose between Thanos and Scarlet Witch
-        const useThanos = Math.random() < 0.5;
+        // TESTING: 90% chance for Scarlet Witch to test red lightning effect
+        const useThanos = Math.random() < 0.1; // 10% Thanos, 90% Scarlet Witch
         
-        // Show character-specific animation
+        // Always trigger character attack animation and show multiplier effect
         if (useThanos) {
+            // Always attempt to trigger Thanos attack animation
+            this.triggerThanosAttack();
             await this.showThanosRandomMultiplier(col, row, multiplier);
         } else {
+            // Always attempt to trigger Scarlet Witch attack animation
+            this.triggerScarletWitchAttack();
             await this.showScarletWitchRandomMultiplier(col, row, multiplier);
         }
+        
+        // Always play a bonus sound as fallback
+        window.SafeSound.play(this.scene, 'bonus');
         
         // Apply multiplier to total win
         const originalWin = this.scene.totalWin;
@@ -60,8 +68,9 @@ window.BonusManager = class BonusManager {
         // Update win display
         this.scene.updateWinDisplay();
         
-        // Show multiplier message
-        this.scene.showMessage(`THANOS POWER GRIP! ${multiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
+        // Show multiplier message with appropriate character
+        const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
+        this.scene.showMessage(`${characterName} ${multiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
     }
     
     async showThanosRandomMultiplier(col, row, multiplier) {
@@ -70,8 +79,7 @@ window.BonusManager = class BonusManager {
             const symbolX = this.scene.gridManager.getSymbolScreenX(col);
             const symbolY = this.scene.gridManager.getSymbolScreenY(row);
             
-            // Trigger Thanos attack animation
-            this.triggerThanosAttack();
+            // Note: Attack animation is triggered at the top level
             
             // Create Thanos power grip effect
             const thanosGrip = this.scene.add.image(symbolX, symbolY, 'thanos');
@@ -160,14 +168,36 @@ window.BonusManager = class BonusManager {
     }
     
     async showScarletWitchRandomMultiplier(col, row, multiplier) {
-        return new Promise(resolve => {
+        return new Promise(async resolve => {
             // Get the symbol position on screen
             const symbolX = this.scene.gridManager.getSymbolScreenX(col);
             const symbolY = this.scene.gridManager.getSymbolScreenY(row);
             
-            // Trigger Scarlet Witch attack animation
-            this.triggerScarletWitchAttack();
+            console.log(`🔥 SEQUENCE: Lightning strikes symbol at (${col}, ${row}) then shows multiplier ${multiplier}x`);
             
+            // STEP 1: Lightning strikes the symbol first
+            await this.createRedLightningEffect(symbolX, symbolY);
+            
+            // STEP 2: Destroy/hide the original symbol with dramatic effect
+            const originalSymbol = this.scene.gridManager.grid[col][row];
+            if (originalSymbol) {
+                console.log(`💥 Destroying original symbol at (${col}, ${row})`);
+                // Flash the symbol white before destroying
+                originalSymbol.setTint(0xFFFFFF);
+                this.scene.tweens.add({
+                    targets: originalSymbol,
+                    alpha: 0,
+                    scaleX: 0.5,
+                    scaleY: 0.5,
+                    duration: 200,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        originalSymbol.setVisible(false);
+                    }
+                });
+            }
+            
+            // STEP 3: Show Scarlet Witch power effect and multiplier
             // Create Scarlet Witch power effect
             const scarletWitch = this.scene.add.image(symbolX, symbolY, 'scarlet_witch');
             scarletWitch.setScale(0.3);
@@ -357,7 +387,8 @@ window.BonusManager = class BonusManager {
                 const symbolY = this.scene.gridManager.getSymbolScreenY(row);
                 
                 // Randomly choose between Thanos and Scarlet Witch animation
-                const useThanos = Math.random() < 0.5;
+                // TESTING: 90% chance for Scarlet Witch to test red lightning effect
+                const useThanos = Math.random() < 0.1; // 10% Thanos, 90% Scarlet Witch
                 const characterKey = useThanos ? 'thanos' : 'scarlet_witch';
                 const characterTint = useThanos ? 0x6B46C1 : 0xFF1493; // Purple for Thanos, Pink for Scarlet Witch
                 
@@ -366,6 +397,8 @@ window.BonusManager = class BonusManager {
                     this.triggerThanosAttack();
                 } else {
                     this.triggerScarletWitchAttack();
+                    // Add targeted lightning effect for Scarlet Witch
+                    this.createRedLightningEffect(symbolX, symbolY);
                 }
                 
                 // Create character power effect
@@ -497,18 +530,22 @@ window.BonusManager = class BonusManager {
         });
     }
     
-    // Simplified bonus checking for burst mode
+    // Burst mode bonus checking (no character animations - portraits are hidden)
     checkBonusesInBurstMode(cascadeCount) {
-        // Check for Cascading Random Multipliers in burst mode (simplified)
+        // Check for Cascading Random Multipliers in burst mode
         if (cascadeCount > 0) {
             const shouldTriggerCRM = Math.random() < window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE;
             if (shouldTriggerCRM && this.scene.totalWin >= window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
+                console.log('=== BURST MODE CASCADING MULTIPLIERS TRIGGERED ===');
+                
                 // Determine number of multipliers to apply (1-3)
                 const minMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS;
                 const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
                 const numMultipliers = Math.floor(Math.random() * (maxMults - minMults + 1)) + minMults;
                 
-                // Apply multiple multipliers (simplified for burst mode)
+                console.log(`Burst Mode Cascading Multipliers: ${numMultipliers} multipliers`);
+                
+                // Apply multiple multipliers
                 let totalMultiplier = 1;
                 const multipliers = [];
                 for (let i = 0; i < numMultipliers; i++) {
@@ -527,35 +564,91 @@ window.BonusManager = class BonusManager {
                 }
                 
                 this.scene.totalWin *= totalMultiplier;
+                
+                // Show appropriate message
+                const multiplierText = multipliers.map(m => `${m}x`).join(' × ');
+                
+                if (this.scene.stateManager.freeSpinsData.active) {
+                    this.scene.showMessage(`BURST MODE CASCADE ${multiplierText} = ${totalMultiplier}x!`);
+                } else {
+                    this.scene.showMessage(`BURST CASCADE ${multiplierText} = ${totalMultiplier}x!`);
+                }
+                
+                // Always play bonus sound
+                window.SafeSound.play(this.scene, 'bonus');
+                
+                console.log(`Total Burst Mode Multiplier: ${totalMultiplier}x`);
+                console.log('=== END BURST MODE CASCADING MULTIPLIERS ===');
             }
         }
     }
     
     checkRandomMultiplierInBurstMode() {
-        // Check for Random Multiplier in burst mode (simplified)
+        // Check for Random Multiplier in burst mode (no character animations - portraits are hidden)
         const shouldTriggerRM = Math.random() < window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE;
         if (shouldTriggerRM && this.scene.totalWin >= window.GameConfig.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
+            console.log('=== BURST MODE RANDOM MULTIPLIER TRIGGERED ===');
+            
             const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
             const multiplier = multiplierTable[
                 Math.floor(Math.random() * multiplierTable.length)
             ];
+            
+            console.log(`Burst Mode Random Multiplier: ${multiplier}x`);
+            
+            // Apply multiplier
             this.scene.totalWin *= multiplier;
             
             // Accumulate multiplier during free spins
             if (this.scene.stateManager.freeSpinsData.active) {
                 this.scene.stateManager.accumulateMultiplier(multiplier);
                 this.scene.updateAccumulatedMultiplierDisplay();
+                
+                // Show appropriate message for free spins
+                this.scene.showMessage(`BURST MODE ${multiplier}x MULTIPLIER!`);
+            } else {
+                // Regular burst mode message
+                this.scene.showMessage(`BURST ${multiplier}x MULTIPLIER!`);
             }
+            
+            // Always play bonus sound
+            window.SafeSound.play(this.scene, 'bonus');
+            
+            console.log('=== END BURST MODE RANDOM MULTIPLIER ===');
         }
     }
     
     triggerScarletWitchAttack() {
-        // Trigger Scarlet Witch attack animation if available
-        if (this.scene.portrait_scarlet_witch && 
-            this.scene.portrait_scarlet_witch.anims && 
-            this.scene.anims.exists('scarlet_witch_attack_animation')) {
-            
-            // Stop current animation and play attack
+        console.log('Attempting to trigger Scarlet Witch attack animation...');
+        
+        // Check each condition separately for better debugging
+        if (!this.scene.portrait_scarlet_witch) {
+            console.warn('❌ portrait_scarlet_witch not found in scene');
+            return;
+        }
+        
+        if (!this.scene.portrait_scarlet_witch.anims) {
+            console.warn('❌ portrait_scarlet_witch has no anims property');
+            return;
+        }
+        
+        if (!this.scene.anims.exists('scarlet_witch_attack_animation')) {
+            console.warn('❌ scarlet_witch_attack_animation does not exist in scene animations');
+            // Try alternative animation names
+            if (this.scene.anims.exists('scarlet_witch_attack')) {
+                console.log('✓ Found alternative: scarlet_witch_attack');
+                this.scene.portrait_scarlet_witch.play('scarlet_witch_attack');
+            } else if (this.scene.anims.exists('redwitch_attack')) {
+                console.log('✓ Found alternative: redwitch_attack');
+                this.scene.portrait_scarlet_witch.play('redwitch_attack');
+            } else {
+                console.warn('❌ No attack animation found. Available animations:', this.scene.anims.anims.entries);
+            }
+            return;
+        }
+        
+        // All checks passed - play the animation
+        try {
             this.scene.portrait_scarlet_witch.stop();
             this.scene.portrait_scarlet_witch.play('scarlet_witch_attack_animation');
             
@@ -563,20 +656,48 @@ window.BonusManager = class BonusManager {
             this.scene.portrait_scarlet_witch.once('animationcomplete', () => {
                 if (this.scene.anims.exists('scarlet_witch_idle_animation')) {
                     this.scene.portrait_scarlet_witch.play('scarlet_witch_idle_animation');
+                } else if (this.scene.anims.exists('scarlet_witch_idle')) {
+                    this.scene.portrait_scarlet_witch.play('scarlet_witch_idle');
                 }
             });
             
-            console.log('✓ Scarlet Witch attack animation triggered for Random Multiplier');
+            console.log('✓ Scarlet Witch attack animation triggered successfully');
+        } catch (error) {
+            console.error('❌ Error playing Scarlet Witch attack animation:', error);
         }
+        
+        // Always play sound effect
+        window.SafeSound.play(this.scene, 'scarlet_witch_attack');
     }
     
     triggerThanosAttack() {
-        // Trigger Thanos attack animation if available
-        if (this.scene.portrait_thanos && 
-            this.scene.portrait_thanos.anims && 
-            this.scene.anims.exists('thanos_attack_animation')) {
-            
-            // Stop current animation and play attack
+        console.log('Attempting to trigger Thanos attack animation...');
+        
+        // Check each condition separately for better debugging
+        if (!this.scene.portrait_thanos) {
+            console.warn('❌ portrait_thanos not found in scene');
+            return;
+        }
+        
+        if (!this.scene.portrait_thanos.anims) {
+            console.warn('❌ portrait_thanos has no anims property');
+            return;
+        }
+        
+        if (!this.scene.anims.exists('thanos_attack_animation')) {
+            console.warn('❌ thanos_attack_animation does not exist in scene animations');
+            // Try alternative animation names
+            if (this.scene.anims.exists('thanos_attack')) {
+                console.log('✓ Found alternative: thanos_attack');
+                this.scene.portrait_thanos.play('thanos_attack');
+            } else {
+                console.warn('❌ No attack animation found. Available animations:', this.scene.anims.anims.entries);
+            }
+            return;
+        }
+        
+        // All checks passed - play the animation
+        try {
             this.scene.portrait_thanos.stop();
             this.scene.portrait_thanos.play('thanos_attack_animation');
             
@@ -584,10 +705,353 @@ window.BonusManager = class BonusManager {
             this.scene.portrait_thanos.once('animationcomplete', () => {
                 if (this.scene.anims.exists('thanos_idle_animation')) {
                     this.scene.portrait_thanos.play('thanos_idle_animation');
+                } else if (this.scene.anims.exists('thanos_idle')) {
+                    this.scene.portrait_thanos.play('thanos_idle');
                 }
             });
             
-            console.log('✓ Thanos attack animation triggered for Random Multiplier');
+            console.log('✓ Thanos attack animation triggered successfully');
+        } catch (error) {
+            console.error('❌ Error playing Thanos attack animation:', error);
         }
+        
+        // Always play sound effect
+        window.SafeSound.play(this.scene, 'thanos_attack');
+    }
+    
+    createRedLightningEffect(targetX, targetY) {
+        console.log('🔥 Creating TARGETED red lightning effect for Scarlet Witch');
+        console.log(`🎯 Target position: X=${targetX}, Y=${targetY}`);
+        
+        // Create single targeted lightning bolt
+        const graphics = this.scene.add.graphics();
+        graphics.setDepth(998); // Just below particles
+        
+        const screenTop = 0;
+        
+        console.log(`⚡ Creating THICKER lightning from top (${targetX}, ${screenTop}) to target (${targetX}, ${targetY})`);
+        
+        // Create single targeted lightning bolt with 3 variants for 3x thickness
+        const lightningBolts = [];
+        
+        for (let variant = 0; variant < 3; variant++) {
+            lightningBolts.push({
+                segments: this.generateVerticalLightningPath(
+                    targetX + (variant - 1) * 12, // Increased horizontal offset for 3x thickness
+                    screenTop, 
+                    targetX + (variant - 1) * 12, 
+                    targetY
+                ),
+                alpha: 0,
+                width: 24 - variant * 6, // MUCH thicker strokes (24px, 18px, 12px) - 3x original
+                delay: variant * 50, // Small stagger for thickness effect
+                variant: variant
+            });
+        }
+        
+        console.log(`⚡ Created ${lightningBolts.length} THICK lightning bolts targeting single position`);
+        
+        // Return a promise for proper sequencing
+        return new Promise((resolve) => {
+            // Track when explosion should trigger
+            let explosionTriggered = false;
+            
+            // Animate lightning strike sequence with extended duration
+            lightningBolts.forEach((bolt, index) => {
+                this.scene.time.delayedCall(bolt.delay, () => {
+                    console.log(`⚡ Animating THICK targeted bolt ${index} variant ${bolt.variant}`);
+                    
+                    // Fade in quickly for dramatic strike
+                    this.scene.tweens.add({
+                        targets: bolt,
+                        alpha: 1,
+                        duration: 60, // Half duration - was 120
+                        ease: 'Power2',
+                        onUpdate: () => {
+                            this.drawVerticalLightning(graphics, lightningBolts);
+                        },
+                        onComplete: () => {
+                            // Shorter flicker effect for lightning strike
+                            this.scene.tweens.add({
+                                targets: bolt,
+                                alpha: 0.3,
+                                duration: 25, // Half duration - was 50
+                                yoyo: true,
+                                repeat: 10, // Half repeats - was 20
+                                onUpdate: () => {
+                                    this.drawVerticalLightning(graphics, lightningBolts);
+                                },
+                                onComplete: () => {
+                                    // Trigger explosion effect when main bolt completes flickering
+                                    if (index === 0 && !explosionTriggered) {
+                                        explosionTriggered = true;
+                                        this.createLightningExplosion(targetX, targetY);
+                                    }
+                                    
+                                    // Faster fade out after strike
+                                    this.scene.tweens.add({
+                                        targets: bolt,
+                                        alpha: 0,
+                                        duration: 150, // Half duration - was 300
+                                        onUpdate: () => {
+                                            this.drawVerticalLightning(graphics, lightningBolts);
+                                        },
+                                        onComplete: () => {
+                                            if (index === lightningBolts.length - 1) {
+                                                console.log('⚡ THICK targeted lightning strike complete, destroying graphics');
+                                                graphics.destroy();
+                                                resolve(); // Resolve promise when lightning is complete
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                });
+            });
+            
+            // Add enhanced targeted red flash effect around the impact point
+            const flash = this.scene.add.graphics();
+            flash.setDepth(999);
+            flash.fillStyle(0xff1493, 0);
+            // Create larger circular flash around target
+            flash.fillCircle(targetX, targetY, 120); // Larger radius flash
+            
+            console.log('🔥 Adding enhanced targeted flash effect');
+            
+            this.scene.time.delayedCall(40, () => { // Half delay - was 80
+                this.scene.tweens.add({
+                    targets: flash,
+                    alpha: 0.6, // Brighter flash
+                    duration: 50, // Half duration - was 100
+                    yoyo: true,
+                    repeat: 1, // Fewer flash pulses - was 2
+                    onComplete: () => {
+                        flash.destroy();
+                        console.log('🔥 Enhanced targeted flash complete');
+                    }
+                });
+            });
+        });
+    }
+    
+    createLightningExplosion(x, y) {
+        console.log(`⚡ Creating subtle lightning sparks at (${x}, ${y})`);
+        
+        // Create subtle lightning spark particles that spill around the impact point
+        
+        // Small electric sparks that scatter around
+        const lightningSparkParticles = this.scene.add.particles(x, y, 'reality_gem', {
+            speed: { min: 50, max: 150 },
+            scale: { start: 0.4, end: 0 },
+            lifespan: 600,
+            quantity: 8,
+            blendMode: 'ADD',
+            tint: [0xFF1493, 0xFFB6C1], // Pink to light pink
+            emitZone: {
+                type: 'circle',
+                source: new Phaser.Geom.Circle(0, 0, 5),
+                quantity: 8
+            }
+        });
+        lightningSparkParticles.setDepth(1002);
+        
+        // Tiny electric sparks that fall with gravity
+        const fallingSparkParticles = this.scene.add.particles(x, y, 'power_gem', {
+            speed: { min: 30, max: 80 },
+            scale: { start: 0.3, end: 0.1 },
+            lifespan: 800,
+            quantity: 5,
+            frequency: 100,
+            blendMode: 'ADD',
+            tint: 0xFF1493, // Pink
+            gravityY: 150,
+            angle: { min: -30, max: 30 } // Mostly downward
+        });
+        fallingSparkParticles.setDepth(1002);
+        
+        // Small electric crackles radiating outward
+        const crackleParticles = this.scene.add.particles(x, y, 'mind_gem', {
+            speed: { min: 80, max: 120 },
+            scale: { start: 0.25, end: 0 },
+            lifespan: 400,
+            quantity: 6,
+            blendMode: 'ADD',
+            tint: [0xFF1493, 0xFFFFFF], // Pink to white
+            angle: { min: 0, max: 360 }
+        });
+        crackleParticles.setDepth(1002);
+        
+        // Stop emitting after initial burst and clean up
+        this.scene.time.delayedCall(100, () => {
+            lightningSparkParticles.stop();
+            crackleParticles.stop();
+        });
+        
+        this.scene.time.delayedCall(300, () => {
+            fallingSparkParticles.stop();
+        });
+        
+        this.scene.time.delayedCall(1500, () => {
+            lightningSparkParticles.destroy();
+            fallingSparkParticles.destroy();
+            crackleParticles.destroy();
+            console.log('⚡ Lightning spark particles cleaned up');
+        });
+        
+        // Very subtle screen shake for impact
+        this.scene.cameras.main.shake(100, 0.005);
+        
+        // Play a subtle electric spark sound effect
+        window.SafeSound.play(this.scene, 'bonus');
+    }
+    
+    generateVerticalLightningPath(x1, y1, x2, y2) {
+        const segments = [];
+        const numSegments = 12; // More segments for smoother vertical lightning
+        const horizontalVariance = 25; // Horizontal zigzag variance
+        const verticalVariance = 10; // Small vertical variance
+        
+        segments.push({ x: x1, y: y1 });
+        
+        for (let i = 1; i < numSegments; i++) {
+            const progress = i / numSegments;
+            const x = x1 + (x2 - x1) * progress;
+            const y = y1 + (y2 - y1) * progress;
+            
+            // Add horizontal zigzag for lightning effect (more dramatic)
+            const horizontalOffset = (Math.random() - 0.5) * horizontalVariance * (1 - progress * 0.3); // Reduce variance as it goes down
+            const verticalOffset = (Math.random() - 0.5) * verticalVariance;
+            
+            segments.push({
+                x: x + horizontalOffset,
+                y: y + verticalOffset
+            });
+        }
+        
+        segments.push({ x: x2, y: y2 });
+        
+        return segments;
+    }
+    
+    generateLightningPath(x1, y1, x2, y2) {
+        const segments = [];
+        const numSegments = 8;
+        const variance = 30;
+        
+        segments.push({ x: x1, y: y1 });
+        
+        for (let i = 1; i < numSegments; i++) {
+            const progress = i / numSegments;
+            const x = x1 + (x2 - x1) * progress;
+            const y = y1 + (y2 - y1) * progress;
+            
+            // Add random offset for jagged effect
+            const offsetX = (Math.random() - 0.5) * variance;
+            const offsetY = (Math.random() - 0.5) * variance;
+            
+            segments.push({
+                x: x + offsetX,
+                y: y + offsetY
+            });
+        }
+        
+        segments.push({ x: x2, y: y2 });
+        
+        return segments;
+    }
+    
+    drawVerticalLightning(graphics, bolts) {
+        graphics.clear();
+        
+        bolts.forEach(bolt => {
+            if (bolt.alpha <= 0) return;
+            
+            // Draw outer glow (thicker for vertical lightning)
+            graphics.lineStyle(bolt.width + 12, 0xff1493, bolt.alpha * 0.25); // Doubled glow thickness
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+            
+            // Draw middle glow (thicker)
+            graphics.lineStyle(bolt.width + 6, 0xff69b4, bolt.alpha * 0.5); // Doubled glow thickness
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+            
+            // Draw bright core (thicker)
+            graphics.lineStyle(bolt.width + 2, 0xffffff, bolt.alpha * 0.9); // Brighter white core
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+            
+            // Draw inner core for extra intensity
+            graphics.lineStyle(bolt.width, 0xfff5f5, bolt.alpha); // Near-white core
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+        });
+    }
+    
+    drawLightning(graphics, bolts) {
+        graphics.clear();
+        
+        bolts.forEach(bolt => {
+            if (bolt.alpha <= 0) return;
+            
+            // Draw outer glow
+            graphics.lineStyle(bolt.width + 6, 0xff1493, bolt.alpha * 0.3);
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+            
+            // Draw middle glow
+            graphics.lineStyle(bolt.width + 2, 0xff69b4, bolt.alpha * 0.6);
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+            
+            // Draw core
+            graphics.lineStyle(bolt.width, 0xffffff, bolt.alpha);
+            graphics.beginPath();
+            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
+            
+            for (let i = 1; i < bolt.segments.length; i++) {
+                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
+            }
+            
+            graphics.strokePath();
+        });
     }
 }; 

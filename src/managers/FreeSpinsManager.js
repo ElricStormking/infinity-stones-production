@@ -102,20 +102,52 @@ window.FreeSpinsManager = class FreeSpinsManager {
         return false;
     }
     
-    processCascadeMultiplier(cascadeCount) {
+    async processCascadeMultiplier(cascadeCount) {
         // Apply cascade multiplier in free spins with new trigger chance
         if (this.scene.stateManager.freeSpinsData.active && cascadeCount > 1) {
             const shouldTrigger = Math.random() < window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE;
             if (shouldTrigger) {
+                console.log('=== FREE SPINS CASCADE MULTIPLIER TRIGGERED ===');
+                
+                // Use proper Random Multiplier flow with character animations
                 const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                 const randomMultiplier = multiplierTable[
                     Math.floor(Math.random() * multiplierTable.length)
                 ];
+                
+                // Select random position for the effect
+                const col = Math.floor(Math.random() * this.scene.gridManager.cols);
+                const row = Math.floor(Math.random() * this.scene.gridManager.rows);
+                
+                // Choose character for animation (90% Scarlet Witch for testing)
+                const useThanos = Math.random() < 0.1;
+                
+                console.log(`Free Spins Cascade Multiplier: ${randomMultiplier}x at position (${col}, ${row})`);
+                console.log(`Using character: ${useThanos ? 'Thanos' : 'Scarlet Witch'}`);
+                
+                // Always trigger character attack animation
+                if (useThanos) {
+                    this.scene.bonusManager.triggerThanosAttack();
+                    await this.scene.bonusManager.showThanosRandomMultiplier(col, row, randomMultiplier);
+                } else {
+                    this.scene.bonusManager.triggerScarletWitchAttack();
+                    await this.scene.bonusManager.showScarletWitchRandomMultiplier(col, row, randomMultiplier);
+                }
+                
+                // Apply to free spins accumulation
                 this.scene.stateManager.accumulateMultiplier(randomMultiplier);
-                this.scene.bonusManager.showMultiplier(randomMultiplier);
+                
+                // Show appropriate message
+                const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
+                this.scene.showMessage(`FREE SPINS ${characterName} ${randomMultiplier}x MULTIPLIER!`);
                 
                 // Update accumulated multiplier display
                 this.scene.uiManager.updateAccumulatedMultiplierDisplay();
+                
+                // Always play bonus sound
+                window.SafeSound.play(this.scene, 'bonus');
+                
+                console.log('=== END FREE SPINS CASCADE MULTIPLIER ===');
             }
         }
     }

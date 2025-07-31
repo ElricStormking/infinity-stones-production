@@ -711,7 +711,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 cascadeCount++;
                 
                 // Apply cascade multiplier in free spins with new trigger chance
-                this.freeSpinsManager.processCascadeMultiplier(cascadeCount);
+                await this.freeSpinsManager.processCascadeMultiplier(cascadeCount);
             } else {
                 hasMatches = false;
                 // Hide debug panel when no matches

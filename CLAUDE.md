@@ -27,9 +27,14 @@ cd infinity-storm-server
 npm install
 ```
 
-### Build with Webpack (optional)
+### Development Server (Client Only)
 ```bash
-# If using webpack build process
+# Start client development server on port 8080
+npm start
+# or
+npm run dev
+
+# Alternative: Build with Webpack (if webpack-dev-server is configured)
 npm run build
 ```
 

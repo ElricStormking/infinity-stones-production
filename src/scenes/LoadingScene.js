@@ -416,6 +416,14 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load win presentation assets:', error);
         }
         
+        // Load shader script
+        this.load.script('redLightningShader', 'src/shaders/RedLightningShader.js');
+        
+        // Set up error handler for shader script
+        this.load.once('fileerror-script-redLightningShader', () => {
+            console.warn('Failed to load Red Lightning shader script');
+        });
+        
         // Try to load background music (optional)
         const isFileProtocol = window.location.protocol === 'file:';
         if (!isFileProtocol) {
@@ -783,6 +791,17 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     
     create() {
         console.log('LoadingScene create() called - transitioning to MenuScene');
+        
+        // Register the Red Lightning shader if it was loaded
+        if (window.RedLightningShader) {
+            try {
+                this.cache.shader.add('RedLightning', window.RedLightningShader.fragmentShader);
+                console.log('Red Lightning shader registered successfully');
+            } catch (error) {
+                console.warn('Failed to register Red Lightning shader:', error);
+            }
+        }
+        
         // Add a short delay before transitioning
         this.time.delayedCall(500, () => {
             console.log('Starting MenuScene...');
