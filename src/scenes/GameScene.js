@@ -558,6 +558,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Stop any existing idle animations
         this.gridManager.stopAllIdleAnimations();
         
+        // Temporarily disable match checking
+        this.gridManager.isInitialFill = true;
+        
         // Fill the grid with new symbols starting from above
         for (let col = 0; col < this.gridManager.cols; col++) {
             for (let row = 0; row < this.gridManager.rows; row++) {
@@ -573,6 +576,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 symbol.setScale(0.8);
                 this.gridManager.grid[col][row] = symbol;
                 
+                // Hide all effects during cascade
+                if (symbol.shadowEffect) symbol.shadowEffect.setVisible(false);
+                if (symbol.glowEffect) symbol.glowEffect.setVisible(false);
+                
                 // Create cascading animation with staggered delays
                 const promise = new Promise(resolve => {
                     // Fade in
@@ -583,18 +590,50 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         scaleY: 1,
                         duration: 200,
                         delay: (col * 50) + (row * 30), // Stagger by column and row
-                        ease: 'Power2'
+                        ease: 'Power2',
+                        onStart: () => {
+                            // Show shadow effect when symbol starts appearing
+                            if (symbol.shadowEffect) {
+                                symbol.shadowEffect.setVisible(true);
+                                symbol.shadowEffect.setAlpha(0);
+                                this.tweens.add({
+                                    targets: symbol.shadowEffect,
+                                    alpha: 0.3,
+                                    duration: 200
+                                });
+                            }
+                        }
                     });
                     
-                    // Drop animation
+                    // Drop animation - only resolve when this completes
                     this.tweens.add({
                         targets: symbol,
                         y: targetPos.y,
                         duration: window.GameConfig.CASCADE_SPEED || 400,
                         delay: (col * 50) + (row * 30), // Same stagger
                         ease: 'Bounce.out',
-                        onComplete: resolve
+                        onComplete: () => {
+                            // Show shadow effect after landing
+                            if (symbol.shadowEffect) {
+                                symbol.shadowEffect.setVisible(true);
+                                symbol.shadowEffect.setPosition(symbol.x + 5, symbol.y + 5);
+                            }
+                            // Add a small delay to ensure animation fully settles
+                            this.time.delayedCall(50, resolve);
+                        }
                     });
+                    
+                    // Move shadow with symbol (but keep it hidden)
+                    if (symbol.shadowEffect) {
+                        symbol.shadowEffect.setPosition(targetPos.x + 5, startY + 5);
+                        this.tweens.add({
+                            targets: symbol.shadowEffect,
+                            y: targetPos.y + 5,
+                            duration: window.GameConfig.CASCADE_SPEED || 400,
+                            delay: (col * 50) + (row * 30),
+                            ease: 'Bounce.out'
+                        });
+                    }
                 });
                 
                 promises.push(promise);
@@ -603,6 +642,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Wait for all symbols to cascade down
         await Promise.all(promises);
+        
+        // Add a small delay to ensure all animations are fully settled
+        await this.delay(100);
+        
+        // Re-enable match checking
+        this.gridManager.isInitialFill = false;
         
         // Start idle animations after all symbols are in place
         this.gridManager.startAllIdleAnimations();

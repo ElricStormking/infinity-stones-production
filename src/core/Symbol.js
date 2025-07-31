@@ -27,7 +27,6 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         // Effects
         this.glowEffect = null;
         this.shadowEffect = null;
-        this.particleEmitter = null;
         
         // Initialize
         this.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
@@ -47,6 +46,10 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         // Create glow effect container
         this.glowEffect = this.scene.add.graphics();
         this.glowEffect.setDepth(this.depth - 2);
+        
+        // Initially hide shadow and glow effects during creation
+        this.shadowEffect.setVisible(false);
+        this.glowEffect.setVisible(false);
         
         // Add hover effects
         this.on('pointerover', () => {
@@ -184,11 +187,6 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         
         // Glow effect
         this.addGlow(0xFFD700, 0.8);
-        
-        // Add particles for special symbols
-        if (this.symbolType === 'thanos' || this.symbolType === 'scarlet_witch') {
-            this.createParticles();
-        }
     }
     
     destroy(playDestructionAnimation = false) {
@@ -278,10 +276,6 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                 if (this.glowEffect) {
                     this.glowEffect.destroy();
                 }
-                if (this.particleEmitter) {
-                    this.particleEmitter.stop();
-                    this.particleEmitter = null;
-                }
                 
                 // Nullify references to prevent memory leaks
                 this.shadowEffect = null;
@@ -312,10 +306,6 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     }
                     if (this.glowEffect) {
                         this.glowEffect.destroy();
-                    }
-                    if (this.particleEmitter) {
-                        this.particleEmitter.stop();
-                        this.particleEmitter = null;
                     }
                     
                     // Nullify references to prevent memory leaks
@@ -466,26 +456,6 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         });
     }
     
-    createParticles() {
-        const particles = this.scene.add.particles(this.x, this.y, 'particle', {
-            speed: { min: 100, max: 200 },
-            scale: { start: 0.5, end: 0 },
-            blendMode: 'ADD',
-            lifespan: 600,
-            quantity: 2,
-            tint: this.symbolType === 'thanos' ? 0x9400D3 : 0xDC143C
-        });
-        
-        const cleanupTimer = this.scene.time.delayedCall(2000, () => {
-            if (particles && particles.scene) {
-                particles.destroy();
-            }
-        });
-        
-        // Store reference for cleanup
-        if (!this.delayedCalls) this.delayedCalls = [];
-        this.delayedCalls.push(cleanupTimer);
-    }
     
     createExplosion() {
         const explosion = this.scene.add.particles(this.x, this.y, 'particle', {
