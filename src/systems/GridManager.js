@@ -178,6 +178,12 @@ window.GridManager = class GridManager {
     removeMatches(matches) {
         const removedSymbols = [];
         
+        // Play symbol shattering sound effect when matches are found
+        if (matches.length > 0) {
+            console.log(`🔊 Playing symbol shattering sound for ${matches.length} match groups`);
+            window.SafeSound.play(this.scene, 'symbol_shattering');
+        }
+        
         for (const match of matches) {
             for (const { col, row, symbol } of match) {
                 if (symbol) {

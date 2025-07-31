@@ -424,21 +424,62 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load Red Lightning shader script');
         });
         
-        // Try to load background music (optional)
+        // Try to load audio files with comprehensive error handling
         const isFileProtocol = window.location.protocol === 'file:';
-        if (!isFileProtocol) {
-            try {
-                this.load.audio('bgm_infinity_storm', 'assets/audio/BGM_infinity_storm.mp3');
-                
-                // Set up error handler for audio
-                this.load.once('fileerror-audio-bgm_infinity_storm', () => {
-                    console.log('Background music not found - continuing without audio');
-                });
-            } catch (error) {
-                console.log('Background music loading error - continuing without audio');
-            }
-        } else {
-            console.log('File protocol detected - skipping audio loading');
+        console.log('🔊 Loading audio files. Protocol:', window.location.protocol);
+        console.log('🔊 Audio context state:', this.sound ? this.sound.context ? this.sound.context.state : 'no context' : 'no sound manager');
+        
+        try {
+            // Load multiple format fallbacks for better browser compatibility
+            this.load.audio('bgm_infinity_storm', 'assets/audio/BGM_infinity_storm.mp3');
+            this.load.audio('bgm_free_spins', 'assets/audio/BGM_free_spins.mp3');
+            this.load.audio('lightning_struck', 'assets/audio/lightning_struck.mp3');
+            this.load.audio('symbol_shattering', 'assets/audio/symbol_shattering.mp3');
+            
+            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering');
+            
+            // Set up comprehensive error handlers
+            this.load.once('fileerror-audio-bgm_infinity_storm', (error) => {
+                console.log('❌ Background music failed to load:', error);
+            });
+            this.load.once('fileerror-audio-bgm_free_spins', (error) => {
+                console.log('❌ Free spins BGM failed to load:', error);
+            });
+            this.load.once('fileerror-audio-lightning_struck', (error) => {
+                console.log('❌ Lightning sound effect failed to load:', error);
+            });
+            this.load.once('fileerror-audio-symbol_shattering', (error) => {
+                console.log('❌ Symbol shattering sound effect failed to load:', error);
+            });
+            
+            // Success handlers to confirm loading
+            this.load.once('filecomplete-audio-bgm_free_spins', () => {
+                console.log('✅ Free spins BGM loaded successfully!');
+            });
+            this.load.once('filecomplete-audio-lightning_struck', () => {
+                console.log('✅ Lightning sound effect loaded successfully!');
+            });
+            this.load.once('filecomplete-audio-symbol_shattering', () => {
+                console.log('✅ Symbol shattering sound effect loaded successfully!');
+            });
+            
+            // General audio loading complete handler
+            this.load.once('complete', () => {
+                console.log('🔊 All loading complete. Checking audio availability:');
+                setTimeout(() => {
+                    const hasMainBGM = this.sound && this.sound.get('bgm_infinity_storm');
+                    const hasFreeSpinsBGM = this.sound && this.sound.get('bgm_free_spins');
+                    const hasLightning = this.sound && this.sound.get('lightning_struck');
+                    const hasShattering = this.sound && this.sound.get('symbol_shattering');
+                    console.log('🔊 Main BGM available:', !!hasMainBGM);
+                    console.log('🔊 Free Spins BGM available:', !!hasFreeSpinsBGM);
+                    console.log('🔊 Lightning available:', !!hasLightning);
+                    console.log('🔊 Shattering available:', !!hasShattering);
+                }, 100);
+            });
+            
+        } catch (error) {
+            console.log('❌ Audio loading error - continuing without audio:', error);
         }
         
         console.log('Loading game assets...');

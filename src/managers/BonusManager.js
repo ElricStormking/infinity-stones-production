@@ -723,6 +723,18 @@ window.BonusManager = class BonusManager {
         console.log('🔥 Creating TARGETED red lightning effect for Scarlet Witch');
         console.log(`🎯 Target position: X=${targetX}, Y=${targetY}`);
         
+        // Play lightning sound effect with fallback
+        console.log('🔊 Attempting to play lightning_struck sound effect');
+        let soundResult = window.SafeSound.play(this.scene, 'lightning_struck');
+        
+        // If lightning sound doesn't play, try symbol_shattering as fallback
+        if (!soundResult) {
+            console.log('🔊 Lightning sound failed, trying symbol_shattering as fallback');
+            soundResult = window.SafeSound.play(this.scene, 'symbol_shattering');
+        }
+        
+        console.log('🔊 Sound play result:', soundResult);
+        
         // Create single targeted lightning bolt
         const graphics = this.scene.add.graphics();
         graphics.setDepth(998); // Just below particles

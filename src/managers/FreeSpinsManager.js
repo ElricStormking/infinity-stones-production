@@ -26,6 +26,33 @@ window.FreeSpinsManager = class FreeSpinsManager {
         
         this.scene.stateManager.startFreeSpins(freeSpins);
         
+        // Switch to Free Spins BGM immediately and mark as initialized
+        console.log('🎵 === FREE SPINS TRIGGERED - SWITCHING TO FREE SPINS BGM ===');
+        console.log('🎵 Current Free Spins State:', this.scene.stateManager.freeSpinsData);
+        
+        // Mark BGM as initialized immediately to prevent GameScene from overriding
+        window.SafeSound.bgmInitialized = true;
+        
+        // Switch immediately
+        console.log('🎵 Executing IMMEDIATE Free Spins BGM switch');
+        window.SafeSound.startFreeSpinsBGM(this.scene);
+        
+        // Also set a delayed reinforcement to ensure it sticks
+        this.scene.time.delayedCall(500, () => {
+            console.log('🎵 Reinforcing Free Spins BGM switch (delayed backup)');
+            if (this.scene.stateManager.freeSpinsData.active) {
+                window.SafeSound.startFreeSpinsBGM(this.scene);
+            }
+        });
+        
+        // And another one to be extra sure
+        this.scene.time.delayedCall(1500, () => {
+            console.log('🎵 Final Free Spins BGM enforcement (extra backup)');
+            if (this.scene.stateManager.freeSpinsData.active) {
+                window.SafeSound.startFreeSpinsBGM(this.scene);
+            }
+        });
+        
         // Show big prominent free spins message
         this.scene.winPresentationManager.showBigFreeSpinsMessage(freeSpins);
         window.SafeSound.play(this.scene, 'bonus');
@@ -65,6 +92,12 @@ window.FreeSpinsManager = class FreeSpinsManager {
         // Check if free spins ended
         if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count === 0) {
             const totalFreeSpinsWin = this.scene.stateManager.endFreeSpins();
+            
+            // Switch back to main BGM
+            console.log('🎵 === FREE SPINS ENDED - SWITCHING BACK TO MAIN BGM ===');
+            console.log('🎵 Final Free Spins State:', this.scene.stateManager.freeSpinsData);
+            window.SafeSound.startMainBGM(this.scene);
+            
             await this.scene.winPresentationManager.showFreeSpinsCompleteScreen(totalFreeSpinsWin);
             this.scene.uiManager.updateFreeSpinsDisplay();
             return true;
@@ -313,6 +346,10 @@ window.FreeSpinsManager = class FreeSpinsManager {
     purchaseFreeSpins(amount) {
         // Start free spins mode
         this.scene.stateManager.startFreeSpins(amount);
+        
+        // Switch to Free Spins BGM
+        console.log('🎵 Free Spins purchased - switching to Free Spins BGM');
+        window.SafeSound.startFreeSpinsBGM(this.scene);
         
         // Show purchase confirmation message
         this.scene.showMessage(`${amount} Free Spins Purchased!`);
