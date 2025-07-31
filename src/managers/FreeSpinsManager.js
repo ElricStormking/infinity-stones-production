@@ -44,14 +44,15 @@ window.FreeSpinsManager = class FreeSpinsManager {
     
     handleSpinButtonClick() {
         if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count > 0) {
-            if (this.freeSpinsAutoPlay) {
-                // Stop auto-play
-                this.freeSpinsAutoPlay = false;
-                console.log('Free spins auto-play stopped by user');
-                this.scene.updateSpinButtonText();
-                this.scene.showMessage('Auto-play stopped - Click SPIN to continue');
-            } else {
-                // Manual spin during free spins
+            // During Free Spins Mode, always auto-spin all remaining free spins
+            if (!this.freeSpinsAutoPlay) {
+                // Enable auto-play and start spinning
+                this.freeSpinsAutoPlay = true;
+                console.log('Free spins auto-play enabled - starting auto-spins');
+                this.scene.showMessage('Auto-spinning Free Spins...');
+            }
+            // Start the spin regardless of auto-play state
+            if (!this.scene.isSpinning) {
                 this.scene.startSpin();
             }
         } else {

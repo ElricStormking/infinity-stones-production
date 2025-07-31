@@ -499,8 +499,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Clear current grid with animation
         await this.clearGridWithAnimation();
         
-        // Fill new grid
-        this.gridManager.fillGrid();
+        // Fill new grid with cascading animation
+        await this.fillGridWithCascade();
         
         // Play spin sound
         window.SafeSound.play(this, 'spin');
@@ -550,6 +550,62 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         await Promise.all(promises);
         this.gridManager.initializeGrid();
+    }
+    
+    async fillGridWithCascade() {
+        const promises = [];
+        
+        // Stop any existing idle animations
+        this.gridManager.stopAllIdleAnimations();
+        
+        // Fill the grid with new symbols starting from above
+        for (let col = 0; col < this.gridManager.cols; col++) {
+            for (let row = 0; row < this.gridManager.rows; row++) {
+                const randomType = this.gridManager.getRandomSymbolType();
+                const symbol = this.gridManager.createSymbol(randomType, col, row);
+                
+                // Start position above the grid
+                const startY = this.gridManager.gridY - this.gridManager.symbolSize * (this.gridManager.rows - row + 1);
+                const targetPos = this.gridManager.getSymbolPosition(col, row);
+                
+                symbol.setPosition(targetPos.x, startY);
+                symbol.setAlpha(0);
+                symbol.setScale(0.8);
+                this.gridManager.grid[col][row] = symbol;
+                
+                // Create cascading animation with staggered delays
+                const promise = new Promise(resolve => {
+                    // Fade in
+                    this.tweens.add({
+                        targets: symbol,
+                        alpha: 1,
+                        scaleX: 1,
+                        scaleY: 1,
+                        duration: 200,
+                        delay: (col * 50) + (row * 30), // Stagger by column and row
+                        ease: 'Power2'
+                    });
+                    
+                    // Drop animation
+                    this.tweens.add({
+                        targets: symbol,
+                        y: targetPos.y,
+                        duration: window.GameConfig.CASCADE_SPEED || 400,
+                        delay: (col * 50) + (row * 30), // Same stagger
+                        ease: 'Bounce.out',
+                        onComplete: resolve
+                    });
+                });
+                
+                promises.push(promise);
+            }
+        }
+        
+        // Wait for all symbols to cascade down
+        await Promise.all(promises);
+        
+        // Start idle animations after all symbols are in place
+        this.gridManager.startAllIdleAnimations();
     }
     
     async processCascades() {
