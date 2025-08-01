@@ -13,6 +13,11 @@ window.FreeSpinsManager = class FreeSpinsManager {
         } else if (scatterCount >= 4 && this.scene.stateManager.freeSpinsData.active) {
             // Retrigger - 4+ scatter during free spins awards +5 extra free spins
             const extraSpins = window.GameConfig.FREE_SPINS.RETRIGGER_SPINS;
+            
+            // Play Thanos finger snap sound for retrigger
+            console.log('🔊 Playing Thanos finger snap sound for Free Spins retrigger');
+            window.SafeSound.play(this.scene, 'thanos_finger_snap');
+            
             this.scene.stateManager.addFreeSpins(extraSpins);
             this.scene.showMessage(`+${extraSpins} Free Spins!`);
             this.scene.uiManager.updateFreeSpinsDisplay();
@@ -53,9 +58,12 @@ window.FreeSpinsManager = class FreeSpinsManager {
             }
         });
         
+        // Play Thanos finger snap sound for 4+ scatter symbols
+        console.log('🔊 Playing Thanos finger snap sound for Free Spins trigger');
+        window.SafeSound.play(this.scene, 'thanos_finger_snap');
+        
         // Show big prominent free spins message
         this.scene.winPresentationManager.showBigFreeSpinsMessage(freeSpins);
-        window.SafeSound.play(this.scene, 'bonus');
         this.scene.uiManager.updateFreeSpinsDisplay();
         
         // Start auto-spinning free spins after the message is shown
@@ -152,8 +160,9 @@ window.FreeSpinsManager = class FreeSpinsManager {
                 const col = Math.floor(Math.random() * this.scene.gridManager.cols);
                 const row = Math.floor(Math.random() * this.scene.gridManager.rows);
                 
-                // Choose character for animation (90% Scarlet Witch for testing)
-                const useThanos = Math.random() < 0.1;
+                // Choose character for animation
+                // TESTING: 80% chance for Thanos to test power grip animation and sound
+                const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
                 
                 console.log(`Free Spins Cascade Multiplier: ${randomMultiplier}x at position (${col}, ${row})`);
                 console.log(`Using character: ${useThanos ? 'Thanos' : 'Scarlet Witch'}`);

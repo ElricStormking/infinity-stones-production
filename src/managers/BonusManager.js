@@ -38,8 +38,8 @@ window.BonusManager = class BonusManager {
         console.log(`Original Win: $${this.scene.totalWin.toFixed(2)}`);
         
         // Randomly choose between Thanos and Scarlet Witch
-        // TESTING: 90% chance for Scarlet Witch to test red lightning effect
-        const useThanos = Math.random() < 0.1; // 10% Thanos, 90% Scarlet Witch
+        // TESTING: 80% chance for Thanos to test power grip animation and sound
+        const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
         
         // Always trigger character attack animation and show multiplier effect
         if (useThanos) {
@@ -387,8 +387,8 @@ window.BonusManager = class BonusManager {
                 const symbolY = this.scene.gridManager.getSymbolScreenY(row);
                 
                 // Randomly choose between Thanos and Scarlet Witch animation
-                // TESTING: 90% chance for Scarlet Witch to test red lightning effect
-                const useThanos = Math.random() < 0.1; // 10% Thanos, 90% Scarlet Witch
+                // TESTING: 80% chance for Thanos to test power grip animation and sound
+                const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
                 const characterKey = useThanos ? 'thanos' : 'scarlet_witch';
                 const characterTint = useThanos ? 0x6B46C1 : 0xFF1493; // Purple for Thanos, Pink for Scarlet Witch
                 
@@ -715,8 +715,9 @@ window.BonusManager = class BonusManager {
             console.error('❌ Error playing Thanos attack animation:', error);
         }
         
-        // Always play sound effect
-        window.SafeSound.play(this.scene, 'thanos_attack');
+        // Play Thanos power sound effect
+        console.log('🔊 Playing Thanos power sound effect');
+        window.SafeSound.play(this.scene, 'thanos_power');
     }
     
     createRedLightningEffect(targetX, targetY) {
