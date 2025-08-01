@@ -104,6 +104,25 @@ Single Express + Socket.io server running on port 3000 that:
 - **Network Layer**: src/services/ (NetworkService.js handles both HTTP and WebSocket)
 - **Scene Flow**: LoadingScene → MenuScene → GameScene (defined in src/scenes/)
 
+### Audio System
+The game features a comprehensive audio system with dynamic BGM switching and sound effects:
+- **SafeSound System**: Centralized audio management with graceful error handling
+- **BGM Switching**: Automatic switching between main theme and Free Spins music
+- **Sound Effects**: 
+  - `lightning_struck.mp3` - Plays when Scarlet Witch casts red lightning
+  - `symbol_shattering.mp3` - Plays when 8+ symbols are destroyed
+- **Audio Files**:
+  - `BGM_infinity_storm.mp3` - Main game background music
+  - `BGM_free_spins.mp3` - Free Spins bonus mode music
+- **Debug Controls** (Development only):
+  - B key: Toggle between BGM tracks
+  - M key: Start main BGM manually
+  - X key: Direct BGM test (bypasses SafeSound)
+- **Implementation Notes**:
+  - Audio initializes on first user interaction (browser requirement)
+  - Uses direct cache access instead of Sound.get() for reliability
+  - BGM automatically switches during Free Spins mode
+
 ### Planned Server Architecture
 The InfinityStormServer-ClientArch.txt file contains the complete planned server architecture including:
 - Database models for Player, Wallet, Session, Transaction, SpinResult
