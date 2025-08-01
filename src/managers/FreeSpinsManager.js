@@ -106,6 +106,10 @@ window.FreeSpinsManager = class FreeSpinsManager {
             console.log('🎵 Final Free Spins State:', this.scene.stateManager.freeSpinsData);
             window.SafeSound.startMainBGM(this.scene);
             
+            // Play winning big sound for Free Spins completion
+            console.log('🔊 Playing winning big sound for Free Spins completion');
+            window.SafeSound.play(this.scene, 'winning_big');
+            
             await this.scene.winPresentationManager.showFreeSpinsCompleteScreen(totalFreeSpinsWin);
             this.scene.uiManager.updateFreeSpinsDisplay();
             return true;

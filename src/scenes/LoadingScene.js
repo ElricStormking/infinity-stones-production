@@ -437,8 +437,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.audio('symbol_shattering', 'assets/audio/symbol_shattering.mp3');
             this.load.audio('thanos_power', 'assets/audio/thanos_power.mp3');
             this.load.audio('thanos_finger_snap', 'assets/audio/thanos_finger_snap.mp3');
+            this.load.audio('winning_big', 'assets/audio/winning_big.mp3');
             
-            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap');
+            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big');
             
             // Set up comprehensive error handlers
             this.load.once('fileerror-audio-bgm_infinity_storm', (error) => {
@@ -459,6 +460,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.once('fileerror-audio-thanos_finger_snap', (error) => {
                 console.log('❌ Thanos finger snap sound effect failed to load:', error);
             });
+            this.load.once('fileerror-audio-winning_big', (error) => {
+                console.log('❌ Winning big sound effect failed to load:', error);
+            });
             
             // Success handlers to confirm loading
             this.load.once('filecomplete-audio-bgm_free_spins', () => {
@@ -476,6 +480,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.once('filecomplete-audio-thanos_finger_snap', () => {
                 console.log('✅ Thanos finger snap sound effect loaded successfully!');
             });
+            this.load.once('filecomplete-audio-winning_big', () => {
+                console.log('✅ Winning big sound effect loaded successfully!');
+            });
             
             // General audio loading complete handler
             this.load.once('complete', () => {
@@ -487,12 +494,14 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                     const hasShattering = this.sound && this.sound.get('symbol_shattering');
                     const hasThanosPower = this.sound && this.sound.get('thanos_power');
                     const hasThanosSnap = this.sound && this.sound.get('thanos_finger_snap');
+                    const hasWinningBig = this.sound && this.sound.get('winning_big');
                     console.log('🔊 Main BGM available:', !!hasMainBGM);
                     console.log('🔊 Free Spins BGM available:', !!hasFreeSpinsBGM);
                     console.log('🔊 Lightning available:', !!hasLightning);
                     console.log('🔊 Shattering available:', !!hasShattering);
                     console.log('🔊 Thanos Power available:', !!hasThanosPower);
                     console.log('🔊 Thanos Snap available:', !!hasThanosSnap);
+                    console.log('🔊 Winning Big available:', !!hasWinningBig);
                 }, 100);
             });
             
