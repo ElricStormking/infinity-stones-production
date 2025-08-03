@@ -380,7 +380,7 @@ window.BurstModeManager = class BurstModeManager {
         this.burstBalanceText.setOrigin(0, 0.5);
         this.burstModeUI.add(this.burstBalanceText);
         
-        // Bet amount
+        // Bet amount2
         this.burstBetText = this.scene.add.text(950 * scaleX, 662 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
             ...valueStyle,
             color: '#FFFFFF'

@@ -2,6 +2,15 @@
 window.BonusManager = class BonusManager {
     constructor(scene) {
         this.scene = scene;
+        this.thanosPowerGripEffect = null;
+    }
+    
+    cleanup() {
+        // Clean up Thanos Power Grip effect
+        if (this.thanosPowerGripEffect) {
+            this.thanosPowerGripEffect.destroy();
+            this.thanosPowerGripEffect = null;
+        }
     }
     
     async checkRandomMultiplier() {
@@ -75,94 +84,47 @@ window.BonusManager = class BonusManager {
     
     async showThanosRandomMultiplier(col, row, multiplier) {
         return new Promise(resolve => {
-            // Get the symbol position on screen
+            // Initialize Thanos Power Grip effect if not already created
+            if (!this.thanosPowerGripEffect) {
+                this.thanosPowerGripEffect = new window.ThanosPowerGripEffect(this.scene);
+            }
+            
+            // Get all symbols that will be affected (in this case, just one)
+            const positions = [{ row, col }];
+            
+            // Trigger the Thanos Power Grip effect with magic circle and multiplier
+            this.thanosPowerGripEffect.triggerEffect(positions, multiplier);
+            
+            // Get the symbol position for additional effects
             const symbolX = this.scene.gridManager.getSymbolScreenX(col);
             const symbolY = this.scene.gridManager.getSymbolScreenY(row);
             
-            // Note: Attack animation is triggered at the top level
+            // Hide the original symbol with Thanos power effect
+            const originalSymbol = this.scene.gridManager.grid[col][row];
+            if (originalSymbol) {
+                // Purple flash before destruction
+                originalSymbol.setTint(0x6B46C1);
+                this.scene.tweens.add({
+                    targets: originalSymbol,
+                    alpha: 0,
+                    scaleX: 0.1,
+                    scaleY: 0.1,
+                    angle: 720,
+                    duration: 500,
+                    ease: 'Power3.in',
+                    onComplete: () => {
+                        originalSymbol.setVisible(false);
+                    }
+                });
+            }
             
-            // Create Thanos power grip effect
-            const thanosGrip = this.scene.add.image(symbolX, symbolY, 'thanos');
-            thanosGrip.setScale(0.3);
-            thanosGrip.setAlpha(0);
-            thanosGrip.setDepth(1000);
-            thanosGrip.setTint(0x6B46C1); // Purple tint for power
-            
-            // Create multiplier text
-            const multiplierText = this.scene.add.text(symbolX, symbolY - 50, `x${multiplier}`, {
-                fontSize: '48px',
-                fontFamily: 'Arial Black',
-                color: '#FFD700',
-                stroke: '#4B0082',
-                strokeThickness: 4
-            });
-            multiplierText.setOrigin(0.5);
-            multiplierText.setScale(0);
-            multiplierText.setDepth(1001);
-            
-            // Create energy particles around the symbol
-            const particles = this.scene.add.particles(symbolX, symbolY, 'power_gem', {
-                speed: { min: 50, max: 150 },
-                scale: { start: 0.3, end: 0 },
-                lifespan: 1000,
-                quantity: 2,
-                frequency: 100,
-                blendMode: 'ADD',
-                tint: 0x6B46C1
-            });
-            particles.setDepth(999);
-            
-            // Animation sequence
-            this.scene.tweens.add({
-                targets: thanosGrip,
-                alpha: 0.8,
-                scaleX: 0.5,
-                scaleY: 0.5,
-                duration: 300,
-                ease: 'Power2',
-                onComplete: () => {
-                    // Show multiplier text
-                    this.scene.tweens.add({
-                        targets: multiplierText,
-                        scaleX: 1,
-                        scaleY: 1,
-                        duration: 400,
-                        ease: 'Back.out',
-                        onComplete: () => {
-                            // Pulsing effect
-                            this.scene.tweens.add({
-                                targets: [thanosGrip, multiplierText],
-                                scaleX: 1.2,
-                                scaleY: 1.2,
-                                duration: 200,
-                                yoyo: true,
-                                repeat: 2,
-                                ease: 'Sine.easeInOut',
-                                onComplete: () => {
-                                    // Fade out
-                                    particles.stop();
-                                    this.scene.tweens.add({
-                                        targets: [thanosGrip, multiplierText],
-                                        alpha: 0,
-                                        scaleX: 0,
-                                        scaleY: 0,
-                                        duration: 500,
-                                        ease: 'Power2',
-                                        onComplete: () => {
-                                            thanosGrip.destroy();
-                                            multiplierText.destroy();
-                                            particles.destroy();
-                                            resolve();
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
+            // Wait for effect to complete
+            this.scene.time.delayedCall(2000, () => {
+                resolve();
             });
             
-            // Play bonus sound
+            // Play Thanos power sound
+            window.SafeSound.play(this.scene, 'thanos_power');
             window.SafeSound.play(this.scene, 'bonus');
         });
     }
@@ -395,92 +357,128 @@ window.BonusManager = class BonusManager {
                 // Trigger character attack animation based on which one is shown
                 if (useThanos) {
                     this.triggerThanosAttack();
-                } else {
-                    this.triggerScarletWitchAttack();
-                    // Add targeted lightning effect for Scarlet Witch
-                    this.createRedLightningEffect(symbolX, symbolY);
-                }
-                
-                // Create character power effect
-                const character = this.scene.add.image(symbolX, symbolY, characterKey);
-                character.setScale(0.25);
-                character.setAlpha(0);
-                character.setDepth(1000);
-                character.setTint(characterTint);
-                
-                // Create multiplier text
-                const multiplierText = this.scene.add.text(symbolX, symbolY - 60, `x${multiplier}`, {
-                    fontSize: '36px',
-                    fontFamily: 'Arial Black',
-                    color: '#FFD700',
-                    stroke: useThanos ? '#4B0082' : '#FF1493',
-                    strokeThickness: 3
-                });
-                multiplierText.setOrigin(0.5);
-                multiplierText.setScale(0);
-                multiplierText.setDepth(1001);
-                
-                // Create energy particles
-                const particles = this.scene.add.particles(symbolX, symbolY, useThanos ? 'power_gem' : 'reality_gem', {
-                    speed: { min: 30, max: 100 },
-                    scale: { start: 0.2, end: 0 },
-                    lifespan: 800,
-                    quantity: 1,
-                    frequency: 80,
-                    blendMode: 'ADD',
-                    tint: characterTint
-                });
-                particles.setDepth(999);
-                
-                // Animation sequence
-                this.scene.tweens.add({
-                    targets: character,
-                    alpha: 0.7,
-                    scaleX: 0.4,
-                    scaleY: 0.4,
-                    duration: 250,
-                    ease: 'Power2',
-                    onComplete: () => {
-                        // Show multiplier text
+                    
+                    // Use the new Thanos Power Grip effect
+                    if (!this.thanosPowerGripEffect) {
+                        this.thanosPowerGripEffect = new window.ThanosPowerGripEffect(this.scene);
+                    }
+                    
+                    // Trigger the magic circle effect
+                    const positions = [{ row, col }];
+                    this.thanosPowerGripEffect.triggerEffect(positions, multiplier);
+                    
+                    // Hide the original symbol
+                    const originalSymbol = this.scene.gridManager.grid[col][row];
+                    if (originalSymbol) {
+                        originalSymbol.setTint(0x6B46C1);
                         this.scene.tweens.add({
-                            targets: multiplierText,
-                            scaleX: 1,
-                            scaleY: 1,
-                            duration: 300,
-                            ease: 'Back.out',
+                            targets: originalSymbol,
+                            alpha: 0,
+                            scaleX: 0.1,
+                            scaleY: 0.1,
+                            angle: 360,
+                            duration: 400,
+                            ease: 'Power2.in',
                             onComplete: () => {
-                                // Brief pulsing effect
-                                this.scene.tweens.add({
-                                    targets: [character, multiplierText],
-                                    scaleX: 1.1,
-                                    scaleY: 1.1,
-                                    duration: 150,
-                                    yoyo: true,
-                                    repeat: 1,
-                                    ease: 'Sine.easeInOut',
-                                    onComplete: () => {
-                                        // Fade out
-                                        particles.stop();
-                                        this.scene.tweens.add({
-                                            targets: [character, multiplierText],
-                                            alpha: 0,
-                                            scaleX: 0,
-                                            scaleY: 0,
-                                            duration: 400,
-                                            ease: 'Power2',
-                                            onComplete: () => {
-                                                character.destroy();
-                                                multiplierText.destroy();
-                                                particles.destroy();
-                                                resolve();
-                                            }
-                                        });
-                                    }
-                                });
+                                originalSymbol.setVisible(false);
                             }
                         });
                     }
-                });
+                    
+                    // Wait for effect to complete
+                    this.scene.time.delayedCall(1500, () => {
+                        resolve();
+                    });
+                    
+                    // Play Thanos power sound
+                    window.SafeSound.play(this.scene, 'thanos_power');
+                } else {
+                    // Scarlet Witch effect (keep existing implementation)
+                    this.triggerScarletWitchAttack();
+                    // Add targeted lightning effect for Scarlet Witch
+                    this.createRedLightningEffect(symbolX, symbolY);
+                    
+                    // Create character power effect
+                    const character = this.scene.add.image(symbolX, symbolY, characterKey);
+                    character.setScale(0.25);
+                    character.setAlpha(0);
+                    character.setDepth(1000);
+                    character.setTint(characterTint);
+                    
+                    // Create multiplier text
+                    const multiplierText = this.scene.add.text(symbolX, symbolY - 60, `x${multiplier}`, {
+                        fontSize: '36px',
+                        fontFamily: 'Arial Black',
+                        color: '#FFD700',
+                        stroke: '#FF1493',
+                        strokeThickness: 3
+                    });
+                    multiplierText.setOrigin(0.5);
+                    multiplierText.setScale(0);
+                    multiplierText.setDepth(1001);
+                    
+                    // Create energy particles
+                    const particles = this.scene.add.particles(symbolX, symbolY, 'reality_gem', {
+                        speed: { min: 30, max: 100 },
+                        scale: { start: 0.2, end: 0 },
+                        lifespan: 800,
+                        quantity: 1,
+                        frequency: 80,
+                        blendMode: 'ADD',
+                        tint: characterTint
+                    });
+                    particles.setDepth(999);
+                    
+                    // Animation sequence
+                    this.scene.tweens.add({
+                        targets: character,
+                        alpha: 0.7,
+                        scaleX: 0.4,
+                        scaleY: 0.4,
+                        duration: 250,
+                        ease: 'Power2',
+                        onComplete: () => {
+                            // Show multiplier text
+                            this.scene.tweens.add({
+                                targets: multiplierText,
+                                scaleX: 1,
+                                scaleY: 1,
+                                duration: 300,
+                                ease: 'Back.out',
+                                onComplete: () => {
+                                    // Brief pulsing effect
+                                    this.scene.tweens.add({
+                                        targets: [character, multiplierText],
+                                        scaleX: 1.1,
+                                        scaleY: 1.1,
+                                        duration: 150,
+                                        yoyo: true,
+                                        repeat: 1,
+                                        ease: 'Sine.easeInOut',
+                                        onComplete: () => {
+                                            // Fade out
+                                            particles.stop();
+                                            this.scene.tweens.add({
+                                                targets: [character, multiplierText],
+                                                alpha: 0,
+                                                scaleX: 0,
+                                                scaleY: 0,
+                                                duration: 400,
+                                                ease: 'Power2',
+                                                onComplete: () => {
+                                                    character.destroy();
+                                                    multiplierText.destroy();
+                                                    particles.destroy();
+                                                    resolve();
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
                 
                 // Play bonus sound
                 window.SafeSound.play(this.scene, 'bonus');
