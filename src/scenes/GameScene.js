@@ -661,9 +661,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.gridManager.isInitialFill = true;
         
         if (!willHaveWins) {
-            // Play no-win sound as symbols start dropping
-            console.log('🔊 No wins detected (pre-drop check) - playing no_win_spin sound');
-            window.SafeSound.play(this, 'no_win_spin');
+            // Play no-win sound with a 0.5 second delay after symbols start dropping
+            this.time.delayedCall(500, () => {
+                console.log('🔊 No wins detected (pre-drop check) - playing no_win_spin sound');
+                window.SafeSound.play(this, 'no_win_spin');
+            });
         }
         
         // Now animate all symbols dropping
