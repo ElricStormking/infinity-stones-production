@@ -801,6 +801,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Hide debug panel when no matches
                 if (cascadeCount === 0) {
                     this.setDebugPanelVisible(false);
+                    // Play no-win sound when symbols drop but no matches found
+                    console.log('🔊 No wins detected - playing no_win_spin sound');
+                    window.SafeSound.play(this, 'no_win_spin');
                 }
             }
         }
