@@ -36,8 +36,10 @@ npm start
 # or
 npm run dev
 
+# Server development (from infinity-storm-server/)
+npm start
+
 # No linting, testing, or build scripts currently configured
-# Add these scripts to package.json as needed for production deployment
 ```
 
 ## High-Level Architecture
@@ -107,6 +109,45 @@ Express + Socket.io server on port 3000:
 - **Audio Init**: Requires user interaction (browser policy)
 - **Grid Coordinates**: Symbols drop from top, removed symbols cascade down
 - **Asset Loading**: All assets in assets/ directory, loaded in LoadingScene
+
+### Project Structure
+```
+infinity-gauntlet/
+├── src/                         # Client source code
+│   ├── config/                  # Game configuration
+│   ├── core/                    # Core game entities
+│   ├── effects/                 # Visual effects
+│   ├── managers/                # Game state managers
+│   ├── scenes/                  # Phaser scenes
+│   ├── services/                # API services
+│   ├── shaders/                 # WebGL shaders
+│   ├── systems/                 # Core game systems
+│   └── ui/                      # UI components
+├── infinity-storm-server/       # Express/Socket.io backend
+├── assets/                      # Game assets
+│   ├── audio/                   # Sound effects and music
+│   ├── images/                  # Sprites and backgrounds
+│   └── fonts/                   # Game fonts
+└── index.html                   # Game entry point
+
+### Thanos Power Grip Effect
+- **Location**: src/effects/ThanosPowerGripEffect.js
+- **Shader**: src/shaders/ThanosPowerGripShader.js
+- **Magic Circle**: Pattern matching system with proximity validation
+- **Animation**: Frame-based animation system with 48 frames
+- **Debug**: Check debugPics/ for common visual issues
+
+### Development Workflow
+1. **Client-only development**: Run `npm start` in root directory
+2. **Full stack development**: Run `npm start` in infinity-storm-server/
+3. **Testing features**: Use browser DevTools console for debugging
+4. **Sound issues**: Check SafeSound logs in console (🔊 prefix)
+
+### Common Issues
+- **Audio not playing**: Browser requires user interaction first
+- **Symbol mismatch**: Verify GameConfig.js symbol IDs match asset filenames
+- **Network errors**: Check if server is running on correct port
+- **CORS issues**: Server configured for localhost:3000 and localhost:8080
 
 ### Future Development (see InfinityStormServer-ClientArch.txt)
 - Database integration (PostgreSQL)

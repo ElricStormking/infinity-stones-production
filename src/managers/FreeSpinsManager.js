@@ -29,52 +29,8 @@ window.FreeSpinsManager = class FreeSpinsManager {
         // 4+ scatters always award 15 free spins in base game
         const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
         
-        this.scene.stateManager.startFreeSpins(freeSpins);
-        
-        // Switch to Free Spins BGM immediately and mark as initialized
-        console.log('🎵 === FREE SPINS TRIGGERED - SWITCHING TO FREE SPINS BGM ===');
-        console.log('🎵 Current Free Spins State:', this.scene.stateManager.freeSpinsData);
-        
-        // Mark BGM as initialized immediately to prevent GameScene from overriding
-        window.SafeSound.bgmInitialized = true;
-        
-        // Switch immediately
-        console.log('🎵 Executing IMMEDIATE Free Spins BGM switch');
-        window.SafeSound.startFreeSpinsBGM(this.scene);
-        
-        // Also set a delayed reinforcement to ensure it sticks
-        this.scene.time.delayedCall(500, () => {
-            console.log('🎵 Reinforcing Free Spins BGM switch (delayed backup)');
-            if (this.scene.stateManager.freeSpinsData.active) {
-                window.SafeSound.startFreeSpinsBGM(this.scene);
-            }
-        });
-        
-        // And another one to be extra sure
-        this.scene.time.delayedCall(1500, () => {
-            console.log('🎵 Final Free Spins BGM enforcement (extra backup)');
-            if (this.scene.stateManager.freeSpinsData.active) {
-                window.SafeSound.startFreeSpinsBGM(this.scene);
-            }
-        });
-        
-        // Play Thanos finger snap sound for 4+ scatter symbols
-        console.log('🔊 Playing Thanos finger snap sound for Free Spins trigger');
-        window.SafeSound.play(this.scene, 'thanos_finger_snap');
-        
-        // Show big prominent free spins message
-        this.scene.winPresentationManager.showBigFreeSpinsMessage(freeSpins);
-        this.scene.uiManager.updateFreeSpinsDisplay();
-        
-        // Start auto-spinning free spins after the message is shown
-        this.freeSpinsAutoPlay = true; // Enable auto-play for new free spins
-        console.log(`Free spins awarded: ${freeSpins} - will start auto-spinning in 5 seconds`);
-        this.scene.time.delayedCall(5000, () => {
-            if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count > 0 && !this.scene.isSpinning && this.freeSpinsAutoPlay) {
-                console.log(`Starting first free spin auto-play`);
-                this.scene.startSpin();
-            }
-        });
+        // Show confirmation UI before starting free spins
+        this.showFreeSpinsStartUI(freeSpins, 'scatter');
     }
     
     handleSpinButtonClick() {
@@ -357,25 +313,181 @@ window.FreeSpinsManager = class FreeSpinsManager {
     }
     
     purchaseFreeSpins(amount) {
-        // Start free spins mode
-        this.scene.stateManager.startFreeSpins(amount);
+        // Show confirmation UI before starting free spins
+        this.showFreeSpinsStartUI(amount, 'purchase');
+    }
+    
+    showFreeSpinsStartUI(freeSpins, triggerType) {
+        // Pause the game
+        this.scene.isSpinning = true; // Prevent any spins while UI is showing
         
-        // Switch to Free Spins BGM
-        console.log('🎵 Free Spins purchased - switching to Free Spins BGM');
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        
+        // Create overlay
+        const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        overlay.setDepth(2000);
+        overlay.setInteractive(); // Block clicks behind it
+        
+        // Create dialog container
+        const dialogContainer = this.scene.add.container(width / 2, height / 2);
+        dialogContainer.setDepth(2001);
+        
+        // Dialog background
+        const dialogBg = this.scene.add.rectangle(0, 0, 600, 400, 0x2C3E50, 1);
+        dialogBg.setStrokeStyle(6, 0xFFD700);
+        
+        // Title
+        const title = this.scene.add.text(0, -140, 'FREE SPINS BONUS!', {
+            fontSize: '42px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 4
+        });
+        title.setOrigin(0.5);
+        
+        // Subtitle based on trigger type
+        const subtitleText = triggerType === 'scatter' 
+            ? `${freeSpins} FREE SPINS AWARDED!` 
+            : `${freeSpins} FREE SPINS PURCHASED!`;
+        const subtitle = this.scene.add.text(0, -80, subtitleText, {
+            fontSize: '28px',
+            fontFamily: 'Arial Bold',
+            color: '#FFFFFF'
+        });
+        subtitle.setOrigin(0.5);
+        
+        // Infinity gauntlet image or animation placeholder
+        const gauntletIcon = this.scene.add.image(0, -20, 'infinity_glove');
+        gauntletIcon.setScale(1.5);
+        
+        // Info text
+        const infoText = this.scene.add.text(0, 50, 'Click OK to start your Free Spins!', {
+            fontSize: '20px',
+            fontFamily: 'Arial',
+            color: '#CCCCCC'
+        });
+        infoText.setOrigin(0.5);
+        
+        // OK button
+        const okButton = this.scene.add.container(0, 120);
+        const okBg = this.scene.add.rectangle(0, 0, 160, 60, 0x27AE60);
+        okBg.setStrokeStyle(4, 0xFFD700);
+        okBg.setInteractive({ useHandCursor: true });
+        
+        const okLabel = this.scene.add.text(0, 0, 'OK', {
+            fontSize: '32px',
+            fontFamily: 'Arial Black',
+            color: '#FFFFFF'
+        });
+        okLabel.setOrigin(0.5);
+        
+        okButton.add([okBg, okLabel]);
+        
+        // Add all elements to dialog container
+        dialogContainer.add([dialogBg, title, subtitle, gauntletIcon, infoText, okButton]);
+        
+        // Add floating animation to gauntlet
+        this.scene.tweens.add({
+            targets: gauntletIcon,
+            y: -20 + 10,
+            duration: 2000,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Add pulse effect to OK button
+        this.scene.tweens.add({
+            targets: okBg,
+            scaleX: 1.1,
+            scaleY: 1.1,
+            duration: 800,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Button hover effects
+        okBg.on('pointerover', () => {
+            okBg.setFillStyle(0x2ECC71);
+            this.scene.tweens.killTweensOf(okBg);
+            okBg.setScale(1.1);
+        });
+        
+        okBg.on('pointerout', () => {
+            okBg.setFillStyle(0x27AE60);
+            okBg.setScale(1);
+            // Restart pulse animation
+            this.scene.tweens.add({
+                targets: okBg,
+                scaleX: 1.1,
+                scaleY: 1.1,
+                duration: 800,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1
+            });
+        });
+        
+        // OK button click handler
+        okBg.once('pointerup', () => {
+            // Play click sound
+            window.SafeSound.play(this.scene, 'click');
+            
+            // Destroy UI elements
+            overlay.destroy();
+            dialogContainer.destroy();
+            
+            // Reset spinning flag
+            this.scene.isSpinning = false;
+            
+            // Start free spins
+            this.startFreeSpinsConfirmed(freeSpins, triggerType);
+        });
+        
+        // Play bonus sound
+        window.SafeSound.play(this.scene, 'bonus');
+    }
+    
+    startFreeSpinsConfirmed(freeSpins, triggerType) {
+        // Start free spins mode
+        this.scene.stateManager.startFreeSpins(freeSpins);
+        
+        // Switch to Free Spins BGM immediately and mark as initialized
+        console.log('🎵 === FREE SPINS CONFIRMED - SWITCHING TO FREE SPINS BGM ===');
+        console.log('🎵 Current Free Spins State:', this.scene.stateManager.freeSpinsData);
+        
+        // Mark BGM as initialized immediately to prevent GameScene from overriding
+        window.SafeSound.bgmInitialized = true;
+        
+        // Switch immediately
+        console.log('🎵 Executing IMMEDIATE Free Spins BGM switch');
         window.SafeSound.startFreeSpinsBGM(this.scene);
         
-        // Show purchase confirmation message
-        this.scene.showMessage(`${amount} Free Spins Purchased!`);
+        // Also set a delayed reinforcement to ensure it sticks
+        this.scene.time.delayedCall(500, () => {
+            console.log('🎵 Reinforcing Free Spins BGM switch (delayed backup)');
+            if (this.scene.stateManager.freeSpinsData.active) {
+                window.SafeSound.startFreeSpinsBGM(this.scene);
+            }
+        });
         
-        // Update free spins display
+        // Play Thanos finger snap sound
+        console.log('🔊 Playing Thanos finger snap sound for Free Spins start');
+        window.SafeSound.play(this.scene, 'thanos_finger_snap');
+        
+        // Show big prominent free spins message
+        this.scene.winPresentationManager.showBigFreeSpinsMessage(freeSpins);
         this.scene.uiManager.updateFreeSpinsDisplay();
         
-        // Start auto-spinning free spins after a short delay
-        this.freeSpinsAutoPlay = true;
-        console.log(`Purchased free spins: ${amount} - will start auto-spinning in 3 seconds`);
-        this.scene.time.delayedCall(3000, () => {
+        // Start auto-spinning free spins after the message is shown
+        this.freeSpinsAutoPlay = true; // Enable auto-play for new free spins
+        console.log(`Free spins awarded: ${freeSpins} - will start auto-spinning in 5 seconds`);
+        this.scene.time.delayedCall(5000, () => {
             if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count > 0 && !this.scene.isSpinning && this.freeSpinsAutoPlay) {
-                console.log(`Starting purchased free spin auto-play`);
+                console.log(`Starting first free spin auto-play`);
                 this.scene.startSpin();
             }
         });
