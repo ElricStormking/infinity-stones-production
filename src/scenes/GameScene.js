@@ -645,20 +645,38 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Temporarily disable match checking
         this.gridManager.isInitialFill = true;
         
-        // Fill the grid with new symbols starting from above
+        // First, create all symbols in their grid positions (hidden)
         for (let col = 0; col < this.gridManager.cols; col++) {
             for (let row = 0; row < this.gridManager.rows; row++) {
                 const randomType = this.gridManager.getRandomSymbolType();
                 const symbol = this.gridManager.createSymbol(randomType, col, row);
+                this.gridManager.grid[col][row] = symbol;
+                symbol.setAlpha(0);
+            }
+        }
+        
+        // Now check if this will be a winning spin
+        this.gridManager.isInitialFill = false;
+        const willHaveWins = this.gridManager.findMatches().length > 0;
+        this.gridManager.isInitialFill = true;
+        
+        if (!willHaveWins) {
+            // Play no-win sound as symbols start dropping
+            console.log('🔊 No wins detected (pre-drop check) - playing no_win_spin sound');
+            window.SafeSound.play(this, 'no_win_spin');
+        }
+        
+        // Now animate all symbols dropping
+        for (let col = 0; col < this.gridManager.cols; col++) {
+            for (let row = 0; row < this.gridManager.rows; row++) {
+                const symbol = this.gridManager.grid[col][row];
                 
                 // Start position above the grid
                 const startY = this.gridManager.gridY - this.gridManager.symbolSize * (this.gridManager.rows - row + 1);
                 const targetPos = this.gridManager.getSymbolPosition(col, row);
                 
                 symbol.setPosition(targetPos.x, startY);
-                symbol.setAlpha(0);
                 symbol.setScale(0.8);
-                this.gridManager.grid[col][row] = symbol;
                 
                 // Hide all effects during cascade
                 if (symbol.shadowEffect) symbol.shadowEffect.setVisible(false);
@@ -801,9 +819,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Hide debug panel when no matches
                 if (cascadeCount === 0) {
                     this.setDebugPanelVisible(false);
-                    // Play no-win sound when symbols drop but no matches found
-                    console.log('🔊 No wins detected - playing no_win_spin sound');
-                    window.SafeSound.play(this, 'no_win_spin');
+                    // No-win sound is now played earlier when symbols start dropping
                 }
             }
         }
