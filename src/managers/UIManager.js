@@ -83,6 +83,9 @@ window.UIManager = class UIManager {
         // Create text overlays
         this.createTextOverlays(scaleX, scaleY);
         
+        // Create auto spin counter text overlay
+        this.createAutoSpinCounterText(scaleX, scaleY);
+        
         // Store UI elements for easy access
         this.uiElements = {
             bg: this.ui_bg,
@@ -115,7 +118,8 @@ window.UIManager = class UIManager {
                 win: this.winText,
                 bet: this.betText,
                 accumulatedMultiplier: this.accumulatedMultiplierText,
-                freeSpins: this.freeSpinsText
+                freeSpins: this.freeSpinsText,
+                autoSpinCounter: this.autoSpinCounterText
             }
         };
         
@@ -256,6 +260,10 @@ window.UIManager = class UIManager {
             this.ui_spin.setInteractive();
             this.ui_spin.on('pointerdown', () => this.scene.handleSpinButtonClick());
             this.ui_spin.setFrame(0);
+            
+            // Store original scale values to prevent accumulation bugs
+            this.ui_spin.originalScaleX = uiScale * scaleX;
+            this.ui_spin.originalScaleY = uiScale * scaleY;
         }
         
         this.ui_small_stop = this.safeCreateImage(1038, 578, 'ui_small_stop');
@@ -348,6 +356,28 @@ window.UIManager = class UIManager {
         }
     }
     
+    createAutoSpinCounterText(scaleX, scaleY) {
+        // Create auto spin counter text overlay on top of the spin button
+        if (this.ui_spin) {
+            this.autoSpinCounterText = this.scene.add.text(
+                this.ui_spin.x, 
+                this.ui_spin.y, 
+                '', 
+                {
+                    fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFD700',
+                    stroke: '#000000',
+                    strokeThickness: 3,
+                    align: 'center'
+                }
+            );
+            this.autoSpinCounterText.setOrigin(0.5);
+            this.autoSpinCounterText.setDepth(5); // Higher than spin button
+            this.autoSpinCounterText.setVisible(false); // Initially hidden
+        }
+    }
+    
     safeCreateImage(x, y, key, scale = 0.67) {
         const width = this.scene.cameras.main.width;
         const height = this.scene.cameras.main.height;
@@ -380,13 +410,19 @@ window.UIManager = class UIManager {
         
         interactiveElements.forEach(element => {
             if (element) {
+                // Store original scale values to prevent accumulation bugs
+                element.originalScaleX = element.scaleX;
+                element.originalScaleY = element.scaleY;
+                
                 element.on('pointerover', () => {
-                    element.setScale(element.scaleX * 1.1, element.scaleY * 1.1);
+                    // Use original scale * 1.1 to prevent accumulation bugs
+                    element.setScale(element.originalScaleX * 1.1, element.originalScaleY * 1.1);
                     element.setTint(0xFFFFFF);
                 });
                 
                 element.on('pointerout', () => {
-                    element.setScale(element.scaleX / 1.1, element.scaleY / 1.1);
+                    // Reset to original scale to prevent accumulation bugs
+                    element.setScale(element.originalScaleX, element.originalScaleY);
                     element.clearTint();
                 });
             }
@@ -396,14 +432,16 @@ window.UIManager = class UIManager {
         if (this.ui_spin) {
             this.ui_spin.on('pointerover', () => {
                 if (!this.scene.isSpinning) {
-                    this.ui_spin.setScale(this.ui_spin.scaleX * 1.1, this.ui_spin.scaleY * 1.1);
+                    // Use original scale * 1.1 to prevent accumulation bugs
+                    this.ui_spin.setScale(this.ui_spin.originalScaleX * 1.1, this.ui_spin.originalScaleY * 1.1);
                     this.ui_spin.setTint(0xFFFFFF);
                 }
             });
             
             this.ui_spin.on('pointerout', () => {
                 if (!this.scene.isSpinning) {
-                    this.ui_spin.setScale(this.ui_spin.scaleX / 1.1, this.ui_spin.scaleY / 1.1);
+                    // Reset to original scale to prevent accumulation bugs
+                    this.ui_spin.setScale(this.ui_spin.originalScaleX, this.ui_spin.originalScaleY);
                     this.ui_spin.clearTint();
                 }
             });
@@ -538,6 +576,30 @@ window.UIManager = class UIManager {
                 yoyo: true,
                 ease: 'Power2'
             });
+        }
+    }
+    
+    updateAutoSpinCounterDisplay() {
+        if (this.autoSpinCounterText && this.scene.stateManager) {
+            const autoplayData = this.scene.stateManager.gameData;
+            
+            if (autoplayData.autoplayActive) {
+                if (autoplayData.autoplayCount === -1) {
+                    // Infinite autoplay
+                    this.autoSpinCounterText.setText('∞');
+                } else if (autoplayData.autoplayCount > 0) {
+                    // Show remaining spins count
+                    this.autoSpinCounterText.setText(autoplayData.autoplayCount.toString());
+                } else {
+                    // No spins left, hide counter
+                    this.autoSpinCounterText.setVisible(false);
+                    return;
+                }
+                this.autoSpinCounterText.setVisible(true);
+            } else {
+                // Autoplay not active, hide counter
+                this.autoSpinCounterText.setVisible(false);
+            }
         }
     }
     

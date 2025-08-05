@@ -397,6 +397,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     toggleAutoplay() {
         if (this.stateManager.gameData.autoplayActive) {
             this.stateManager.stopAutoplay();
+            // Update auto spin counter display
+            if (this.uiManager) {
+                this.uiManager.updateAutoSpinCounterDisplay();
+            }
             // No need to update button text as ui_small_stop is an image button
         } else {
             this.showAutoplayMenu();
@@ -524,6 +528,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     startAutoplay(spins) {
         this.stateManager.setAutoplay(spins);
+        
+        // Update auto spin counter display
+        if (this.uiManager) {
+            this.uiManager.updateAutoSpinCounterDisplay();
+        }
         
         // Note: ui_small_stop is an image button, so no text update needed
         // The button functionality remains the same
@@ -660,13 +669,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         const willHaveWins = this.gridManager.findMatches().length > 0;
         this.gridManager.isInitialFill = true;
         
-        if (!willHaveWins) {
-            // Play no-win sound with a 0.15 second delay after symbols start dropping
-            this.time.delayedCall(150, () => {
-                console.log('🔊 No wins detected (pre-drop check) - playing no_win_spin sound');
-                window.SafeSound.play(this, 'no_win_spin');
-            });
-        }
+        // Play spin drop finish sound when symbols start dropping
+        console.log('🔊 Playing spin drop finish sound');
+        window.SafeSound.play(this, 'spin_drop_finish');
         
         // Now animate all symbols dropping
         for (let col = 0; col < this.gridManager.cols; col++) {
@@ -748,7 +753,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         await Promise.all(promises);
         
         // Add a small delay to ensure all animations are fully settled
-        await this.delay(100);
+        await this.delay(290);
         
         // Re-enable match checking
         this.gridManager.isInitialFill = false;
@@ -965,6 +970,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Handle regular autoplay
         if (!freeSpinsHandled && this.stateManager.gameData.autoplayActive) {
             this.stateManager.decrementAutoplay();
+            
+            // Update auto spin counter display after decrementing
+            if (this.uiManager) {
+                this.uiManager.updateAutoSpinCounterDisplay();
+            }
             
             // Check if autoplay should continue
             if (this.stateManager.gameData.autoplayCount === 0) {
