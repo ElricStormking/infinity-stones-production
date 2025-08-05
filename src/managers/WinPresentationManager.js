@@ -96,14 +96,14 @@ window.WinPresentationManager = class WinPresentationManager {
             
             // Play win sound based on category
             const soundMap = {
-                SMALL: 'win',
-                MEDIUM: 'win',
+                SMALL: 'kaching',
+                MEDIUM: 'kaching',
                 BIG: 'bonus',
                 MEGA: 'bonus',
                 EPIC: 'bonus',
                 LEGENDARY: 'bonus'
             };
-            window.SafeSound.play(this.scene, soundMap[winCategory.key] || 'win');
+            window.SafeSound.play(this.scene, soundMap[winCategory.key] || 'kaching');
             
             // Remove after delay
             const displayDuration = winCategory.key === 'LEGENDARY' ? 5000 : 3000;

@@ -795,8 +795,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Update win display
                 this.updateWinDisplay();
                 
-                            // Play win sound
-            window.SafeSound.play(this, 'win');
+                // Play kaching sound for winning spin
+                window.SafeSound.play(this, 'kaching');
                 
                 // Highlight matches
                 this.gridManager.highlightMatches(matches);
@@ -1894,7 +1894,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             }
         });
         
-        window.SafeSound.play(this, 'win');
+        window.SafeSound.play(this, 'kaching');
     }
 
     addButtonHoverEffects() {

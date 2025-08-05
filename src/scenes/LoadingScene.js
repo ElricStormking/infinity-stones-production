@@ -439,8 +439,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.audio('thanos_finger_snap', 'assets/audio/thanos_finger_snap.mp3');
             this.load.audio('winning_big', 'assets/audio/winning_big.mp3');
             this.load.audio('spin_drop_finish', 'assets/audio/spin_drop_finish.mp3');
+            this.load.audio('kaching', 'assets/audio/kaching.mp3');
             
-            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big, spin_drop_finish');
+            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big, spin_drop_finish, kaching');
             
             // Set up comprehensive error handlers
             this.load.once('fileerror-audio-bgm_infinity_storm', (error) => {
@@ -467,6 +468,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.once('fileerror-audio-spin_drop_finish', (error) => {
                 console.log('❌ Spin drop finish sound effect failed to load:', error);
             });
+            this.load.once('fileerror-audio-kaching', (error) => {
+                console.log('❌ Kaching sound effect failed to load:', error);
+            });
             
             // Success handlers to confirm loading
             this.load.once('filecomplete-audio-bgm_free_spins', () => {
@@ -489,6 +493,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             });
             this.load.once('filecomplete-audio-spin_drop_finish', () => {
                 console.log('✅ Spin drop finish sound effect loaded successfully!');
+            });
+            this.load.once('filecomplete-audio-kaching', () => {
+                console.log('✅ Kaching sound effect loaded successfully!');
             });
             
             // General audio loading complete handler
