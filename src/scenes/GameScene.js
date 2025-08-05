@@ -669,9 +669,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
         const willHaveWins = this.gridManager.findMatches().length > 0;
         this.gridManager.isInitialFill = true;
         
-        // Play spin drop finish sound when symbols start dropping
-        console.log('🔊 Playing spin drop finish sound');
-        window.SafeSound.play(this, 'spin_drop_finish');
+        // Play spin drop finish sound with a 0.3 second delay after symbols start dropping
+        this.time.delayedCall(300, () => {
+            console.log('🔊 Playing spin drop finish sound');
+            window.SafeSound.play(this, 'spin_drop_finish');
+        });
         
         // Now animate all symbols dropping
         for (let col = 0; col < this.gridManager.cols; col++) {
@@ -753,7 +755,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         await Promise.all(promises);
         
         // Add a small delay to ensure all animations are fully settled
-        await this.delay(290);
+        await this.delay(100);
         
         // Re-enable match checking
         this.gridManager.isInitialFill = false;
