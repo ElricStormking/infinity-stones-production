@@ -318,6 +318,28 @@ window.FreeSpinsManager = class FreeSpinsManager {
     }
     
     showFreeSpinsStartUI(freeSpins, triggerType) {
+        // Stop auto-spin if active
+        if (this.scene.stateManager.gameData.autoplayActive) {
+            console.log('Stopping auto-spin for Free Spins UI');
+            this.scene.stateManager.stopAutoplay();
+            // Update auto spin counter display
+            if (this.scene.uiManager) {
+                this.scene.uiManager.updateAutoSpinCounterDisplay();
+            }
+        }
+        
+        // Stop burst auto-spin if active
+        if (this.scene.burstAutoSpinning) {
+            console.log('Stopping burst auto-spin for Free Spins UI');
+            this.scene.burstAutoSpinning = false;
+            // Reset burst auto button appearance
+            if (this.scene.burstAutoBtn) {
+                this.scene.burstAutoBtn.stop();
+                this.scene.burstAutoBtn.setFrame(0);
+                this.scene.burstAutoBtn.clearTint();
+            }
+        }
+        
         // Pause the game
         this.scene.isSpinning = true; // Prevent any spins while UI is showing
         
