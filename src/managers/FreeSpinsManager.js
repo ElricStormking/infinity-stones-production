@@ -172,10 +172,10 @@ window.FreeSpinsManager = class FreeSpinsManager {
                 console.log(`Accumulated cascading multiplier to free spins: ${mult}x`);
             });
             
-            // Calculate total multiplier for display
-            let totalMultiplier = 1;
+            // Calculate total multiplier for display - ADD multipliers together
+            let totalMultiplier = 0;
             multipliers.forEach(mult => {
-                totalMultiplier *= mult;
+                totalMultiplier += mult;
             });
             
             this.scene.bonusManager.showMultiplier(totalMultiplier);

@@ -748,8 +748,8 @@ window.BurstModeManager = class BurstModeManager {
                     const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
                     const numMultipliers = Math.floor(Math.random() * (maxMults - minMults + 1)) + minMults;
                     
-                    // Apply multiple multipliers (simplified for burst mode)
-                    let totalMultiplier = 1;
+                    // Apply multiple multipliers (simplified for burst mode) - ADD multipliers together
+                    let totalMultiplier = 0;
                     const multipliers = [];
                     for (let i = 0; i < numMultipliers; i++) {
                         const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
@@ -757,7 +757,7 @@ window.BurstModeManager = class BurstModeManager {
                             Math.floor(Math.random() * multiplierTable.length)
                         ];
                         multipliers.push(multiplier);
-                        totalMultiplier *= multiplier;
+                        totalMultiplier += multiplier;
                         
                         // Accumulate each multiplier during free spins
                         if (this.scene.stateManager.freeSpinsData.active) {

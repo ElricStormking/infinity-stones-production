@@ -302,10 +302,10 @@ window.BonusManager = class BonusManager {
         // Show cascading multiplier effects
         await this.showCascadingRandomMultipliers(positions, multipliers);
         
-        // Calculate total multiplier effect
-        let totalMultiplier = 1;
+        // Calculate total multiplier effect - ADD multipliers together first
+        let totalMultiplier = 0;
         multipliers.forEach(mult => {
-            totalMultiplier *= mult;
+            totalMultiplier += mult;
         });
         
         // Apply total multiplier to win
@@ -543,8 +543,8 @@ window.BonusManager = class BonusManager {
                 
                 console.log(`Burst Mode Cascading Multipliers: ${numMultipliers} multipliers`);
                 
-                // Apply multiple multipliers
-                let totalMultiplier = 1;
+                // Apply multiple multipliers - ADD multipliers together
+                let totalMultiplier = 0;
                 const multipliers = [];
                 for (let i = 0; i < numMultipliers; i++) {
                     const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
@@ -552,7 +552,7 @@ window.BonusManager = class BonusManager {
                         Math.floor(Math.random() * multiplierTable.length)
                     ];
                     multipliers.push(multiplier);
-                    totalMultiplier *= multiplier;
+                    totalMultiplier += multiplier;
                     
                     // Accumulate each multiplier during free spins
                     if (this.scene.stateManager.freeSpinsData.active) {

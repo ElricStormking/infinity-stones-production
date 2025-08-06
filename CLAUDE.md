@@ -89,19 +89,26 @@ Express + Socket.io server on port 3000:
   - Scatter: Infinity Glove (4+ triggers Free Spins)
 - **Features**: 
   - Cascading wins
-  - Free Spins with multipliers
+  - Free Spins with multipliers and confirmation dialog
   - Burst Mode animations
   - Dynamic BGM switching
+  - Auto-spin functionality with pause on Free Spins
+  - Audio feedback for winning/losing spins
 
 ### Audio System
 - **SafeSound**: Centralized audio with error handling
 - **BGM**: Automatic switching between main/free spins themes
-- **Effects**: Lightning strikes, symbol shattering
+- **Effects**: Lightning strikes, symbol shattering, winning sounds, no-win feedback
 - **Files**:
   - `BGM_infinity_storm.mp3` - Main theme
   - `BGM_free_spins.mp3` - Bonus mode
   - `lightning_struck.mp3` - Scarlet Witch effect
   - `symbol_shattering.mp3` - Win sound
+  - `kaching.mp3` - Winning spins sound effect
+  - `spin_drop_finish.mp3` - No-win sound (150ms delay timing)
+  - `thanos_power.mp3` - Thanos power effects
+  - `thanos_finger_snap.mp3` - Thanos special action
+  - `winning_big.mp3` - Big win celebration
 
 ### Critical Implementation Notes
 - **Symbol IDs**: Must match exactly between GameConfig.js and asset files
@@ -142,12 +149,16 @@ infinity-gauntlet/
 2. **Full stack development**: Run `npm start` in infinity-storm-server/
 3. **Testing features**: Use browser DevTools console for debugging
 4. **Sound issues**: Check SafeSound logs in console (🔊 prefix)
+5. **Visual debugging**: Check debugPics/ for screenshots of visual bugs
 
 ### Common Issues
 - **Audio not playing**: Browser requires user interaction first
 - **Symbol mismatch**: Verify GameConfig.js symbol IDs match asset filenames
 - **Network errors**: Check if server is running on correct port
 - **CORS issues**: Server configured for localhost:3000 and localhost:8080
+- **Audio timing**: Sound effects have specific delays (kaching: immediate, no-win: 150ms)
+- **Auto-spin bugs**: Auto-spin should pause when Free Spins UI appears
+- **Visual bugs**: Save screenshots to debugPics/ for issue tracking
 
 ### Future Development (see InfinityStormServer-ClientArch.txt)
 - Database integration (PostgreSQL)
