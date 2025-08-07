@@ -2,8 +2,8 @@ window.GameConfig = {
     // Grid Configuration
     GRID_COLS: 6,
     GRID_ROWS: 5,
-    SYMBOL_SIZE: 130,  // Symbol size optimized for ui_box cells at 1920x1080
-    GRID_SPACING: 19,   // Spacing optimized to match ui_box grid structure
+    SYMBOL_SIZE: 150,  // Updated to match new 150x150 gem graphics
+    GRID_SPACING: 15,   // Adjusted spacing for larger symbols
     
     // Game Settings
     MIN_MATCH_COUNT: 8,

@@ -126,13 +126,13 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         // First, create all essential textures immediately to ensure they exist
         this.createEssentialTextures();
         
-        // Load gem images that exist
-        this.loadImageWithFallback('space_gem', 'assets/images/space_gem.png', 0x0099FF);
-        this.loadImageWithFallback('mind_gem', 'assets/images/mind_gem.png', 0x00FFFF);
-        this.loadImageWithFallback('reality_gem', 'assets/images/reality_gem.png', 0xFF0000);
-        this.loadImageWithFallback('power_gem', 'assets/images/power_gem.png', 0x9932CC);
-        this.loadImageWithFallback('time_gem', 'assets/images/time_gem.png', 0x00FF00);
-        this.loadImageWithFallback('soul_gem', 'assets/images/soul_gem.png', 0xFF8C00);
+        // Load new 150x150 gem images
+        this.loadImageWithFallback('time_gem', 'assets/images/gems/time_gem.png', 0xFFD700);     // Orange/Yellow
+        this.loadImageWithFallback('mind_gem', 'assets/images/gems/mind_gem.png', 0x9932CC);     // Purple  
+        this.loadImageWithFallback('reality_gem', 'assets/images/gems/reality_gem.png', 0xFF1493); // Pink/Red
+        this.loadImageWithFallback('power_gem', 'assets/images/gems/power_gem.png', 0xFF8C00);   // Orange
+        this.loadImageWithFallback('space_gem', 'assets/images/gems/space_gem.png', 0x0099FF);   // Blue
+        this.loadImageWithFallback('soul_gem', 'assets/images/gems/soul_gem.png', 0x00FF00);     // Green
         this.loadImageWithFallback('infinity_glove', 'assets/images/infinity_glove.png', 0xFFD700);
         
         // Load character images that exist

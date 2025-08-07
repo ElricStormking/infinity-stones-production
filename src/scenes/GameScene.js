@@ -60,9 +60,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         const uiBoxScale = 0.67 * Math.min(uiScaleX, uiScaleY);
         
         // Calculate grid top-left position to center it within the ui_box
-        // Fine-tuned offsets to align symbols with ui_box grid cells
-        const gridOffsetX = 4;   // Horizontal offset optimized for cell centers
-        const gridOffsetY = 4;   // Vertical offset optimized for cell centers
+        // Fine-tuned offsets to align symbols with ui_box grid cells - adjusted for 150px symbols
+        const gridOffsetX = 2;   // Horizontal offset adjusted for larger symbols
+        const gridOffsetY = 2;   // Vertical offset adjusted for larger symbols
         
         // Position grid centered on ui_box with precise offsets
         const gridX = uiBoxCenterX - (gridWidth / 2) + gridOffsetX;

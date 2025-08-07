@@ -3,6 +3,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
     constructor(scene) {
         this.scene = scene;
         this.freeSpinsAutoPlay = true; // Auto-play free spins by default
+        this.isProcessingFreeSpinsUI = false; // Prevent duplicate UI triggers
     }
     
     checkOtherBonusFeatures() {
@@ -318,6 +319,22 @@ window.FreeSpinsManager = class FreeSpinsManager {
     }
     
     showFreeSpinsStartUI(freeSpins, triggerType) {
+        // Prevent duplicate UI triggers
+        if (this.isProcessingFreeSpinsUI) {
+            console.warn('🔥 Free Spins UI already being processed - preventing duplicate');
+            return;
+        }
+        this.isProcessingFreeSpinsUI = true;
+        console.log('🔥 Starting Free Spins UI processing');
+        
+        // Safeguard: Reset flag after 10 seconds in case something goes wrong
+        this.scene.time.delayedCall(10000, () => {
+            if (this.isProcessingFreeSpinsUI) {
+                console.warn('🔥 Resetting Free Spins UI flag due to timeout');
+                this.isProcessingFreeSpinsUI = false;
+            }
+        });
+        
         // Stop auto-spin if active
         if (this.scene.stateManager.gameData.autoplayActive) {
             console.log('Stopping auto-spin for Free Spins UI');
@@ -421,7 +438,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         });
         
         // Add pulse effect to OK button
-        this.scene.tweens.add({
+        const pulseTween = this.scene.tweens.add({
             targets: okBg,
             scaleX: 1.1,
             scaleY: 1.1,
@@ -431,48 +448,82 @@ window.FreeSpinsManager = class FreeSpinsManager {
             repeat: -1
         });
         
-        // Button hover effects
+        // Prevent any button interactions after click
+        let buttonDisabled = false;
+        
+        // Button hover effects (only if not disabled)
         okBg.on('pointerover', () => {
-            okBg.setFillStyle(0x2ECC71);
-            this.scene.tweens.killTweensOf(okBg);
-            okBg.setScale(1.1);
+            if (!buttonDisabled) {
+                okBg.setFillStyle(0x2ECC71);
+                this.scene.tweens.killTweensOf(okBg);
+                okBg.setScale(1.1);
+            }
         });
         
         okBg.on('pointerout', () => {
-            okBg.setFillStyle(0x27AE60);
-            okBg.setScale(1);
-            // Restart pulse animation
-            this.scene.tweens.add({
-                targets: okBg,
-                scaleX: 1.1,
-                scaleY: 1.1,
-                duration: 800,
-                ease: 'Sine.easeInOut',
-                yoyo: true,
-                repeat: -1
-            });
+            if (!buttonDisabled) {
+                okBg.setFillStyle(0x27AE60);
+                okBg.setScale(1);
+                // Restart pulse animation
+                this.scene.tweens.add({
+                    targets: okBg,
+                    scaleX: 1.1,
+                    scaleY: 1.1,
+                    duration: 800,
+                    ease: 'Sine.easeInOut',
+                    yoyo: true,
+                    repeat: -1
+                });
+            }
         });
         
-        // OK button click handler
-        okBg.once('pointerup', () => {
+        // OK button click handler - SINGLE handler with thorough protection
+        const handleOKClick = () => {
+            // Prevent any further processing
+            if (buttonDisabled) {
+                console.warn('🔥 Button already disabled - ignoring click');
+                return;
+            }
+            buttonDisabled = true;
+            console.log('🔥 OK button clicked - disabling all interactions');
+            
+            // Kill all tweens immediately
+            this.scene.tweens.killTweensOf(okBg);
+            
+            // Remove ALL event listeners immediately
+            okBg.removeAllListeners();
+            okBg.disableInteractive();
+            
             // Play click sound
             window.SafeSound.play(this.scene, 'click');
             
-            // Destroy UI elements
+            // Destroy UI elements immediately
             overlay.destroy();
             dialogContainer.destroy();
             
             // Reset spinning flag
             this.scene.isSpinning = false;
             
-            // Trigger fire effect first, then start free spins
-            console.log('🔥 Player clicked OK - starting fire effect before Free Spins');
-            this.scene.fireEffect.triggerFire(() => {
-                // This callback will be called when fire effect completes
-                console.log('🔥 Fire complete - starting Free Spins');
-                this.startFreeSpinsConfirmed(freeSpins, triggerType);
+            // Trigger fire effect only once with a small delay
+            this.scene.time.delayedCall(100, () => {
+                // Double-check fire effect isn't already active
+                if (!this.scene.fireEffect.isPlaying()) {
+                    console.log('🔥 Triggering fire effect for Free Spins');
+                    this.scene.fireEffect.triggerFire(() => {
+                        console.log('🔥 Fire effect complete - starting Free Spins');
+                        this.startFreeSpinsConfirmed(freeSpins, triggerType);
+                        this.isProcessingFreeSpinsUI = false;
+                    });
+                } else {
+                    console.warn('🔥 Fire effect already playing - skipping to Free Spins');
+                    this.startFreeSpinsConfirmed(freeSpins, triggerType);
+                    this.isProcessingFreeSpinsUI = false;
+                }
             });
-        });
+        };
+        
+        // Register click handler only once
+        okBg.once('pointerup', handleOKClick);
         
         // Play bonus sound
         window.SafeSound.play(this.scene, 'bonus');

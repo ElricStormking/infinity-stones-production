@@ -6,6 +6,8 @@ window.FireEffect = class FireEffect {
         this.isActive = false;
         this.shader = null;
         this.fireQuad = null;
+        this.effectInProgress = false; // Additional flag to prevent concurrent effects
+        this.completionCalled = false; // Prevent multiple completion calls
     }
     
     /**
@@ -13,20 +15,38 @@ window.FireEffect = class FireEffect {
      * @param {Function} onComplete - Callback when effect is complete
      */
     triggerFire(onComplete) {
-        if (this.isActive) {
-            console.warn('Fire effect already active');
+        if (this.isActive || this.effectInProgress) {
+            console.warn('🔥 Fire effect already active or in progress - PREVENTING DUPLICATE');
+            if (onComplete && typeof onComplete === 'function') {
+                // Still call the callback so game flow continues
+                this.scene.time.delayedCall(100, () => onComplete());
+            }
             return;
         }
         
         this.isActive = true;
-        console.log('🔥 Starting Fire Effect');
+        this.effectInProgress = true;
+        this.completionCalled = false; // Reset completion flag for new effect
+        console.log('🔥 Starting Fire Effect (flags set: isActive=true, effectInProgress=true)');
         
         // Create the fire effect
         this.createFireEffect(onComplete);
     }
     
     createFireEffect(onComplete) {
+        // Additional safety check
+        if (this.fireQuad) {
+            console.warn('🔥 Fire quad already exists - cleaning up old one');
+            if (!this.fireQuad.destroyed) {
+                this.fireQuad.destroy();
+            }
+            this.fireQuad = null;
+        }
+        
         console.log('🔥 Creating shader-based fire effect');
+        console.trace('🔥 createFireEffect stack trace');
+        
+        let shaderSuccessful = false;
         
         try {
             // Create the fire shader
@@ -38,14 +58,20 @@ window.FireEffect = class FireEffect {
             // Animate the fire effect
             this.animateFireShader(onComplete);
             
+            shaderSuccessful = true;
+            
         } catch (error) {
             console.error('🔥 Failed to create shader-based fire effect:', error);
-            // Fallback to simple color overlay
-            this.createFallbackFireEffect(onComplete);
+            // Only use fallback if shader failed
+            if (!shaderSuccessful) {
+                // Fallback to simple color overlay
+                this.createFallbackFireEffect(onComplete);
+            }
         }
         
-        // Play fire sound effect
-        window.SafeSound.play(this.scene, 'winning_big', 0.8);
+        // Don't play winning_big here - it will be played at the end of free spins
+        // Just play a fire/magic sound effect if available
+        // window.SafeSound.play(this.scene, 'thanos_power', 0.6);
     }
     
     initializeShader() {
@@ -56,16 +82,26 @@ window.FireEffect = class FireEffect {
             throw new Error('WebGL renderer not available - falling back to graphics effect');
         }
         
-        // Try to create the fire shader
-        console.log('🔥 Creating new Fire pipeline...');
-        this.shader = window.createFireShader(this.scene);
-        console.log('🔥 Fire shader created successfully');
+        // Check if the Fire pipeline already exists
+        const pipelines = this.scene.game.renderer.pipelines || this.scene.game.renderer;
+        const existingPipeline = pipelines.get ? pipelines.get('Fire') : pipelines.getPipeline ? pipelines.getPipeline('Fire') : null;
+        
+        if (existingPipeline) {
+            console.log('🔥 Reusing existing Fire pipeline');
+            this.shader = existingPipeline;
+        } else {
+            // Try to create the fire shader
+            console.log('🔥 Creating new Fire pipeline...');
+            this.shader = window.createFireShader(this.scene);
+            console.log('🔥 Fire shader created successfully');
+        }
         
         // Set initial shader parameters
-        this.shader.setIntensity(0.0);
-        this.shader.setFireScale(1.0);
-        
-        console.log('🔥 Fire shader initialized successfully');
+        if (this.shader) {
+            this.shader.setIntensity(0.0);
+            this.shader.setFireScale(1.0);
+            console.log('🔥 Fire shader initialized successfully');
+        }
     }
     
     createFireQuad() {
@@ -86,28 +122,28 @@ window.FireEffect = class FireEffect {
     }
     
     animateFireShader(onComplete) {
-        const duration = 4000; // 4 seconds for fire effect
+        const duration = 3200; // 3.2 seconds for fire effect
         const phases = [
-            { // Phase 1: Fire ignition (0-800ms)
-                duration: 800,
+            { // Phase 1: Fire ignition (0-600ms)
+                duration: 600,
                 intensity: { from: 0.0, to: 0.6 },
                 scale: { from: 0.8, to: 1.0 },
                 ease: 'Power2.easeOut'
             },
-            { // Phase 2: Fire growth (800-2000ms)
-                duration: 1200,
+            { // Phase 2: Fire growth (600-1600ms)
+                duration: 1000,
                 intensity: { from: 0.6, to: 1.0 },
                 scale: { from: 1.0, to: 1.2 },
                 ease: 'Sine.easeOut'
             },
-            { // Phase 3: Fire peak (2000-3200ms)
-                duration: 1200,
+            { // Phase 3: Fire peak (1600-2600ms)
+                duration: 1000,
                 intensity: { from: 1.0, to: 1.0 },
                 scale: { from: 1.2, to: 1.1 },
                 ease: 'Sine.easeInOut'
             },
-            { // Phase 4: Fire fade (3200-4000ms)
-                duration: 800,
+            { // Phase 4: Fire fade (2600-3200ms)
+                duration: 600,
                 intensity: { from: 1.0, to: 0.0 },
                 scale: { from: 1.1, to: 1.0 },
                 ease: 'Power2.easeIn'
@@ -115,6 +151,7 @@ window.FireEffect = class FireEffect {
         ];
         
         let currentTime = 0;
+        let animationCompleted = false; // Prevent multiple completion calls
         
         phases.forEach((phase, index) => {
             // Intensity animation
@@ -128,10 +165,19 @@ window.FireEffect = class FireEffect {
                     if (this.shader && this.isActive) {
                         this.shader.setIntensity(tween.getValue());
                     }
-                }
+                },
+                // Only add onComplete to the LAST intensity animation
+                onComplete: (index === phases.length - 1) ? () => {
+                    if (!animationCompleted) {
+                        // Last phase complete - only call once
+                        animationCompleted = true;
+                        console.log('🔥 Fire animation phases complete (from intensity tween)');
+                        this.completeFireEffect(onComplete);
+                    }
+                } : undefined
             });
             
-            // Scale animation
+            // Scale animation (NO onComplete here to avoid duplicate calls)
             this.scene.tweens.addCounter({
                 from: phase.scale.from,
                 to: phase.scale.to,
@@ -142,24 +188,27 @@ window.FireEffect = class FireEffect {
                     if (this.shader && this.isActive) {
                         this.shader.setFireScale(tween.getValue());
                     }
-                },
-                onComplete: () => {
-                    if (index === phases.length - 1) {
-                        // Last phase complete
-                        this.completeFireEffect(onComplete);
-                    }
                 }
             });
             
             currentTime += phase.duration;
         });
         
-        console.log('🔥 Fire shader animation started');
+        console.log(`🔥 Fire shader animation started (${phases.length} phases, total duration: ${currentTime}ms)`);
     }
     
     createFallbackFireEffect(onComplete) {
         // Simple fallback fire effect using graphics
         console.log('🔥 Creating fallback fire effect');
+        
+        // Additional safety check
+        if (this.fireQuad) {
+            console.warn('🔥 Fallback: Fire quad already exists - cleaning up');
+            if (!this.fireQuad.destroyed) {
+                this.fireQuad.destroy();
+            }
+            this.fireQuad = null;
+        }
         
         const width = this.scene.game.config.width;
         const height = this.scene.game.config.height;
@@ -168,48 +217,66 @@ window.FireEffect = class FireEffect {
         this.fireQuad = this.scene.add.graphics();
         this.fireQuad.setDepth(10000);
         
+        let animationActive = true;
+        
         // Create animated fire colors
         const animateFallback = () => {
-            if (!this.isActive) return;
+            if (!this.isActive || !animationActive) return;
             
-            this.fireQuad.clear();
-            
-            // Create gradient fire effect
-            const t = this.scene.game.loop.time / 1000.0;
-            const intensity = Math.sin(t * 2) * 0.3 + 0.7;
-            
-            // Multiple fire layers
-            for (let i = 0; i < 5; i++) {
-                const offset = i * 0.2;
-                const alpha = intensity * (1 - i * 0.15);
-                const color = [0xff0000, 0xff3300, 0xff6600, 0xff9900, 0xffcc00][i];
+            if (this.fireQuad && !this.fireQuad.destroyed) {
+                this.fireQuad.clear();
                 
-                this.fireQuad.fillStyle(color, alpha * 0.3);
-                this.fireQuad.fillRect(0, height * offset * 0.1, width, height * (1 - offset * 0.1));
+                // Create gradient fire effect
+                const t = this.scene.game.loop.time / 1000.0;
+                const intensity = Math.sin(t * 2) * 0.3 + 0.7;
+                
+                // Multiple fire layers
+                for (let i = 0; i < 5; i++) {
+                    const offset = i * 0.2;
+                    const alpha = intensity * (1 - i * 0.15);
+                    const color = [0xff0000, 0xff3300, 0xff6600, 0xff9900, 0xffcc00][i];
+                    
+                    this.fireQuad.fillStyle(color, alpha * 0.3);
+                    this.fireQuad.fillRect(0, height * offset * 0.1, width, height * (1 - offset * 0.1));
+                }
+                
+                this.scene.time.delayedCall(50, animateFallback);
             }
-            
-            this.scene.time.delayedCall(50, animateFallback);
         };
         
         animateFallback();
         
-        // Complete after duration
-        this.scene.time.delayedCall(4000, () => {
-            this.completeFireEffect(onComplete);
+        // Complete after duration - with safety check (3.2 seconds)
+        let completeCalled = false;
+        this.scene.time.delayedCall(3200, () => {
+            if (!completeCalled) {
+                completeCalled = true;
+                animationActive = false;
+                console.log('🔥 Fallback fire effect duration complete (3.2s)');
+                this.completeFireEffect(onComplete);
+            }
         });
     }
     
     completeFireEffect(onComplete) {
-        console.log('🔥 Fire Effect Complete');
+        // Prevent multiple completion calls
+        if (this.completionCalled) {
+            console.warn('🔥 Fire effect completion already called - preventing duplicate');
+            return;
+        }
+        this.completionCalled = true;
+        
+        console.log('🔥 Fire Effect Complete (resetting flags)');
         
         this.isActive = false;
+        this.effectInProgress = false;
         
         // Clean up fire quad
         if (this.fireQuad && !this.fireQuad.destroyed) {
             this.scene.tweens.add({
                 targets: this.fireQuad,
                 alpha: 0,
-                duration: 800,
+                duration: 600,  // Smooth fade out
                 ease: 'Sine.easeIn',
                 onComplete: () => {
                     if (this.fireQuad && !this.fireQuad.destroyed) {
@@ -219,15 +286,22 @@ window.FireEffect = class FireEffect {
                     
                     // Call completion callback
                     if (onComplete && typeof onComplete === 'function') {
+                        console.log('🔥 Calling fire effect completion callback');
                         onComplete();
                     }
+                    
+                    // Reset completion flag after callback
+                    this.completionCalled = false;
                 }
             });
         } else {
             // Immediate callback if quad already destroyed
             if (onComplete && typeof onComplete === 'function') {
+                console.log('🔥 Calling fire effect completion callback (immediate)');
                 onComplete();
             }
+            // Reset completion flag after callback
+            this.completionCalled = false;
         }
     }
     
@@ -235,10 +309,11 @@ window.FireEffect = class FireEffect {
      * Force stop the fire effect
      */
     stop() {
-        if (!this.isActive) return;
+        if (!this.isActive && !this.effectInProgress) return;
         
         console.log('🔥 Stopping Fire Effect');
         this.isActive = false;
+        this.effectInProgress = false;
         
         if (this.fireQuad && !this.fireQuad.destroyed) {
             this.fireQuad.destroy();
