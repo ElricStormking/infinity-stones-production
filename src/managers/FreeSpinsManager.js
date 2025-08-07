@@ -465,8 +465,13 @@ window.FreeSpinsManager = class FreeSpinsManager {
             // Reset spinning flag
             this.scene.isSpinning = false;
             
-            // Start free spins
-            this.startFreeSpinsConfirmed(freeSpins, triggerType);
+            // Trigger fire effect first, then start free spins
+            console.log('🔥 Player clicked OK - starting fire effect before Free Spins');
+            this.scene.fireEffect.triggerFire(() => {
+                // This callback will be called when fire effect completes
+                console.log('🔥 Fire complete - starting Free Spins');
+                this.startFreeSpinsConfirmed(freeSpins, triggerType);
+            });
         });
         
         // Play bonus sound

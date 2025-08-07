@@ -30,6 +30,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Create bonus manager
         this.bonusManager = new window.BonusManager(this);
         
+        // Create fire effect
+        this.fireEffect = new window.FireEffect(this);
+        
         // Initialize grid manager
         this.gridManager = new window.GridManager(this);
         
@@ -2050,6 +2053,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         
         // Clean up managers in reverse order of creation
+        if (this.fireEffect && this.fireEffect.destroy) {
+            this.fireEffect.destroy();
+        }
+        
         if (this.bonusManager && this.bonusManager.destroy) {
             this.bonusManager.destroy();
         }
@@ -2091,6 +2098,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.winPresentationManager = null;
         this.freeSpinsManager = null;
         this.bonusManager = null;
+        this.fireEffect = null;
         this.gridManager = null;
         this.winCalculator = null;
         
