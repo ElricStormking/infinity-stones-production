@@ -3,7 +3,7 @@ window.GameConfig = {
     GRID_COLS: 6,
     GRID_ROWS: 5,
     SYMBOL_SIZE: 150,  // Updated to match new 150x150 gem graphics
-    GRID_SPACING: 15,   // Adjusted spacing for larger symbols
+    GRID_SPACING: 8,   // Adjusted spacing for larger symbols
     
     // Game Settings
     MIN_MATCH_COUNT: 8,
