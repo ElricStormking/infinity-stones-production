@@ -46,12 +46,12 @@ window.UIManager = class UIManager {
         if (this.ui_bottom_panel) this.ui_bottom_panel.setDepth(2);
         
         // Grid background (ui_plane)
-        this.ui_plane = safeCreateImage(650, 347, 'ui_box');
-        if (this.ui_plane) this.ui_plane.setDepth(-1);
+        this.ui_plane = safeCreateImage(650, 327, 'ui_box');
+        if (this.ui_plane) this.ui_plane.setDepth(5); // bring frame above symbols
         
         // Title
-        this.ui_title = safeCreateImage(650, 74, 'ui_title');
-        if (this.ui_title) this.ui_title.setDepth(3);
+        this.ui_title = safeCreateImage(650, 44, 'ui_title');
+        if (this.ui_title) this.ui_title.setDepth(9); // title on top of frame
         
         // Top elements
         this.ui_top_1 = safeCreateImage(354, 14, 'ui_top');
@@ -234,14 +234,14 @@ window.UIManager = class UIManager {
         // Bet adjustment buttons
         this.ui_number_bet_minus = this.safeCreateImage(830, 675, 'ui_number_bet-');
         if (this.ui_number_bet_minus) {
-            this.ui_number_bet_minus.setDepth(3);
+            this.ui_number_bet_minus.setDepth(10);
             this.ui_number_bet_minus.setInteractive();
             this.ui_number_bet_minus.on('pointerdown', () => this.scene.adjustBet(-1));
         }
         
         this.ui_number_bet_plus = this.safeCreateImage(1034, 675, 'ui_number_bet+');
         if (this.ui_number_bet_plus) {
-            this.ui_number_bet_plus.setDepth(3);
+            this.ui_number_bet_plus.setDepth(10);
             this.ui_number_bet_plus.setInteractive();
             this.ui_number_bet_plus.on('pointerdown', () => this.scene.adjustBet(1));
         }
@@ -256,7 +256,7 @@ window.UIManager = class UIManager {
         this.ui_spin = this.scene.add.sprite(1161 * scaleX, 636 * scaleY, spinSpriteKey);
         if (this.ui_spin) {
             this.ui_spin.setScale(uiScale * scaleX, uiScale * scaleY);
-            this.ui_spin.setDepth(3);
+            this.ui_spin.setDepth(10);
             this.ui_spin.setInteractive();
             this.ui_spin.on('pointerdown', () => this.scene.handleSpinButtonClick());
             this.ui_spin.setFrame(0);
@@ -268,7 +268,7 @@ window.UIManager = class UIManager {
         
         this.ui_small_stop = this.safeCreateImage(1038, 578, 'ui_small_stop');
         if (this.ui_small_stop) {
-            this.ui_small_stop.setDepth(3);
+            this.ui_small_stop.setDepth(10);
             this.ui_small_stop.setInteractive();
             this.ui_small_stop.on('pointerdown', () => this.scene.toggleAutoplay());
         }
@@ -334,7 +334,7 @@ window.UIManager = class UIManager {
             align: 'center'
         });
         this.betText.setOrigin(0.5);
-        this.betText.setDepth(4);
+        this.betText.setDepth(11);
         
         // Create accumulated multiplier text
         if (this.ui_accumulated_multiplier) {

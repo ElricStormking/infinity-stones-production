@@ -41,33 +41,36 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // UI manager is now replaced by direct UI element management
         
-        // Position grid in center with proper spacing for UI
+        // Position grid centered inside the actual UI box displayed on screen
         const gridWidth = this.gridManager.getGridWidth();
         const gridHeight = this.gridManager.getGridHeight();
-        
-        // Calculate positioning based on Phaser Editor scene (ui_plane position)
-        const canvasWidth = this.cameras.main.width;
-        const canvasHeight = this.cameras.main.height;
-        const uiScaleX = canvasWidth / window.GameConfig.UI.DESIGN_WIDTH;
-        const uiScaleY = canvasHeight / window.GameConfig.UI.DESIGN_HEIGHT;
-        
-        // Use configured UI anchors (center of the ui_box)
-        const uiBoxCenterX = window.GameConfig.UI.UI_BOX_CENTER.x * uiScaleX;
-        const uiBoxCenterY = window.GameConfig.UI.UI_BOX_CENTER.y * uiScaleY;
-        
-        // Account for configured ui_box scale factor
-        const uiBoxScale = window.GameConfig.UI.UI_BOX_SCALE * Math.min(uiScaleX, uiScaleY);
-        
-        // Calculate grid top-left position to center it within the ui_box
-        // Fine-tuned offsets to align symbols with ui_box grid cells (from config)
-        const gridOffsetX = window.GameConfig.UI.GRID_OFFSET.x;
-        const gridOffsetY = window.GameConfig.UI.GRID_OFFSET.y;
-        
-        // Position grid centered on ui_box with precise offsets
-        const gridX = uiBoxCenterX - (gridWidth / 2) + gridOffsetX;
-        const gridY = uiBoxCenterY - (gridHeight / 2) + gridOffsetY;
-        
-        this.gridManager.setPosition(gridX, gridY);
+
+        const uiBox = this.uiManager && this.uiManager.ui_plane;
+        const offsetX = (window.GameConfig.UI && window.GameConfig.UI.GRID_OFFSET ? window.GameConfig.UI.GRID_OFFSET.x : 0) || 0;
+        const offsetY = (window.GameConfig.UI && window.GameConfig.UI.GRID_OFFSET ? window.GameConfig.UI.GRID_OFFSET.y : 0) || 0;
+
+        if (uiBox) {
+            const centerX = uiBox.x;
+            const centerY = uiBox.y;
+            const gridX = centerX - (gridWidth / 2) + offsetX;
+            const gridY = centerY - (gridHeight / 2) + offsetY;
+            this.gridManager.setPosition(gridX, gridY);
+            // Ensure grid draws beneath the frame but above background
+            if (this.gridManager && this.gridManager.grid) {
+                // Symbols already at depth 4; frame is at 8, title 9
+            }
+        } else {
+            // Fallback to config-based positioning if ui_box is unavailable
+            const canvasWidth = this.cameras.main.width;
+            const canvasHeight = this.cameras.main.height;
+            const uiScaleX = canvasWidth / window.GameConfig.UI.DESIGN_WIDTH;
+            const uiScaleY = canvasHeight / window.GameConfig.UI.DESIGN_HEIGHT;
+            const centerX = window.GameConfig.UI.UI_BOX_CENTER.x * uiScaleX;
+            const centerY = window.GameConfig.UI.UI_BOX_CENTER.y * uiScaleY;
+            const gridX = centerX - (gridWidth / 2) + offsetX;
+            const gridY = centerY - (gridHeight / 2) + offsetY;
+            this.gridManager.setPosition(gridX, gridY);
+        }
         
         // UI is now created by UIManager above
         

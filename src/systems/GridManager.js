@@ -102,6 +102,10 @@ window.GridManager = class GridManager {
         // Set symbol properties
         symbol.symbolType = type;
         symbol.setGridPosition(col, row);
+        // Make sure symbol and its effects render above UI panels
+        if (symbol.setDepthWithEffects) {
+            symbol.setDepthWithEffects(4);
+        }
         
         // Position symbol
         const pos = this.getSymbolPosition(col, row);

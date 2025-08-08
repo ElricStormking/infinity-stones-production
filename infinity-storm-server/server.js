@@ -22,6 +22,12 @@ app.use(cors({
     credentials: true
 }));
 
+// Disable caching in development so updated assets appear immediately
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+});
+
 // Socket.io setup
 const io = socketIo(server, {
     cors: {

@@ -5,13 +5,13 @@ window.GameConfig = {
         DESIGN_HEIGHT: 720,
         UI_BOX_CENTER: { x: 632, y: 347 },
         UI_BOX_SCALE: 0.67,
-        GRID_OFFSET: { x: 2, y: 2 }
+        GRID_OFFSET: { x: 2, y: 37 }
     },
     // Grid Configuration
     GRID_COLS: 6,
     GRID_ROWS: 5,
     SYMBOL_SIZE: 150,  // Updated to match new 150x150 gem graphics
-    GRID_SPACING: 8,   // Adjusted spacing for larger symbols
+    GRID_SPACING: 0,   // Adjusted spacing for larger symbols
     
     // Game Settings
     MIN_MATCH_COUNT: 8,

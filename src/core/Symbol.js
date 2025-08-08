@@ -28,11 +28,25 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         this.glowEffect = null;
         this.shadowEffect = null;
         
+        // Ensure symbols render above bottom UI panel
+        // Depth is chosen to be higher than UI panel (depth 2) and most UI images (depth 3)
+        this.setDepth(4);
+        
         // Initialize
         this.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
         this.setInteractive();
         this.createEffects();
         this.setupAnimations();
+    }
+    
+    setDepthWithEffects(depth) {
+        this.setDepth(depth);
+        if (this.shadowEffect) {
+            this.shadowEffect.setDepth(depth - 1);
+        }
+        if (this.glowEffect) {
+            this.glowEffect.setDepth(depth - 2);
+        }
     }
     
     createEffects() {
