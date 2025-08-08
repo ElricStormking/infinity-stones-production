@@ -1,4 +1,12 @@
 window.GameConfig = {
+    // UI Design/Anchors (for consistent positioning without magic numbers)
+    UI: {
+        DESIGN_WIDTH: 1280,
+        DESIGN_HEIGHT: 720,
+        UI_BOX_CENTER: { x: 632, y: 347 },
+        UI_BOX_SCALE: 0.67,
+        GRID_OFFSET: { x: 2, y: 2 }
+    },
     // Grid Configuration
     GRID_COLS: 6,
     GRID_ROWS: 5,

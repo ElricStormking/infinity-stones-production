@@ -1,6 +1,6 @@
 // NetworkService - Simple network service for server communication
 window.NetworkService = {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     authToken: null,
     
     init() {

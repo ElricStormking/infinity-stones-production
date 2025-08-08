@@ -37,7 +37,12 @@ npm start
 npm run dev
 
 # Server development (from infinity-storm-server/)
+cd infinity-storm-server
 npm start
+
+# Server development with auto-restart (using nodemon)
+cd infinity-storm-server
+npx nodemon server.js
 
 # No linting, testing, or build scripts currently configured
 ```
@@ -78,6 +83,8 @@ Express + Socket.io server on port 3000:
 - WebSocket events: `spin_request`, `spin_result`
 - Simplified demo implementation (random grid generation)
 - CORS configured for localhost:3000 and localhost:8080
+- Dependencies: PostgreSQL (pg), JWT authentication, bcrypt, Supabase integration
+- Auto-restart capability with nodemon for development
 
 ### Game Mechanics
 - **Grid**: 6 columns × 5 rows (zero-indexed)

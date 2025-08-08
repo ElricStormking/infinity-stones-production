@@ -2,7 +2,7 @@
 // Requires: axios, socket.io-client
 
 window.NetworkService = {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     socket: null,
     authToken: null,
     isConnected: false,

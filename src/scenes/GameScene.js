@@ -48,21 +48,20 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Calculate positioning based on Phaser Editor scene (ui_plane position)
         const canvasWidth = this.cameras.main.width;
         const canvasHeight = this.cameras.main.height;
-        const uiScaleX = canvasWidth / 1280;
-        const uiScaleY = canvasHeight / 720;
+        const uiScaleX = canvasWidth / window.GameConfig.UI.DESIGN_WIDTH;
+        const uiScaleY = canvasHeight / window.GameConfig.UI.DESIGN_HEIGHT;
         
-        // The ui_plane (ui_box) is positioned at (632, 347) in the 1280x720 design
-        // This is the center of the ui_box
-        const uiBoxCenterX = 656 * uiScaleX;
-        const uiBoxCenterY = 353 * uiScaleY;
+        // Use configured UI anchors (center of the ui_box)
+        const uiBoxCenterX = window.GameConfig.UI.UI_BOX_CENTER.x * uiScaleX;
+        const uiBoxCenterY = window.GameConfig.UI.UI_BOX_CENTER.y * uiScaleY;
         
-        // The ui_box has a 0.67 scale factor applied, we need to account for this
-        const uiBoxScale = 0.67 * Math.min(uiScaleX, uiScaleY);
+        // Account for configured ui_box scale factor
+        const uiBoxScale = window.GameConfig.UI.UI_BOX_SCALE * Math.min(uiScaleX, uiScaleY);
         
         // Calculate grid top-left position to center it within the ui_box
-        // Fine-tuned offsets to align symbols with ui_box grid cells - adjusted for 150px symbols
-        const gridOffsetX = 2;   // Horizontal offset adjusted for larger symbols
-        const gridOffsetY = 2;   // Vertical offset adjusted for larger symbols
+        // Fine-tuned offsets to align symbols with ui_box grid cells (from config)
+        const gridOffsetX = window.GameConfig.UI.GRID_OFFSET.x;
+        const gridOffsetY = window.GameConfig.UI.GRID_OFFSET.y;
         
         // Position grid centered on ui_box with precise offsets
         const gridX = uiBoxCenterX - (gridWidth / 2) + gridOffsetX;
@@ -72,6 +71,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // UI is now created by UIManager above
         
+        // Optional FPS meter
+        this._fpsText = null;
+        if (window.SHOW_FPS) {
+            const w = this.cameras.main.width;
+            this._fpsText = this.add.text(w - 10, 6, 'FPS: --', {
+                fontSize: '12px',
+                fontFamily: 'Arial',
+                color: '#00FF00'
+            });
+            this._fpsText.setOrigin(1, 0);
+            this._fpsText.setDepth(5000);
+        }
+
         // Create debug panel
         this.createDebugPanel();
         
@@ -82,7 +94,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.totalWin = 0;
         this.cascadeMultiplier = 1;
         this.isSpinning = false;
-        this.quickSpinEnabled = false;
+        this.quickSpinEnabled = !!window.QUICK_SPIN;
         
         // BGM is now handled by the centralized SafeSound BGM management system
         // Old BGM system disabled to prevent conflicts
@@ -694,7 +706,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 if (symbol.shadowEffect) symbol.shadowEffect.setVisible(false);
                 if (symbol.glowEffect) symbol.glowEffect.setVisible(false);
                 
-                // Create cascading animation with staggered delays
+        // Create cascading animation with staggered delays
                 const promise = new Promise(resolve => {
                     // Fade in
                     this.tweens.add({
@@ -702,8 +714,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         alpha: 1,
                         scaleX: 1,
                         scaleY: 1,
-                        duration: 200,
-                        delay: (col * 50) + (row * 30), // Stagger by column and row
+                duration: this.quickSpinEnabled ? 100 : 200,
+                delay: (col * 50) + (row * 30), // Stagger by column and row
                         ease: 'Power2',
                         onStart: () => {
                             // Show shadow effect when symbol starts appearing
@@ -719,12 +731,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         }
                     });
                     
-                    // Drop animation - only resolve when this completes
+            // Drop animation - only resolve when this completes
                     this.tweens.add({
                         targets: symbol,
                         y: targetPos.y,
-                        duration: window.GameConfig.CASCADE_SPEED || 400,
-                        delay: (col * 50) + (row * 30), // Same stagger
+                duration: this.quickSpinEnabled ? Math.max(150, (window.GameConfig.CASCADE_SPEED || 400) * 0.6) : (window.GameConfig.CASCADE_SPEED || 400),
+                delay: (col * 50) + (row * 30), // Same stagger
                         ease: 'Bounce.out',
                         onComplete: () => {
                             // Show shadow effect after landing
@@ -1085,6 +1097,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
             console.log(`Row ${row}: ${rowStr}`);
         }
         console.log('==================');
+    }
+
+    update(time, delta) {
+        // Keep default Scene.update behavior
+        if (this._fpsText && this.game.loop && this.game.loop.actualFps) {
+            const fps = Math.round(this.game.loop.actualFps);
+            this._fpsText.setText('FPS: ' + fps);
+            // Color cue
+            const color = fps >= 55 ? '#00FF00' : fps >= 45 ? '#FFD700' : '#FF4500';
+            this._fpsText.setColor(color);
+        }
     }
 
     delay(ms) {

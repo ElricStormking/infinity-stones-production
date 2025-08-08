@@ -20,7 +20,14 @@
       "Bash(claude doctor)",
       "Bash(start http://localhost:3000)",
       "Bash(cmd.exe /c start http://localhost:3000)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(move no_win_spin.mp3 spin_drop_finish.mp3)",
+      "Bash(mv:*)",
+      "Bash(npm upgrade:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(claude --version)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }

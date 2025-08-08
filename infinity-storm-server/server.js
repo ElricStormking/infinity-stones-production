@@ -14,9 +14,7 @@ const server = http.createServer(app);
 // CORS configuration
 const allowedOrigins = [
     'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:8080',
-    'http://127.0.0.1:8080'
+    'http://127.0.0.1:3000'
 ];
 
 app.use(cors({
@@ -48,14 +46,14 @@ app.get('/api/health', (req, res) => {
 // Simple game API endpoints
 app.post('/api/spin', (req, res) => {
     try {
-        // Simple spin logic for testing
+        // Simple spin logic for testing (6 columns × 5 rows)
         const grid = [];
-        for (let row = 0; row < 6; row++) {
-            const gridRow = [];
-            for (let col = 0; col < 5; col++) {
-                gridRow.push(Math.floor(Math.random() * 10) + 1); // Random symbol 1-10
+        for (let col = 0; col < 6; col++) {
+            const gridCol = [];
+            for (let row = 0; row < 5; row++) {
+                gridCol.push(Math.floor(Math.random() * 10) + 1); // Random symbol 1-10
             }
-            grid.push(gridRow);
+            grid.push(gridCol);
         }
 
         const response = {
@@ -80,14 +78,14 @@ io.on('connection', (socket) => {
     socket.on('spin_request', (data) => {
         console.log('Spin request received:', data);
         
-        // Simple spin response
+        // Simple spin response (6 columns × 5 rows)
         const grid = [];
-        for (let row = 0; row < 6; row++) {
-            const gridRow = [];
-            for (let col = 0; col < 5; col++) {
-                gridRow.push(Math.floor(Math.random() * 10) + 1);
+        for (let col = 0; col < 6; col++) {
+            const gridCol = [];
+            for (let row = 0; row < 5; row++) {
+                gridCol.push(Math.floor(Math.random() * 10) + 1);
             }
-            grid.push(gridRow);
+            grid.push(gridCol);
         }
 
         const response = {

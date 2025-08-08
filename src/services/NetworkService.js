@@ -3,7 +3,7 @@
 
 window.NetworkService = new (class NetworkService {
     constructor() {
-        this.baseURL = 'http://localhost:3001';
+        this.baseURL = 'http://localhost:3000';
         this.socket = null;
         this.authToken = null;
         this.isConnected = false;

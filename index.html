@@ -26,6 +26,215 @@
 </head>
 <body>
     <div id="game-container"></div>
+    <script>
+        (function () {
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var debugParam = params.get('debug');
+                var fpsParam = params.get('fps');
+                var quickParam = params.get('quick');
+                // Default: disable noisy logs. Enable with ?debug=1
+                window.DEBUG = debugParam === '1' || debugParam === 'true';
+                // FPS overlay only when requested via ?fps=1
+                window.SHOW_FPS = fpsParam === '1' || fpsParam === 'true';
+                // Quick spin optional toggle via ?quick=1
+                window.QUICK_SPIN = quickParam === '1' || quickParam === 'true';
+
+                var original = {
+                    log: console.log.bind(console),
+                    info: console.info.bind(console),
+                    warn: console.warn.bind(console),
+                    debug: console.debug.bind(console),
+                    error: console.error.bind(console)
+                };
+
+                window.setDebugLogging = function (enabled) {
+                    var on = !!enabled;
+                    window.DEBUG = on;
+                    console.log = on ? original.log : function () {};
+                    console.info = on ? original.info : function () {};
+                    console.warn = on ? original.warn : function () {};
+                    console.debug = on ? original.debug : function () {};
+                    // Never silence errors
+                    console.error = original.error;
+                };
+
+                window.setDebugLogging(window.DEBUG);
+            } catch (e) {
+                // If anything goes wrong, keep native console behavior
+            }
+        })();
+    </script>
+    <script>
+        // Minimal error overlay for uncaught runtime errors (no effect in normal play)
+        (function () {
+            function ensureOverlay() {
+                var el = document.getElementById('error-overlay');
+                if (el) return el;
+                el = document.createElement('div');
+                el.id = 'error-overlay';
+                var s = el.style;
+                s.position = 'fixed';
+                s.top = '8px';
+                s.left = '50%';
+                s.transform = 'translateX(-50%)';
+                s.maxWidth = '90%';
+                s.zIndex = '100000';
+                s.background = 'rgba(43,43,43,0.95)';
+                s.color = '#fff';
+                s.border = '1px solid #ff4d4f';
+                s.borderRadius = '6px';
+                s.padding = '8px 12px';
+                s.fontFamily = 'Arial, sans-serif';
+                s.fontSize = '12px';
+                s.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+                s.pointerEvents = 'auto';
+                s.display = 'none';
+                var close = document.createElement('span');
+                close.textContent = '×';
+                close.title = 'Close';
+                var cs = close.style;
+                cs.float = 'right';
+                cs.cursor = 'pointer';
+                cs.marginLeft = '12px';
+                cs.color = '#ff7875';
+                close.onclick = function(){ el.style.display = 'none'; };
+                var msg = document.createElement('div');
+                msg.id = 'error-overlay-msg';
+                el.appendChild(close);
+                el.appendChild(msg);
+                document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(el); });
+                return el;
+            }
+
+            function showError(text) {
+                try {
+                    var el = ensureOverlay();
+                    var msg = el.querySelector('#error-overlay-msg');
+                    msg.textContent = text;
+                    el.style.display = 'block';
+                } catch (_) {}
+            }
+
+            window.addEventListener('error', function (e) {
+                // Keep console error visible (not silenced by our DEBUG toggle)
+                try { console.error(e.error || e.message || e); } catch(_) {}
+                var m = (e && e.message) ? e.message : 'Unexpected error occurred';
+                showError('Error: ' + m);
+            });
+
+            window.addEventListener('unhandledrejection', function (e) {
+                try { console.error('Unhandled promise rejection:', e.reason); } catch(_) {}
+                var r = e && e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
+                showError('Error: ' + r);
+            });
+
+            // Expose API for manual testing
+            window.__showErrorOverlay = function (text) { showError(text || 'Manual test error'); };
+        })();
+    </script>
+    <script>
+        // Optional on-screen toggle button for window.DEBUG. Shown only if ?debug=1 or ?debugbtn=1
+        (function () {
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var showBtn = (params.get('debugbtn') === '1' || window.DEBUG === true);
+                if (!showBtn) return;
+
+                var btn = document.createElement('button');
+                btn.id = 'debug-toggle';
+                btn.textContent = (window.DEBUG ? 'DEBUG: ON' : 'DEBUG: OFF');
+                btn.title = 'Toggle console logs';
+                var s = btn.style;
+                s.position = 'fixed';
+                s.right = '8px';
+                s.bottom = '8px';
+                s.zIndex = '99999';
+                s.padding = '6px 10px';
+                s.fontSize = '12px';
+                s.opacity = window.DEBUG ? '0.8' : '0.5';
+                s.background = '#222';
+                s.color = '#fff';
+                s.border = '1px solid #555';
+                s.borderRadius = '4px';
+                s.cursor = 'pointer';
+
+                btn.addEventListener('mouseenter', function(){ btn.style.opacity = '1'; });
+                btn.addEventListener('mouseleave', function(){ btn.style.opacity = window.DEBUG ? '0.8' : '0.5'; });
+                btn.addEventListener('click', function(){
+                    var enable = !window.DEBUG;
+                    if (typeof window.setDebugLogging === 'function') {
+                        window.setDebugLogging(enable);
+                    } else {
+                        window.DEBUG = enable;
+                    }
+                    btn.textContent = (window.DEBUG ? 'DEBUG: ON' : 'DEBUG: OFF');
+                    btn.style.opacity = window.DEBUG ? '0.8' : '0.5';
+                });
+
+                document.addEventListener('DOMContentLoaded', function(){
+                    document.body.appendChild(btn);
+                });
+            } catch (e) {}
+        })();
+    </script>
+    <script>
+        // Hotkey help overlay (only when ?help=1)
+        (function(){
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var show = params.get('help');
+                if (!(show === '1' || show === 'true')) return;
+
+                function mount(){
+                    var wrap = document.createElement('div');
+                    wrap.id = 'hotkey-help';
+                    var s = wrap.style;
+                    s.position = 'fixed'; s.left = '8px'; s.top = '8px'; s.zIndex = '100001';
+                    s.background = 'rgba(20,20,20,0.92)'; s.color = '#fff'; s.border = '1px solid #666';
+                    s.borderRadius = '6px'; s.padding = '10px 12px'; s.fontFamily = 'Arial, sans-serif';
+                    s.fontSize = '12px'; s.maxWidth = '320px'; s.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
+
+                    var header = document.createElement('div');
+                    header.style.display = 'flex'; header.style.alignItems = 'center';
+                    var title = document.createElement('div'); title.textContent = 'Hotkeys';
+                    title.style.fontWeight = 'bold'; title.style.flex = '1';
+                    var close = document.createElement('span'); close.textContent = '×';
+                    close.style.cursor = 'pointer'; close.style.marginLeft = '8px';
+                    close.title = 'Close';
+                    close.onclick = function(){ wrap.remove(); };
+                    header.appendChild(title); header.appendChild(close);
+
+                    var list = document.createElement('ul');
+                    list.style.margin = '8px 0 0 14px';
+                    list.style.padding = '0';
+                    var items = [
+                        ['D', 'Test gem destruction animations'],
+                        ['S', 'Test spin button animation'],
+                        ['W', 'Test Scarlet Witch animation'],
+                        ['T', 'Test Thanos animation'],
+                        ['B', 'BGM switch test (toggle main/free spins)'],
+                        ['M', 'Start main BGM via SafeSound'],
+                        ['X', 'Direct main BGM start (bypass SafeSound)']
+                    ];
+                    items.forEach(function(pair){
+                        var li = document.createElement('li');
+                        li.style.marginBottom = '2px';
+                        var k = document.createElement('span'); k.textContent = pair[0];
+                        k.style.display = 'inline-block'; k.style.minWidth = '20px'; k.style.color = '#FFD700';
+                        li.appendChild(k); li.appendChild(document.createTextNode(' — ' + pair[1]));
+                        list.appendChild(li);
+                    });
+
+                    wrap.appendChild(header); wrap.appendChild(list);
+                    document.body.appendChild(wrap);
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', mount);
+                } else { mount(); }
+            } catch (_) {}
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" onerror="this.onerror=null;this.src='phaser.min.js'"></script>
     <!-- Load all modules in order -->
     <script src="src/services/NetworkService-simple.js"></script>
