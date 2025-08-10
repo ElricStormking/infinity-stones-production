@@ -30,7 +30,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         
         // Ensure symbols render above bottom UI panel
         // Depth is chosen to be higher than UI panel (depth 2) and most UI images (depth 3)
-        this.setDepth(4);
+        this.setDepth(window.GameConfig.UI_DEPTHS.GRID_SYMBOL);
         
         // Initialize
         this.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
@@ -265,7 +265,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
             // Create a sprite for the destruction animation at the same position
             const destructionSprite = this.scene.add.sprite(this.x, this.y, destructionAnimKey);
             destructionSprite.setDisplaySize(window.GameConfig.SYMBOL_SIZE * 1.5, window.GameConfig.SYMBOL_SIZE * 1.5);
-            destructionSprite.setDepth(this.depth + 10); // Above the symbol
+            destructionSprite.setDepth(window.GameConfig.UI_DEPTHS.FX); // Above UI and symbols
             
             // Play the destruction animation
             destructionSprite.play(destructionAnimKey);

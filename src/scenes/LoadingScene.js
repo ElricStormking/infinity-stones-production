@@ -200,6 +200,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         // Load background and grid
         this.loadImageWithFallback('bg_infinity_storm', 'assets/images/BG_infinity_storm.png', 0x1a1a2e);
         this.loadImageWithFallback('ui_box', 'assets/images/ui_box.png', 0x4a4a4a);
+        this.loadImageWithFallback('ui_boxBG', 'assets/images/ui_boxBG.png', 0x333333);
+        this.loadImageWithFallback('random_multiplier_frame', 'assets/images/random_multiplier_frame.png', 0x2f2f2f);
         
         // Load UI elements that actually exist
         this.loadImageWithFallback('ui_bottom_panel', 'assets/images/ui_bottom_panel.png', 0x333333);
@@ -215,7 +217,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_small_stop', 'assets/images/ui_small_stop.png', 0x666666);
         this.loadImageWithFallback('ui_spin', 'assets/images/ui_spin.png', 0x777777);
         this.loadImageWithFallback('ui_title', 'assets/images/ui_title.png', 0x888888);
-        this.loadImageWithFallback('ui_top', 'assets/images/ui_top.png', 0x999999);
+        // ui_top currently unused
         
         // Load spritesheets
         try {
@@ -750,7 +752,6 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'ui_spin': 0x777777,
             'ui_buttonloop_sprite': 0x777777,
             'ui_title': 0x888888,
-            'ui_top': 0x999999,
             'money_sprite': 0xFFD700
         };
         
@@ -776,7 +777,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'button', 'background', 'particle', 'ui_box',
             'ui_bottom_panel', 'ui_freegame', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
             'ui_number_score', 'ui_number_win', 'ui_accumulated_multiplier', 'ui_small_burst', 'ui_small_menu',
-            'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_title', 'ui_top', 'money_sprite'
+            'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_title', 'money_sprite'
         ];
         
         requiredTextures.forEach(key => {

@@ -3,6 +3,8 @@ window.BonusManager = class BonusManager {
     constructor(scene) {
         this.scene = scene;
         this.thanosPowerGripEffect = null;
+        // Holds persistent random-multiplier overlays: key `${col},${row}` -> {container, text}
+        this.randomMultiplierOverlays = {};
     }
     
     cleanup() {
@@ -11,6 +13,15 @@ window.BonusManager = class BonusManager {
             this.thanosPowerGripEffect.destroy();
             this.thanosPowerGripEffect = null;
         }
+        // Remove overlays
+        this.clearRandomMultiplierOverlays();
+    }
+
+    clearRandomMultiplierOverlays() {
+        Object.values(this.randomMultiplierOverlays).forEach(entry => {
+            try { if (entry && entry.container && !entry.container.destroyed) entry.container.destroy(); } catch {}
+        });
+        this.randomMultiplierOverlays = {};
     }
     
     async checkRandomMultiplier() {
@@ -77,9 +88,70 @@ window.BonusManager = class BonusManager {
         // Update win display
         this.scene.updateWinDisplay();
         
+        // Place persistent multiplier frame on replaced symbol
+        this.placeRandomMultiplierOverlay(col, row, multiplier);
+
         // Show multiplier message with appropriate character
         const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
         this.scene.showMessage(`${characterName} ${multiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
+    }
+
+    placeRandomMultiplierOverlay(col, row, multiplier) {
+        const x = this.scene.gridManager.getSymbolScreenX(col);
+        const y = this.scene.gridManager.getSymbolScreenY(row);
+
+        // remove any existing overlay at this cell
+        const key = `${col},${row}`;
+        const prev = this.randomMultiplierOverlays[key];
+        if (prev && prev.container && !prev.container.destroyed) {
+            prev.container.destroy();
+        }
+
+        // Create a special Symbol that behaves as a normal grid entry
+        const container = this.scene.add.container(x, y);
+        container.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_SLOT);
+
+        const size = window.GameConfig.SYMBOL_SIZE;
+        const frame = this.scene.add.image(0, 0, 'random_multiplier_frame');
+        frame.setDisplaySize(size, size);
+        container.add(frame);
+        const txt = this.scene.add.text(0, 0, `x${multiplier}`, {
+            fontSize: Math.floor(size * 0.38) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: Math.max(2, Math.floor(size * 0.06)),
+            align: 'center'
+        });
+        txt.setOrigin(0.5);
+        container.add(txt);
+
+        // slight pop animation for feedback
+        container.setScale(0.6);
+        this.scene.tweens.add({ targets: container, scale: 1, duration: 220, ease: 'Back.out' });
+
+        // Create a lightweight symbol wrapper so it participates in cascades
+        const rmSymbol = new window.Symbol(this.scene, x, y, 'time_gem'); // use any valid texture for base Sprite
+        rmSymbol.isRandomMultiplier = true;
+        rmSymbol.multiplierValue = multiplier;
+        rmSymbol.setDisplaySize(size, size);
+        rmSymbol.setDepth(window.GameConfig.UI_DEPTHS.GRID_SYMBOL);
+        // Hide internal effects; we render with container
+        if (rmSymbol.shadowEffect) rmSymbol.shadowEffect.setVisible(false);
+        if (rmSymbol.glowEffect) rmSymbol.glowEffect.setVisible(false);
+        // Link container so GridManager can move both if needed
+        rmSymbol.overlayContainer = container;
+        rmSymbol.updatePosition(x, y);
+        rmSymbol.setGridPosition(col, row);
+
+        // Replace grid slot with this special symbol
+        if (!this.scene.gridManager.grid[col]) this.scene.gridManager.grid[col] = [];
+        this.scene.gridManager.grid[col][row] = rmSymbol;
+
+        // Make sure this slot isn’t counted as a normal match and never pooled inadvertently
+        rmSymbol.symbolType = 'random_multiplier';
+
+        this.randomMultiplierOverlays[key] = { container, text: txt, col, row, symbol: rmSymbol };
     }
     
     async showThanosRandomMultiplier(col, row, multiplier) {
@@ -118,6 +190,9 @@ window.BonusManager = class BonusManager {
                 });
             }
             
+            // Immediately place persistent overlay for reliability (in case flow changes)
+            this.placeRandomMultiplierOverlay(col, row, multiplier);
+
             // Wait for effect to complete
             this.scene.time.delayedCall(2000, () => {
                 resolve();
@@ -140,7 +215,7 @@ window.BonusManager = class BonusManager {
             // STEP 1: Lightning strikes the symbol first
             await this.createRedLightningEffect(symbolX, symbolY);
             
-            // STEP 2: Destroy/hide the original symbol with dramatic effect
+            // STEP 2: Destroy the original symbol with dramatic effect and clear grid cell
             const originalSymbol = this.scene.gridManager.grid[col][row];
             if (originalSymbol) {
                 console.log(`💥 Destroying original symbol at (${col}, ${row})`);
@@ -154,11 +229,20 @@ window.BonusManager = class BonusManager {
                     duration: 200,
                     ease: 'Power2',
                     onComplete: () => {
-                        originalSymbol.setVisible(false);
+                        // remove from grid and destroy fully
+                        this.scene.gridManager.grid[col][row] = null;
+                        if (originalSymbol.destroy) {
+                            originalSymbol.destroy();
+                        } else {
+                            originalSymbol.setVisible(false);
+                        }
                     }
                 });
             }
             
+            // Place overlay right away so it survives any later animations
+            this.placeRandomMultiplierOverlay(col, row, multiplier);
+
             // STEP 3: Show Scarlet Witch power effect and multiplier
             // Create Scarlet Witch power effect
             const scarletWitch = this.scene.add.image(symbolX, symbolY, 'scarlet_witch');
@@ -367,7 +451,7 @@ window.BonusManager = class BonusManager {
                     const positions = [{ row, col }];
                     this.thanosPowerGripEffect.triggerEffect(positions, multiplier);
                     
-                    // Hide the original symbol
+                    // Remove the original symbol and replace with Random Mult tile immediately
                     const originalSymbol = this.scene.gridManager.grid[col][row];
                     if (originalSymbol) {
                         originalSymbol.setTint(0x6B46C1);
@@ -377,13 +461,16 @@ window.BonusManager = class BonusManager {
                             scaleX: 0.1,
                             scaleY: 0.1,
                             angle: 360,
-                            duration: 400,
+                            duration: 300,
                             ease: 'Power2.in',
                             onComplete: () => {
-                                originalSymbol.setVisible(false);
+                                this.scene.gridManager.grid[col][row] = null;
+                                if (originalSymbol.destroy) originalSymbol.destroy();
                             }
                         });
                     }
+                    // Place the Random Multiplier symbol grid now
+                    this.placeRandomMultiplierOverlay(col, row, multiplier);
                     
                     // Wait for effect to complete
                     this.scene.time.delayedCall(1500, () => {
@@ -478,6 +565,14 @@ window.BonusManager = class BonusManager {
                             });
                         }
                     });
+
+                    // Ensure replacement happens even if animations are interrupted
+                    const existing = this.scene.gridManager.grid[col][row];
+                    if (existing) {
+                        this.scene.gridManager.grid[col][row] = null;
+                        if (existing.destroy) existing.destroy();
+                    }
+                    this.placeRandomMultiplierOverlay(col, row, multiplier);
                 }
                 
                 // Play bonus sound
@@ -736,7 +831,7 @@ window.BonusManager = class BonusManager {
         
         // Create single targeted lightning bolt
         const graphics = this.scene.add.graphics();
-        graphics.setDepth(998); // Just below particles
+        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY); // Just below particles
         
         const screenTop = 0;
         
@@ -824,7 +919,7 @@ window.BonusManager = class BonusManager {
             
             // Add enhanced targeted red flash effect around the impact point
             const flash = this.scene.add.graphics();
-            flash.setDepth(999);
+            flash.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
             flash.fillStyle(0xff1493, 0);
             // Create larger circular flash around target
             flash.fillCircle(targetX, targetY, 120); // Larger radius flash

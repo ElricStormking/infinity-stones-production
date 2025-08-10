@@ -104,7 +104,17 @@ window.GridManager = class GridManager {
         symbol.setGridPosition(col, row);
         // Make sure symbol and its effects render above UI panels
         if (symbol.setDepthWithEffects) {
-            symbol.setDepthWithEffects(4);
+            symbol.setDepthWithEffects(window.GameConfig.UI_DEPTHS.GRID_SYMBOL);
+        }
+
+        // If BonusManager placed a persistent overlay on this cell, ensure it stays on top
+        if (this.scene && this.scene.bonusManager && this.scene.bonusManager.randomMultiplierOverlays) {
+            const key = `${col},${row}`;
+            const overlay = this.scene.bonusManager.randomMultiplierOverlays[key];
+            if (overlay && overlay.container) {
+                overlay.container.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_SLOT);
+                overlay.container.setPosition(symbol.x, symbol.y);
+            }
         }
         
         // Position symbol
@@ -160,7 +170,7 @@ window.GridManager = class GridManager {
         for (let col = 0; col < this.cols; col++) {
             for (let row = 0; row < this.rows; row++) {
                 const symbol = this.grid[col][row];
-                if (symbol && symbol.symbolType !== 'infinity_glove') { // Exclude scatter symbols
+                if (symbol && symbol.symbolType !== 'infinity_glove' && !symbol.isRandomMultiplier && symbol.symbolType !== 'random_multiplier') { // Exclude scatter and random-mult symbols
                     if (!symbolCounts[symbol.symbolType]) {
                         symbolCounts[symbol.symbolType] = [];
                     }
@@ -191,6 +201,10 @@ window.GridManager = class GridManager {
         for (const match of matches) {
             for (const { col, row, symbol } of match) {
                 if (symbol) {
+                    // Skip random multiplier placeholder tiles
+                    if (symbol.isRandomMultiplier) {
+                        continue;
+                    }
                     removedSymbols.push(symbol);
                     this.grid[col][row] = null;
                     
@@ -271,6 +285,13 @@ window.GridManager = class GridManager {
                     
                     const targetPos = this.getSymbolPosition(col, targetRow);
                     
+                    // Keep any overlay container attached to special symbols aligned
+                    const alignOverlay = () => {
+                        if (symbol.overlayContainer) {
+                            symbol.overlayContainer.setPosition(symbol.x, symbol.y);
+                        }
+                    };
+
                     // Only animate if the symbol is moving down
                     if (symbol.y < targetPos.y) {
                         const promise = new Promise(resolve => {
@@ -280,13 +301,15 @@ window.GridManager = class GridManager {
                                 y: targetPos.y,
                                 duration: window.GameConfig.CASCADE_SPEED,
                                 ease: 'Bounce.out',
-                                onComplete: resolve
+                                onUpdate: alignOverlay,
+                                onComplete: () => { alignOverlay(); resolve(); }
                             });
                         });
                         promises.push(promise);
                     } else {
                         // Symbol is already in correct position
                         symbol.setPosition(targetPos.x, targetPos.y);
+                        alignOverlay();
                     }
                 }
             }
@@ -367,6 +390,12 @@ window.GridManager = class GridManager {
                     symbol.setPosition(targetPos.x, startY);
                     this.grid[col][row] = symbol;
                     
+                    const alignOverlay = () => {
+                        if (symbol.overlayContainer) {
+                            symbol.overlayContainer.setPosition(symbol.x, symbol.y);
+                        }
+                    };
+
                     const promise = new Promise(resolve => {
                         this.scene.tweens.add({
                             targets: symbol,
@@ -374,7 +403,8 @@ window.GridManager = class GridManager {
                             duration: window.GameConfig.CASCADE_SPEED + (emptyRowsAbove * 100),
                             ease: 'Bounce.out',
                             delay: col * 50, // Stagger by column instead of row
-                            onComplete: resolve
+                            onUpdate: alignOverlay,
+                            onComplete: () => { alignOverlay(); resolve(); }
                         });
                     });
                     

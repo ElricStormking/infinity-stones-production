@@ -84,7 +84,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 color: '#00FF00'
             });
             this._fpsText.setOrigin(1, 0);
-            this._fpsText.setDepth(5000);
+            this._fpsText.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
         }
 
         // Create debug panel
@@ -101,7 +101,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // BGM is now handled by the centralized SafeSound BGM management system
         // Old BGM system disabled to prevent conflicts
-        console.log('🎵 Old BGM system disabled - using centralized BGM management');
+        if (window.DEBUG) console.log('🎵 Old BGM system disabled - using centralized BGM management');
         
         // Debug controls - store references for cleanup
         this.keyboardListeners = [];
@@ -136,18 +136,18 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Add test key for BGM switching (DEBUG)
         const keyBListener = () => {
-            console.log('🎵 DEBUG: Manual BGM switch test - IMMEDIATE');
+            if (window.DEBUG) console.log('🎵 DEBUG: Manual BGM switch test - IMMEDIATE');
             // Stop all audio immediately
             this.sound.stopAll();
             window.SafeSound.currentBGM = null;
             
             if (window.SafeSound.currentBGM && window.SafeSound.currentBGM.key === 'bgm_free_spins') {
-                console.log('🎵 DEBUG: Switching to main BGM');
+            if (window.DEBUG) console.log('🎵 DEBUG: Switching to main BGM');
                 const mainBGM = this.sound.add('bgm_infinity_storm', { loop: true, volume: 0.5 });
                 mainBGM.play();
                 window.SafeSound.currentBGM = mainBGM;
             } else {
-                console.log('🎵 DEBUG: Switching to Free Spins BGM');
+                if (window.DEBUG) console.log('🎵 DEBUG: Switching to Free Spins BGM');
                 const freeSpinsBGM = this.sound.add('bgm_free_spins', { loop: true, volume: 0.5 });
                 freeSpinsBGM.play();
                 window.SafeSound.currentBGM = freeSpinsBGM;
@@ -166,18 +166,20 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Add test key for DIRECT BGM start (DEBUG) - Changed to 'X' to avoid conflict with gem destruction 'D' key
         const keyXListener = () => {
-            console.log('🎵 DEBUG: DIRECT BGM start (bypassing SafeSound)');
-            console.log('🎵 this.sound:', this.sound);
-            console.log('🎵 Available cache keys:', this.cache.audio.getKeys());
+            if (window.DEBUG) {
+                console.log('🎵 DEBUG: DIRECT BGM start (bypassing SafeSound)');
+                console.log('🎵 this.sound:', this.sound);
+                console.log('🎵 Available cache keys:', this.cache.audio.getKeys());
+            }
             
             try {
                 if (this.sound && this.cache.audio.exists('bgm_infinity_storm')) {
                     const directBGM = this.sound.add('bgm_infinity_storm', { loop: true, volume: 0.5 });
-                    console.log('🎵 Direct BGM created:', directBGM);
+                    if (window.DEBUG) console.log('🎵 Direct BGM created:', directBGM);
                     directBGM.play();
-                    console.log('🎵 Direct BGM play() called');
+                    if (window.DEBUG) console.log('🎵 Direct BGM play() called');
                 } else {
-                    console.log('🎵 Direct BGM failed - sound or audio not available');
+                    if (window.DEBUG) console.log('🎵 Direct BGM failed - sound or audio not available');
                 }
             } catch (error) {
                 console.log('🎵 Direct BGM error:', error);
@@ -187,27 +189,31 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.keyboardListeners.push({key: 'keydown-X', callback: keyXListener});
         
         // Start appropriate BGM based on current game state
-        console.log('🎵 === GAMESCENE CREATED - CHECKING INITIAL BGM ===');
-        console.log('🎵 Free Spins Active:', this.stateManager.freeSpinsData.active);
-        console.log('🎵 Free Spins Count:', this.stateManager.freeSpinsData.count);
+            if (window.DEBUG) {
+                console.log('🎵 === GAMESCENE CREATED - CHECKING INITIAL BGM ===');
+                console.log('🎵 Free Spins Active:', this.stateManager.freeSpinsData.active);
+                console.log('🎵 Free Spins Count:', this.stateManager.freeSpinsData.count);
+            }
         
         // Start initial BGM after a short delay to ensure audio system is ready
         this.time.delayedCall(500, () => {
-            console.log('🎵 GameScene: Checking for initial BGM startup');
-            console.log('🎵 BGM Initialized:', window.SafeSound.bgmInitialized);
-            console.log('🎵 Current BGM:', window.SafeSound.currentBGM ? window.SafeSound.currentBGM.key : 'None');
+            if (window.DEBUG) {
+                console.log('🎵 GameScene: Checking for initial BGM startup');
+                console.log('🎵 BGM Initialized:', window.SafeSound.bgmInitialized);
+                console.log('🎵 Current BGM:', window.SafeSound.currentBGM ? window.SafeSound.currentBGM.key : 'None');
+            }
             
             // Start BGM if none is currently playing
             if (!window.SafeSound.currentBGM) {
                 if (this.stateManager.freeSpinsData.active && this.stateManager.freeSpinsData.count > 0) {
-                    console.log('🎵 GameScene: Starting Free Spins BGM (Free Spins active)');
+                    if (window.DEBUG) console.log('🎵 GameScene: Starting Free Spins BGM (Free Spins active)');
                     window.SafeSound.startFreeSpinsBGM(this);
                 } else {
-                    console.log('🎵 GameScene: Starting main BGM (Free Spins not active)');
+                    if (window.DEBUG) console.log('🎵 GameScene: Starting main BGM (Free Spins not active)');
                     window.SafeSound.startMainBGM(this);
                 }
             } else {
-                console.log('🎵 GameScene: BGM already playing, skipping initial BGM setup');
+                if (window.DEBUG) console.log('🎵 GameScene: BGM already playing, skipping initial BGM setup');
             }
         });
     }
@@ -584,6 +590,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         
         this.isSpinning = true;
+        // Clear any persistent random-multiplier overlays from the previous spin
+        if (this.bonusManager && this.bonusManager.clearRandomMultiplierOverlays) {
+            this.bonusManager.clearRandomMultiplierOverlays();
+        }
         this.totalWin = 0;
         this.cascadeMultiplier = 1;
         
@@ -617,7 +627,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         window.SafeSound.play(this, 'spin');
         
         // Debug: Show grid state before cascades
-        this.debugGridState();
+        if (window.DEBUG) this.debugGridState();
         
         // Start cascade process
         await this.processCascades();
@@ -626,6 +636,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.freeSpinsManager.checkOtherBonusFeatures();
         
         // Check for Random Multiplier after spin results are decided
+        // Run twice with a small delay to avoid race with end-of-cascade settlement
+        await this.bonusManager.checkRandomMultiplier();
+        await this.delay(50);
+        // If something cleared/replaced the grid cell between animations, try again
         await this.bonusManager.checkRandomMultiplier();
         
         // End spin
@@ -791,13 +805,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
             const matches = this.gridManager.findMatches();
             
             // Debug: Log match detection
-            console.log(`=== MATCH DETECTION (Cascade ${cascadeCount + 1}) ===`);
-            console.log(`Matches found: ${matches.length}`);
-            matches.forEach((match, index) => {
-                const symbolType = match[0].symbol.symbolType;
-                const positions = match.map(m => `(${m.col},${m.row})`).join(', ');
-                console.log(`Match ${index + 1}: ${symbolType} - ${match.length} symbols at ${positions}`);
-            });
+            if (window.DEBUG) {
+                console.log(`=== MATCH DETECTION (Cascade ${cascadeCount + 1}) ===`);
+                console.log(`Matches found: ${matches.length}`);
+                matches.forEach((match, index) => {
+                    const symbolType = match[0].symbol.symbolType;
+                    const positions = match.map(m => `(${m.col},${m.row})`).join(', ');
+                    console.log(`Match ${index + 1}: ${symbolType} - ${match.length} symbols at ${positions}`);
+                });
+            }
             
             if (matches.length > 0) {
                 // Calculate win using WinCalculator

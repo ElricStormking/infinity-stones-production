@@ -72,6 +72,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     createMagicCircle(x, y) {
         // Create container for the effect
         const container = this.scene.add.container(x, y);
+        container.setDepth(window.GameConfig.UI_DEPTHS.FX);
         
         // Create the magic circle using graphics (no shader dependencies)
         this.createMagicCircleGraphics(container);
@@ -131,6 +132,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     
     createOuterRings(container) {
         const graphics = this.scene.add.graphics();
+        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         const time = this.scene.time.now / 1000;
         
         // Multiple energy rings with varying intensity - scaled down to fit 1.5x cell size
@@ -165,6 +167,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     
     createSummoningCircle(container) {
         const graphics = this.scene.add.graphics();
+        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         
         // Create complex geometric patterns similar to shader sample - scaled down
         // Hexagonal base structure
@@ -196,6 +199,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     
     createEnergyFlowLines(container) {
         const graphics = this.scene.add.graphics();
+        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         const time = this.scene.time.now / 1000;
         
         // Create flowing energy lines using math from shader sample - scaled down
@@ -225,6 +229,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     
     createRunicSymbols(container) {
         const graphics = this.scene.add.graphics();
+        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         
         // Create runic symbols at key positions - scaled down
         for (let rune = 0; rune < 8; rune++) {
@@ -348,14 +353,14 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             // Use available gem textures for particles
             const particleTexture = this.scene.textures.exists('power_gem') ? 'power_gem' : 
                                    this.scene.textures.exists('reality_gem') ? 'reality_gem' : 
-                                   '__DEFAULT';
-            
-            if (particleTexture !== '__DEFAULT') {
-                const particles = this.scene.add.particles(particleTexture);
-                
-                const emitter = particles.createEmitter({
-                    x: x,
-                    y: y,
+                                   null;
+
+            if (!particleTexture) return;
+
+            // Phaser 3.60+ signature: add.particles(x, y, key, config) → ParticleEmitter
+            let emitter;
+            try {
+                emitter = this.scene.add.particles(x, y, particleTexture, {
                     speed: { min: 100, max: 300 },
                     scale: { start: 0.3, end: 0 },
                     blendMode: 'ADD',
@@ -364,19 +369,39 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
                     angle: { min: 0, max: 360 },
                     tint: [0x9932cc, 0xff8c00, 0xffd700]
                 });
-                
-                // Stop emitting after initial burst
-                this.scene.time.delayedCall(200, () => {
-                    emitter.stop();
-                });
-                
-                // Clean up particles after animation
-                this.scene.time.delayedCall(2500, () => {
-                    if (particles && !particles.destroyed) {
-                        particles.destroy();
-                    }
-                });
+            } catch (e) {
+                // Back-compat path for older Phaser: manager + createEmitter
+                const particles = this.scene.add.particles(particleTexture);
+                if (particles && particles.createEmitter) {
+                    emitter = particles.createEmitter({
+                        x, y,
+                        speed: { min: 100, max: 300 },
+                        scale: { start: 0.3, end: 0 },
+                        blendMode: 'ADD',
+                        lifespan: 1000,
+                        quantity: 15,
+                        angle: { min: 0, max: 360 },
+                        tint: [0x9932cc, 0xff8c00, 0xffd700]
+                    });
+                    // Attach manager for cleanup
+                    emitter._managerRef = particles;
+                } else {
+                    throw e;
+                }
             }
+
+            // Stop emitting after initial burst
+            this.scene.time.delayedCall(200, () => {
+                try { emitter && emitter.stop && emitter.stop(); } catch {}
+            });
+
+            // Clean up after animation
+            this.scene.time.delayedCall(2500, () => {
+                try {
+                    const manager = (emitter && (emitter.manager || emitter._managerRef));
+                    if (manager && manager.destroy) manager.destroy();
+                } catch {}
+            });
         } catch (error) {
             console.warn('Could not create particles:', error);
         }
@@ -389,6 +414,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
         const burst = this.scene.add.graphics();
         burst.x = worldPos.x;
         burst.y = worldPos.y;
+        burst.setDepth(window.GameConfig.UI_DEPTHS.FX);
         burst.fillStyle(0x9932cc, 1);
         burst.fillCircle(0, 0, 25);
         burst.setBlendMode(Phaser.BlendModes.ADD);
@@ -414,6 +440,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
         const shockwave = this.scene.add.graphics();
         shockwave.x = x;
         shockwave.y = y;
+        shockwave.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         shockwave.setBlendMode(Phaser.BlendModes.ADD);
         
         let radius = 0;
@@ -458,7 +485,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
         
         multiplierText.setOrigin(0.5);
         multiplierText.setScale(0);
-        multiplierText.setDepth(1000);
+        multiplierText.setDepth(window.GameConfig.UI_DEPTHS.FX);
         
         // Animate multiplier
         this.scene.tweens.add({

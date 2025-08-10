@@ -36,31 +36,29 @@ window.UIManager = class UIManager {
         
         // Background elements
         this.ui_bg = safeCreateImage(640, 361, 'bg_infinity_storm');
-        if (this.ui_bg) this.ui_bg.setDepth(-10);
+        if (this.ui_bg) this.ui_bg.setDepth(window.GameConfig.UI_DEPTHS.BACKGROUND);
         
         // Character portraits
         this.createCharacterPortraits(scaleX, scaleY);
         
         // Bottom panel
         this.ui_bottom_panel = safeCreateImage(633, 685, 'ui_bottom_panel');
-        if (this.ui_bottom_panel) this.ui_bottom_panel.setDepth(2);
+        if (this.ui_bottom_panel) this.ui_bottom_panel.setDepth(window.GameConfig.UI_DEPTHS.BOTTOM_PANEL);
         
-        // Grid background (ui_plane)
+        // Grid frame (ui_plane)
         this.ui_plane = safeCreateImage(650, 327, 'ui_box');
-        if (this.ui_plane) this.ui_plane.setDepth(5); // bring frame above symbols
+        if (this.ui_plane) this.ui_plane.setDepth(window.GameConfig.UI_DEPTHS.FRAME); // bring frame above symbols
+
+        // Grid background image just behind symbol layer
+        this.ui_grid_bg = safeCreateImage(650, 327, 'ui_boxBG');
+        if (this.ui_grid_bg) this.ui_grid_bg.setDepth(window.GameConfig.UI_DEPTHS.GRID_BG);
         
         // Title
         this.ui_title = safeCreateImage(650, 44, 'ui_title');
-        if (this.ui_title) this.ui_title.setDepth(9); // title on top of frame
+        if (this.ui_title) this.ui_title.setDepth(window.GameConfig.UI_DEPTHS.TITLE); // title on top of frame
         
-        // Top elements
-        this.ui_top_1 = safeCreateImage(354, 14, 'ui_top');
-        this.ui_top_2 = safeCreateImage(538, 14, 'ui_top');
-        this.ui_top_3 = safeCreateImage(722, 14, 'ui_top');
-        this.ui_top_4 = safeCreateImage(906, 14, 'ui_top');
-        [this.ui_top_1, this.ui_top_2, this.ui_top_3, this.ui_top_4].forEach(top => {
-            if (top) top.setDepth(3);
-        });
+        // Top elements removed (ui_top not used currently)
+        this.ui_top_1 = this.ui_top_2 = this.ui_top_3 = this.ui_top_4 = null;
         
         // Free game indicator
         this.ui_freegame = safeCreateImage(168, 549, 'ui_freegame');
@@ -74,7 +72,7 @@ window.UIManager = class UIManager {
         this.ui_number_win = safeCreateImage(561, 675, 'ui_number_win');
         this.ui_number_bet = safeCreateImage(931, 675, 'ui_number_bet');
         [this.ui_number_score, this.ui_number_win, this.ui_number_bet].forEach(display => {
-            if (display) display.setDepth(3);
+            if (display) display.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
         });
         
         // Create buttons
@@ -144,7 +142,7 @@ window.UIManager = class UIManager {
             if (hasIdleAnimation && hasFirstFrame) {
                 this.portrait_scarlet_witch = this.scene.add.sprite(1123 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
                 this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
-                this.portrait_scarlet_witch.setDepth(1);
+                this.portrait_scarlet_witch.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                 
                 // Set reference on scene for BonusManager access
                 this.scene.portrait_scarlet_witch = this.portrait_scarlet_witch;
@@ -161,13 +159,13 @@ window.UIManager = class UIManager {
                 if (hasFirstFrame) {
                     this.portrait_scarlet_witch = this.scene.add.sprite(1123 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
                     this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
-                    this.portrait_scarlet_witch.setDepth(1);
+                    this.portrait_scarlet_witch.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                     console.log('✓ Created Scarlet Witch as sprite with first frame (no animation)');
                 } else {
                     this.portrait_scarlet_witch = this.safeCreateImage(1123, 320, 'portrait_scarlet_witch', 0.4464);
                     if (this.portrait_scarlet_witch) {
                         this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
-                        this.portrait_scarlet_witch.setDepth(1);
+                        this.portrait_scarlet_witch.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                         console.log('✓ Created Scarlet Witch as static image fallback');
                     }
                 }
@@ -177,7 +175,7 @@ window.UIManager = class UIManager {
             this.portrait_scarlet_witch = this.safeCreateImage(1123, 320, 'portrait_scarlet_witch', 0.4464);
             if (this.portrait_scarlet_witch) {
                 this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
-                this.portrait_scarlet_witch.setDepth(1);
+                this.portrait_scarlet_witch.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
             }
         }
         
@@ -192,7 +190,7 @@ window.UIManager = class UIManager {
             if (hasIdleAnimation && hasFirstFrame) {
                 this.portrait_thanos = this.scene.add.sprite(221 * scaleX, 380 * scaleY, 'thanos-idle_00');
                 this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
-                this.portrait_thanos.setDepth(1);
+                this.portrait_thanos.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                 
                 // Set reference on scene for BonusManager access
                 this.scene.portrait_thanos = this.portrait_thanos;
@@ -209,13 +207,13 @@ window.UIManager = class UIManager {
                 if (hasFirstFrame) {
                     this.portrait_thanos = this.scene.add.sprite(221 * scaleX, 380 * scaleY, 'thanos-idle_00');
                     this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
-                    this.portrait_thanos.setDepth(1);
+                    this.portrait_thanos.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                     console.log('✓ Created Thanos as sprite with first frame (no animation)');
                 } else {
                     this.portrait_thanos = this.safeCreateImage(221, 380, 'portrait_thanos', 0.56);
                     if (this.portrait_thanos) {
                         this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
-                        this.portrait_thanos.setDepth(1);
+                        this.portrait_thanos.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                         console.log('✓ Created Thanos as static image fallback');
                     }
                 }
@@ -225,7 +223,7 @@ window.UIManager = class UIManager {
             this.portrait_thanos = this.safeCreateImage(221, 380, 'portrait_thanos', 0.56);
             if (this.portrait_thanos) {
                 this.portrait_thanos.setScale(0.56 * scaleX * 1.05, 0.56 * scaleY * 1.05);
-                this.portrait_thanos.setDepth(1);
+                this.portrait_thanos.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
             }
         }
     }
@@ -234,14 +232,14 @@ window.UIManager = class UIManager {
         // Bet adjustment buttons
         this.ui_number_bet_minus = this.safeCreateImage(830, 675, 'ui_number_bet-');
         if (this.ui_number_bet_minus) {
-            this.ui_number_bet_minus.setDepth(10);
+            this.ui_number_bet_minus.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
             this.ui_number_bet_minus.setInteractive();
             this.ui_number_bet_minus.on('pointerdown', () => this.scene.adjustBet(-1));
         }
         
         this.ui_number_bet_plus = this.safeCreateImage(1034, 675, 'ui_number_bet+');
         if (this.ui_number_bet_plus) {
-            this.ui_number_bet_plus.setDepth(10);
+            this.ui_number_bet_plus.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
             this.ui_number_bet_plus.setInteractive();
             this.ui_number_bet_plus.on('pointerdown', () => this.scene.adjustBet(1));
         }
@@ -256,7 +254,7 @@ window.UIManager = class UIManager {
         this.ui_spin = this.scene.add.sprite(1161 * scaleX, 636 * scaleY, spinSpriteKey);
         if (this.ui_spin) {
             this.ui_spin.setScale(uiScale * scaleX, uiScale * scaleY);
-            this.ui_spin.setDepth(10);
+            this.ui_spin.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_spin.setInteractive();
             this.ui_spin.on('pointerdown', () => this.scene.handleSpinButtonClick());
             this.ui_spin.setFrame(0);
@@ -268,14 +266,14 @@ window.UIManager = class UIManager {
         
         this.ui_small_stop = this.safeCreateImage(1038, 578, 'ui_small_stop');
         if (this.ui_small_stop) {
-            this.ui_small_stop.setDepth(10);
+            this.ui_small_stop.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_small_stop.setInteractive();
             this.ui_small_stop.on('pointerdown', () => this.scene.toggleAutoplay());
         }
         
         this.ui_small_burst = this.safeCreateImage(1102, 512, 'ui_small_burst');
         if (this.ui_small_burst) {
-            this.ui_small_burst.setDepth(3);
+            this.ui_small_burst.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_small_burst.setInteractive();
             this.ui_small_burst.on('pointerup', () => {
                 // Add cooldown to prevent double-triggering
@@ -292,7 +290,7 @@ window.UIManager = class UIManager {
         
         this.ui_small_menu = this.safeCreateImage(1182, 499, 'ui_small_menu');
         if (this.ui_small_menu) {
-            this.ui_small_menu.setDepth(3);
+            this.ui_small_menu.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_small_menu.setInteractive();
             this.ui_small_menu.on('pointerdown', () => this.scene.showPurchaseUI());
         }
@@ -302,7 +300,7 @@ window.UIManager = class UIManager {
         const accumulatedMultiplierY = 102;
         this.ui_accumulated_multiplier = this.safeCreateImage(accumulatedMultiplierX, accumulatedMultiplierY, 'ui_accumulated_multiplier');
         if (this.ui_accumulated_multiplier) {
-            this.ui_accumulated_multiplier.setDepth(4);
+            this.ui_accumulated_multiplier.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
             this.ui_accumulated_multiplier.setVisible(false);
         }
     }
@@ -316,7 +314,7 @@ window.UIManager = class UIManager {
             align: 'center'
         });
         this.balanceText.setOrigin(0.5);
-        this.balanceText.setDepth(4);
+        this.balanceText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
         
         this.winText = this.scene.add.text(561 * scaleX, 675 * scaleY, '$0.00', {
             fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
@@ -325,7 +323,24 @@ window.UIManager = class UIManager {
             align: 'center'
         });
         this.winText.setOrigin(0.5);
-        this.winText.setDepth(4);
+        this.winText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
+
+        // Top-center winning amount visual (inside the plaque on the frame)
+        // Position tuned for the 1280x720 design; scaled at runtime
+        this.winTopText = this.scene.add.text(650 * scaleX, 50 * scaleY, '', {
+            fontSize: Math.floor(28 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center'
+        });
+        this.winTopText.setOrigin(0.5);
+        this.winTopText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
+        this.winTopText.setVisible(false);
+        // Save original scale to avoid accumulation during tweens
+        this.winTopText.originalScaleX = this.winTopText.scaleX;
+        this.winTopText.originalScaleY = this.winTopText.scaleY;
         
         this.betText = this.scene.add.text(931 * scaleX, 675 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
             fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
@@ -334,7 +349,7 @@ window.UIManager = class UIManager {
             align: 'center'
         });
         this.betText.setOrigin(0.5);
-        this.betText.setDepth(11);
+        this.betText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
         
         // Create accumulated multiplier text
         if (this.ui_accumulated_multiplier) {
@@ -351,7 +366,7 @@ window.UIManager = class UIManager {
                 }
             );
             this.accumulatedMultiplierText.setOrigin(0.5);
-            this.accumulatedMultiplierText.setDepth(5);
+            this.accumulatedMultiplierText.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
             this.accumulatedMultiplierText.setVisible(false);
         }
     }
@@ -373,7 +388,7 @@ window.UIManager = class UIManager {
                 }
             );
             this.autoSpinCounterText.setOrigin(0.5);
-            this.autoSpinCounterText.setDepth(5); // Higher than spin button
+            this.autoSpinCounterText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
             this.autoSpinCounterText.setVisible(false); // Initially hidden
         }
     }
@@ -498,6 +513,28 @@ window.UIManager = class UIManager {
     updateWinDisplay() {
         if (this.winText) {
             this.winText.setText(`$${this.scene.totalWin.toFixed(2)}`);
+        }
+
+        // Mirror win amount to the top-center visual, show only when > 0
+        if (this.winTopText) {
+            const amount = this.scene.totalWin;
+            if (amount > 0) {
+                this.winTopText.setText(`$${amount.toFixed(2)}`);
+                this.winTopText.setVisible(true);
+
+                // brief pulse to draw attention without changing layout
+                this.winTopText.setScale(this.winTopText.originalScaleX, this.winTopText.originalScaleY);
+                this.scene.tweens.add({
+                    targets: this.winTopText,
+                    scaleX: this.winTopText.originalScaleX * 1.12,
+                    scaleY: this.winTopText.originalScaleY * 1.12,
+                    duration: 180,
+                    yoyo: true,
+                    ease: 'Power2'
+                });
+            } else {
+                this.winTopText.setVisible(false);
+            }
         }
     }
     

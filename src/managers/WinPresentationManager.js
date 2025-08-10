@@ -27,7 +27,7 @@ window.WinPresentationManager = class WinPresentationManager {
             
             // Create win animation sprite
             const winSprite = this.scene.add.sprite(width / 2, height / 2 - 50, animKey);
-            winSprite.setDepth(1000);
+            winSprite.setDepth(window.GameConfig.UI_DEPTHS.FX);
             winSprite.setScale(0);
             
             // Play the animation only if it exists
@@ -59,7 +59,7 @@ window.WinPresentationManager = class WinPresentationManager {
                 }
             );
             winAmountText.setOrigin(0.5);
-            winAmountText.setDepth(1001);
+            winAmountText.setDepth(window.GameConfig.UI_DEPTHS.FX + 1);
             winAmountText.setScale(0);
             
             // Animate entrance
@@ -150,7 +150,7 @@ window.WinPresentationManager = class WinPresentationManager {
             let currentFrame = randomStart;
             const particle = this.scene.add.image(particleX, particleY, `skeleton-animation_${currentFrame.toString().padStart(2, '0')}`);
             particle.setScale(0.5);
-            particle.setDepth(999);
+            particle.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
             particle.setAlpha(0);
             
             // Animate particle
@@ -213,7 +213,7 @@ window.WinPresentationManager = class WinPresentationManager {
             const height = this.scene.cameras.main.height;
 
             const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0);
-            overlay.setDepth(999);
+            overlay.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
             this.scene.tweens.add({
                 targets: overlay,
                 fillAlpha: 0.8,
@@ -236,7 +236,7 @@ window.WinPresentationManager = class WinPresentationManager {
             
             // Create win animation sprite
             const winSprite = this.scene.add.sprite(width / 2, height / 2 - 100, animKey);
-            winSprite.setDepth(1000);
+            winSprite.setDepth(window.GameConfig.UI_DEPTHS.FX);
             winSprite.setScale(0);
             
             // Play the animation only if it exists
@@ -256,7 +256,7 @@ window.WinPresentationManager = class WinPresentationManager {
                 color: '#FFFFFF'
             });
             totalWinText.setOrigin(0.5);
-            totalWinText.setDepth(1000);
+            totalWinText.setDepth(window.GameConfig.UI_DEPTHS.FX);
             totalWinText.setAlpha(0);
 
             const amountText = this.scene.add.text(width / 2, height / 2 + 70, `$${totalWin.toFixed(2)}`, {
@@ -267,12 +267,12 @@ window.WinPresentationManager = class WinPresentationManager {
                 strokeThickness: 6
             });
             amountText.setOrigin(0.5);
-            amountText.setDepth(1000);
+            amountText.setDepth(window.GameConfig.UI_DEPTHS.FX);
             amountText.setScale(0);
 
             // Add a golden glow effect behind the win amount
             const glowGraphics = this.scene.add.graphics();
-            glowGraphics.setDepth(999);
+            glowGraphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
             
             // Animate the glow with pulsing effect
             let glowScale = 1;
@@ -375,7 +375,7 @@ window.WinPresentationManager = class WinPresentationManager {
             const emitterX = width / 2 + (Math.random() - 0.5) * 600;
             const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
             moneySprite.setScale(0.3 + Math.random() * 0.2);
-            moneySprite.setDepth(1001);
+            moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX + 1);
             moneySprite.setVisible(false);
             
             // Set a random frame first, then start animation
@@ -493,7 +493,7 @@ window.WinPresentationManager = class WinPresentationManager {
             0x000000,
             0.8
         );
-        overlay.setDepth(999);
+        overlay.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
         
         // Main title
         const title = this.scene.add.text(
@@ -509,7 +509,7 @@ window.WinPresentationManager = class WinPresentationManager {
             }
         );
         title.setOrigin(0.5);
-        title.setDepth(1000);
+        title.setDepth(window.GameConfig.UI_DEPTHS.FX);
         title.setScale(0);
         
         // Number of spins
@@ -526,7 +526,7 @@ window.WinPresentationManager = class WinPresentationManager {
             }
         );
         spinsText.setOrigin(0.5);
-        spinsText.setDepth(1000);
+        spinsText.setDepth(window.GameConfig.UI_DEPTHS.FX);
         spinsText.setScale(0);
         
         // Animate entrance

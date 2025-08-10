@@ -7,6 +7,27 @@ window.GameConfig = {
         UI_BOX_SCALE: 0.67,
         GRID_OFFSET: { x: 2, y: 37 }
     },
+    // Named depths to avoid magic numbers sprinkled across UI code
+    UI_DEPTHS: {
+        BACKGROUND: -10,
+        BOTTOM_PANEL: 2,
+        TOP: 3,
+        GRID_BG: 3.9,
+        GRID_SYMBOL: 4,
+        MULTIPLIER_TEXT: 5,
+        FRAME: 5,
+        PORTRAIT: 6,
+        NUMBER_PANEL: 8,
+        TITLE: 9,
+        BUTTON: 10,
+        TEXT_OVERLAY: 11,
+        // Visual effects (particles, flashes, win banners, etc.)
+        FX_UNDERLAY: 999,
+        FX: 1000,
+        // Random multiplier tiles should render at the same depth as regular symbols
+        MULTIPLIER_SLOT: 4,
+        OVERLAY_HIGH: 5000
+    },
     // Grid Configuration
     GRID_COLS: 6,
     GRID_ROWS: 5,
