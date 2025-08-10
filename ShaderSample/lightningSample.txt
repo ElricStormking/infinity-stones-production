@@ -37,3 +37,4 @@ void mainImage( out vec4 O, vec2 u )
     O += .01 / (abs( U.y - perlin(vec2(U.x, iFrame*int(1.+abs(U.x))/4)) * (.5+.3*U.x) ))
              * smoothstep(-.1,0.,U.x);               // draw only one side
 }
+

@@ -13,6 +13,11 @@ window.BurstModeManager = class BurstModeManager {
         this.burstBetText = null;
         this.burstAutoBtn = null;
         this.burstResultsContainer = null;
+        this.burstWinsContainer = null; // Center-only feed of winning spins
+
+        // Cached scale for dynamic text sizing
+        this._scaleX = 1;
+        this._scaleY = 1;
     }
     
     toggle() {
@@ -173,6 +178,8 @@ window.BurstModeManager = class BurstModeManager {
         // Scale factors based on canvas size (burstnew.scene uses 1280x720 design)
         const scaleX = width / 1280;
         const scaleY = height / 720;
+        this._scaleX = scaleX;
+        this._scaleY = scaleY;
         const uiScale = 0.67; // Base scale from burstnew.scene
         
         // Background - ui_bn_bg
@@ -213,7 +220,7 @@ window.BurstModeManager = class BurstModeManager {
             this.burstModeUI.add(this.magicAnimation);
         }
         
-        // Results container for scrolling text (positioned above magic animation)
+        // Results container for all spins (positioned above magic animation)
         this.burstResultsContainer = this.scene.add.container(width / 2 - 400, 50 * scaleY);
         this.burstModeUI.add(this.burstResultsContainer);
         
@@ -230,6 +237,12 @@ window.BurstModeManager = class BurstModeManager {
         
         // Create score value displays for the four boxes
         this.createScoreDisplays(scaleX, scaleY);
+
+        // Center feed that shows only winning spins (exciting style)
+        // Move the winning-only feed up by 130px (scaled)
+        this.burstWinsContainer = this.scene.add.container(width / 2, height / 2 - 150 * scaleY);
+        this.burstWinsContainer.setDepth(2005);
+        this.burstModeUI.add(this.burstWinsContainer);
         
         // Play magic animation
         if (this.magicAnimation && this.scene.anims.exists('burst_magic_animation')) {
@@ -566,7 +579,10 @@ window.BurstModeManager = class BurstModeManager {
         }
         
         if (spinResult.freeSpinsEnded) {
-            this.scene.showMessage(`Free Spins Complete! Total: $${this.scene.stateManager.freeSpinsData.totalWin.toFixed(2)}`);
+            const total = (typeof spinResult.freeSpinsTotalWin === 'number')
+                ? spinResult.freeSpinsTotalWin
+                : this.scene.stateManager.freeSpinsData.totalWin;
+            this.scene.showMessage(`Free Spins Complete! Total: $${total.toFixed(2)}`);
         }
     }
     
@@ -625,7 +641,10 @@ window.BurstModeManager = class BurstModeManager {
                     }
                     
                     if (spinResult.freeSpinsEnded) {
-                        this.scene.showMessage(`Free Spins Complete! Total: $${this.scene.stateManager.freeSpinsData.totalWin.toFixed(2)}`);
+                        const total = (typeof spinResult.freeSpinsTotalWin === 'number')
+                            ? spinResult.freeSpinsTotalWin
+                            : this.scene.stateManager.freeSpinsData.totalWin;
+                        this.scene.showMessage(`Free Spins Complete! Total: $${total.toFixed(2)}`);
                     }
                     
                     // Short delay between auto spins
@@ -816,8 +835,13 @@ window.BurstModeManager = class BurstModeManager {
             // Check if free spins ended
             let freeSpinsEnded = false;
             if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count === 0) {
+                // Capture total free spins win BEFORE state reset so UI can show the right number
+                const freeSpinsTotalBeforeReset = this.scene.stateManager.freeSpinsData.totalWin;
                 this.scene.stateManager.endFreeSpins();
                 freeSpinsEnded = true;
+                // Attach the captured total to the result object
+                // (will be returned below)
+                var __freeSpinsTotalForResult = freeSpinsTotalBeforeReset;
             }
             
             this.scene.isSpinning = false;
@@ -832,7 +856,8 @@ window.BurstModeManager = class BurstModeManager {
                 freeSpinsEnded: freeSpinsEnded,
                 freeSpinsActive: this.scene.stateManager.freeSpinsData.active,
                 freeSpinsCount: this.scene.stateManager.freeSpinsData.count,
-                multiplierAccumulator: this.scene.stateManager.freeSpinsData.multiplierAccumulator
+                multiplierAccumulator: this.scene.stateManager.freeSpinsData.multiplierAccumulator,
+                freeSpinsTotalWin: (typeof __freeSpinsTotalForResult === 'number') ? __freeSpinsTotalForResult : undefined
             };
         } catch (error) {
             console.error('Error in performBurstSpin:', error);
@@ -887,10 +912,10 @@ window.BurstModeManager = class BurstModeManager {
             if (this.burstResultsContainer.list) {
                 this.burstResultsContainer.list.forEach((text, index) => {
                     if (index < this.burstResultsContainer.list.length - 1) {
-                        this.scene.tweens.add({
+                this.scene.tweens.add({
                             targets: text,
                             y: text.y - 20,
-                            duration: 200,
+                    duration: 100,
                             ease: 'Power2'
                         });
                     }
@@ -914,6 +939,73 @@ window.BurstModeManager = class BurstModeManager {
         
         // Update burst mode UI displays
         this.updateDisplays();
+
+        // Push to the center-only winning feed
+        if (result.win > 0) {
+            this.addWinningFeedEntry(result);
+        }
+    }
+
+    addWinningFeedEntry(result) {
+        if (!this.burstWinsContainer) return;
+        const scaleX = this._scaleX || 1;
+        const scaleY = this._scaleY || 1;
+
+        // Play burst-mode win sound each time a winning entry is shown
+        try {
+            if (window && window.SafeSound) {
+                // Use 'winning_big' as the default burst-mode win SFX until burst_winning asset is provided
+                const fallbackKey = 'winning_big';
+                const cache = this.scene.cache && this.scene.cache.audio;
+                const key = (cache && cache.exists('burst_winning')) ? 'burst_winning' : (cache && cache.exists(fallbackKey) ? fallbackKey : 'kaching');
+                window.SafeSound.play(this.scene, key);
+            }
+        } catch (_) {}
+
+        const winMultiplier = result.bet > 0 ? (result.win / result.bet).toFixed(1) : '0.0';
+        const msg = `WIN $${result.win.toFixed(2)}  (${winMultiplier}x)` +
+            (result.cascades > 1 ? `  [${result.cascades} Cascades]` : '') +
+            ((result.freeSpinsActive && result.multiplierAccumulator > 1) ? `  [x${result.multiplierAccumulator}]` : '');
+
+        // Create an "exciting" styled text with stroke, shadow, and scale pop
+        const text = this.scene.add.text(0, 0, msg, {
+            fontFamily: 'Impact, Arial Black, Arial',
+            fontSize: Math.floor(48 * Math.min(scaleX, scaleY)) + 'px',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 8,
+        });
+        text.setOrigin(0.5);
+        text.setShadow(0, 0, '#FF8800', 20, true, true);
+        text.setScale(0.6);
+        text.setAlpha(0);
+        this.burstWinsContainer.add(text);
+
+        // Animate: pop-in, slight float up, then fade out
+        this.scene.tweens.add({
+            targets: text,
+            alpha: 1,
+            scale: 1,
+            duration: 110,
+            ease: 'Back.Out',
+        });
+        this.scene.tweens.add({
+            targets: text,
+            y: text.y - 30 * scaleY,
+            duration: 700,
+            ease: 'Sine.InOut',
+            onComplete: () => {
+                this.scene.tweens.add({
+                    targets: text,
+                    alpha: 0,
+                    duration: 200,
+                    ease: 'Sine.In',
+                    onComplete: () => {
+                        text.destroy();
+                    }
+                });
+            }
+        });
     }
     
     createResultText(result) {
@@ -976,7 +1068,7 @@ window.BurstModeManager = class BurstModeManager {
             this.scene.tweens.add({
                 targets: text,
                 alpha: 1,
-                duration: 300,
+                duration: 100,
                 ease: 'Power2'
             });
             

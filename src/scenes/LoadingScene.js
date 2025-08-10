@@ -123,6 +123,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     }
     
     loadGameAssets() {
+        // RULE: Always preload any new functions/effects/artwork/audio here to avoid runtime 404s.
         // First, create all essential textures immediately to ensure they exist
         this.createEssentialTextures();
         
