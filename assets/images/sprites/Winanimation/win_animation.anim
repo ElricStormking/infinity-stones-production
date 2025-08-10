@@ -77,7 +77,7 @@
                     "keyframe": false
                 }
             ],
-            "frameRate": 15,
+            "frameRate": 30,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false
@@ -159,7 +159,7 @@
                     "keyframe": false
                 }
             ],
-            "frameRate": 15,
+            "frameRate": 30,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false
@@ -241,7 +241,7 @@
                     "keyframe": false
                 }
             ],
-            "frameRate": 15,
+            "frameRate": 30,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false
@@ -323,7 +323,7 @@
                     "keyframe": false
                 }
             ],
-            "frameRate": 15,
+            "frameRate": 30,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false
@@ -405,7 +405,7 @@
                     "keyframe": false
                 }
             ],
-            "frameRate": 15,
+            "frameRate": 30,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false

@@ -975,6 +975,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     handleSpinButtonClick() {
+        // Block manual spins during win presentation
+        if (this.winPresentationManager && this.winPresentationManager.isShowingPresentation && this.winPresentationManager.isShowingPresentation()) {
+            return;
+        }
         this.freeSpinsManager.handleSpinButtonClick();
     }
     

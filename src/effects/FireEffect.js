@@ -8,6 +8,15 @@ window.FireEffect = class FireEffect {
         this.fireQuad = null;
         this.effectInProgress = false; // Additional flag to prevent concurrent effects
         this.completionCalled = false; // Prevent multiple completion calls
+
+        // Debug hotkey (F) removed per request; keep fields for safety/no-op
+        this._debugKeyRegistered = false;
+        this._debugKeyHandler = null;
+
+        // Debug timer UI shown above spin button
+        this._timerText = null;
+        this._timerEvent = null;
+        this._timerEndEpochMs = 0;
     }
     
     /**
@@ -15,24 +24,35 @@ window.FireEffect = class FireEffect {
      * @param {Function} onComplete - Callback when effect is complete
      */
     triggerFire(onComplete) {
-        if (this.isActive || this.effectInProgress) {
-            console.warn('🔥 Fire effect already active or in progress - PREVENTING DUPLICATE');
-            if (onComplete && typeof onComplete === 'function') {
-                // Still call the callback so game flow continues
-                this.scene.time.delayedCall(100, () => onComplete());
+        // Global guard to avoid back-to-back triggers coming from any caller
+        const now = Date.now();
+        if (typeof window !== 'undefined') {
+            if (!window.__FIRE_COOLDOWN_UNTIL) window.__FIRE_COOLDOWN_UNTIL = 0;
+            if (!window.__FIRE_ACTIVE) window.__FIRE_ACTIVE = false;
+            if (window.__FIRE_ACTIVE || now < window.__FIRE_COOLDOWN_UNTIL) {
+                console.warn('🔥 FireEffect ignored by global guard (active or cooldown).');
+                return;
             }
+        }
+
+        if (this.isActive || this.effectInProgress) {
+            console.warn('🔥 Fire effect already active or in progress - PREVENTING DUPLICATE DISPLAY');
+            // Do NOT call onComplete again here; the first effect will invoke it when finished
             return;
         }
         
         this.isActive = true;
         this.effectInProgress = true;
         this.completionCalled = false; // Reset completion flag for new effect
+        if (typeof window !== 'undefined') window.__FIRE_ACTIVE = true;
         console.log('🔥 Starting Fire Effect (flags set: isActive=true, effectInProgress=true)');
         
         // Create the fire effect
         this.createFireEffect(onComplete);
     }
     
+    // Debug key registration removed
+
     createFireEffect(onComplete) {
         // Additional safety check
         if (this.fireQuad) {
@@ -123,6 +143,11 @@ window.FireEffect = class FireEffect {
     
     animateFireShader(onComplete) {
         const duration = 3200; // 3.2 seconds for fire effect
+        const startEpochMs = Date.now();
+        const startLoopMs = this.scene.game.loop.time || 0;
+
+        // Create/update a small timer label above the spin button (debug only)
+        this.createOrUpdateTimerUI(startEpochMs);
         const phases = [
             { // Phase 1: Fire ignition (0-600ms)
                 duration: 600,
@@ -171,7 +196,11 @@ window.FireEffect = class FireEffect {
                     if (!animationCompleted) {
                         // Last phase complete - only call once
                         animationCompleted = true;
-                        console.log('🔥 Fire animation phases complete (from intensity tween)');
+                        const endEpochMs = Date.now();
+                        const endLoopMs = this.scene.game.loop.time || 0;
+                        const elapsedSecReal = ((endEpochMs - startEpochMs) / 1000).toFixed(3);
+                        const elapsedSecGame = ((endLoopMs - startLoopMs) / 1000).toFixed(3);
+                        console.log(`🔥 Fire phase 4 COMPLETE at ${new Date(endEpochMs).toLocaleTimeString()} (+${elapsedSecReal}s real, +${elapsedSecGame}s game)`);
                         this.completeFireEffect(onComplete);
                     }
                 } : undefined
@@ -270,39 +299,26 @@ window.FireEffect = class FireEffect {
         
         this.isActive = false;
         this.effectInProgress = false;
-        
-        // Clean up fire quad
-        if (this.fireQuad && !this.fireQuad.destroyed) {
-            this.scene.tweens.add({
-                targets: this.fireQuad,
-                alpha: 0,
-                duration: 600,  // Smooth fade out
-                ease: 'Sine.easeIn',
-                onComplete: () => {
-                    if (this.fireQuad && !this.fireQuad.destroyed) {
-                        this.fireQuad.destroy();
-                    }
-                    this.fireQuad = null;
-                    
-                    // Call completion callback
-                    if (onComplete && typeof onComplete === 'function') {
-                        console.log('🔥 Calling fire effect completion callback');
-                        onComplete();
-                    }
-                    
-                    // Reset completion flag after callback
-                    this.completionCalled = false;
-                }
-            });
-        } else {
-            // Immediate callback if quad already destroyed
-            if (onComplete && typeof onComplete === 'function') {
-                console.log('🔥 Calling fire effect completion callback (immediate)');
-                onComplete();
-            }
-            // Reset completion flag after callback
-            this.completionCalled = false;
+        // Do not destroy the timer immediately; it will self-destroy after 10s from start
+        if (typeof window !== 'undefined') {
+            // Small cooldown to prevent immediate re-triggering by stray inputs
+            window.__FIRE_ACTIVE = false;
+            window.__FIRE_COOLDOWN_UNTIL = Date.now() + 1000; // 1s cooldown
         }
+        
+        // Clean up fire quad immediately (no extra fade) to keep total duration at 3.2s
+        if (this.fireQuad && !this.fireQuad.destroyed) {
+            this.fireQuad.destroy();
+        }
+        this.fireQuad = null;
+
+        // Call completion callback immediately
+        if (onComplete && typeof onComplete === 'function') {
+            console.log('🔥 Calling fire effect completion callback');
+            onComplete();
+        }
+        // Reset completion flag after callback
+        this.completionCalled = false;
     }
     
     /**
@@ -314,6 +330,11 @@ window.FireEffect = class FireEffect {
         console.log('🔥 Stopping Fire Effect');
         this.isActive = false;
         this.effectInProgress = false;
+        // Do not destroy the timer immediately; it will self-destroy after 10s from start
+        if (typeof window !== 'undefined') {
+            window.__FIRE_ACTIVE = false;
+            window.__FIRE_COOLDOWN_UNTIL = Date.now() + 1000;
+        }
         
         if (this.fireQuad && !this.fireQuad.destroyed) {
             this.fireQuad.destroy();
@@ -334,5 +355,66 @@ window.FireEffect = class FireEffect {
     destroy() {
         this.stop();
         this.shader = null;
+    }
+
+    // === Debug Timer UI helpers ===
+    createOrUpdateTimerUI(startEpochMs) {
+        if (!window.DEBUG) return; // show only when DEBUG
+        try {
+            const spin = this.scene.uiManager && this.scene.uiManager.getSpinButton ? this.scene.uiManager.getSpinButton() : null;
+            const x = spin ? spin.x : this.scene.cameras.main.width - 150;
+            const y = spin ? (spin.y - (spin.displayHeight || 64) / 2 - 18) : 24;
+            if (!this._timerText) {
+                this._timerText = this.scene.add.text(x, y, 'FIRE: 0.000s', {
+                    fontSize: '14px',
+                    fontFamily: 'Arial Bold',
+                    color: '#FFFFFF',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                });
+                this._timerText.setOrigin(0.5);
+                this._timerText.setDepth(10001);
+            } else {
+                this._timerText.setPosition(x, y);
+                this._timerText.setText('FIRE: 0.000s');
+                this._timerText.setVisible(true);
+            }
+            if (this._timerEvent) {
+                this._timerEvent.remove();
+                this._timerEvent = null;
+            }
+            // Keep timer visible for 10 seconds after start
+            this._timerEndEpochMs = startEpochMs + 10000;
+            this._timerEvent = this.scene.time.addEvent({
+                delay: 100,
+                loop: true,
+                callback: () => {
+                    if (!this._timerText) return;
+                    const now = Date.now();
+                    const elapsed = ((now - startEpochMs) / 1000).toFixed(3);
+                    this._timerText.setText(`FIRE: ${elapsed}s`);
+                    if (now >= this._timerEndEpochMs) {
+                        this.destroyTimerUI();
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('Failed to create/update fire timer UI:', e);
+        }
+    }
+
+    destroyTimerUI() {
+        try {
+            if (this._timerEvent) {
+                this._timerEvent.remove();
+                this._timerEvent = null;
+            }
+            if (this._timerText) {
+                this._timerText.destroy();
+                this._timerText = null;
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 };

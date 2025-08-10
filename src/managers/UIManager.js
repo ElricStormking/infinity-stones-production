@@ -681,6 +681,20 @@ window.UIManager = class UIManager {
             }
         });
     }
+
+    // Enable/disable only the spin button (used to block manual spins during win presentations)
+    setSpinEnabled(enabled) {
+        if (this.ui_spin) {
+            this.ui_spin.setInteractive(enabled);
+            if (!this.scene.isSpinning) {
+                this.ui_spin.setAlpha(enabled ? 1 : 0.5);
+            }
+        }
+        if (this.scene.fallbackSpinButton) {
+            this.scene.fallbackSpinButton.setInteractive(enabled);
+            this.scene.fallbackSpinButton.setAlpha(enabled ? 1 : 0.5);
+        }
+    }
     
     // Getters for UI elements
     getSpinButton() { return this.ui_spin; }

@@ -79,6 +79,12 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
                 }
             `
         });
+        // Debug: track restarts to help diagnose unintended re-creation
+        if (!game.__firePipelineCreateCount) game.__firePipelineCreateCount = 0;
+        game.__firePipelineCreateCount++;
+        if (typeof window !== 'undefined' && window.DEBUG) {
+            console.log(`🔥 FireShader constructed (count=${game.__firePipelineCreateCount}) at ${new Date().toLocaleTimeString()}`);
+        }
     }
     
     onPreRender() {
@@ -101,16 +107,19 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
 window.createFireShader = function(scene) {
     try {
         // Create the shader pipeline instance
+        // Avoid adding a duplicate pipeline if something else already created it
+        const mgr = scene.game.renderer.pipelines || scene.game.renderer;
+        if (mgr.get && mgr.get('Fire')) {
+            if (window.DEBUG) console.warn('🔥 Fire pipeline already exists in createFireShader – reusing.');
+            return mgr.get('Fire');
+        }
+
         const shader = new window.FireShader(scene.game);
-        
-        // Add the pipeline to the renderer's pipeline manager
         if (scene.game.renderer.pipelines) {
             scene.game.renderer.pipelines.add('Fire', shader);
         } else {
-            // Fallback for older Phaser versions
             scene.game.renderer.addPipeline('Fire', shader);
         }
-        
         return shader;
     } catch (error) {
         console.error('Failed to create Fire shader:', error);

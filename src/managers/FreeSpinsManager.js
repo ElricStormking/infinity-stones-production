@@ -504,22 +504,19 @@ window.FreeSpinsManager = class FreeSpinsManager {
             // Reset spinning flag
             this.scene.isSpinning = false;
             
-            // Trigger fire effect only once with a small delay
-            this.scene.time.delayedCall(100, () => {
-                // Double-check fire effect isn't already active
-                if (!this.scene.fireEffect.isPlaying()) {
-                    console.log('🔥 Triggering fire effect for Free Spins');
-                    this.scene.fireEffect.triggerFire(() => {
-                        console.log('🔥 Fire effect complete - starting Free Spins');
-                        this.startFreeSpinsConfirmed(freeSpins, triggerType);
-                        this.isProcessingFreeSpinsUI = false;
-                    });
-                } else {
-                    console.warn('🔥 Fire effect already playing - skipping to Free Spins');
+            // Trigger fire effect exactly once
+            if (!this.scene.fireEffect.isPlaying()) {
+                console.log('🔥 Triggering fire effect for Free Spins');
+                this.scene.fireEffect.triggerFire(() => {
+                    console.log('🔥 Fire effect complete - starting Free Spins');
                     this.startFreeSpinsConfirmed(freeSpins, triggerType);
                     this.isProcessingFreeSpinsUI = false;
-                }
-            });
+                });
+            } else {
+                console.warn('🔥 Fire effect already playing - skipping to Free Spins');
+                this.startFreeSpinsConfirmed(freeSpins, triggerType);
+                this.isProcessingFreeSpinsUI = false;
+            }
         };
         
         // Register click handler only once

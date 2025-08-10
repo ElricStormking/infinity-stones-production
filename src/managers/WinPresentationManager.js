@@ -13,6 +13,11 @@ window.WinPresentationManager = class WinPresentationManager {
             const width = this.scene.cameras.main.width;
             const height = this.scene.cameras.main.height;
             
+            // Disable manual spin while win presentation is active
+            if (this.scene.uiManager && this.scene.uiManager.setSpinEnabled) {
+                this.scene.uiManager.setSpinEnabled(false);
+            }
+
             // Map win categories to animation keys
             const animationMap = {
                 SMALL: 'win_01',      // Small Win
@@ -106,7 +111,8 @@ window.WinPresentationManager = class WinPresentationManager {
             window.SafeSound.play(this.scene, soundMap[winCategory.key] || 'kaching');
             
             // Remove after delay
-            const displayDuration = winCategory.key === 'LEGENDARY' ? 5000 : 3000;
+            // Shorten by 1 second
+            const displayDuration = winCategory.key === 'LEGENDARY' ? 4500 : 2500;
             this.scene.time.delayedCall(displayDuration, () => {
                 this.scene.tweens.add({
                     targets: [winSprite, winAmountText],
@@ -126,6 +132,10 @@ window.WinPresentationManager = class WinPresentationManager {
                         // Only clear flag if scene is still active
                         if (this.scene.scene && this.scene.scene.isActive()) {
                             this.isShowingWinPresentation = false;
+                        }
+                        // Re-enable manual spin after win presentation ends
+                        if (this.scene.uiManager && this.scene.uiManager.setSpinEnabled) {
+                            this.scene.uiManager.setSpinEnabled(true);
                         }
                     }
                 });
