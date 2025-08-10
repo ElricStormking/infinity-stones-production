@@ -63,7 +63,7 @@ window.UIManager = class UIManager {
         // Free game indicator
         this.ui_freegame = safeCreateImage(168, 549, 'ui_freegame');
         if (this.ui_freegame) {
-            this.ui_freegame.setDepth(3);
+            this.ui_freegame.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS);
             this.ui_freegame.setVisible(false); // Initially hidden
         }
         
@@ -296,8 +296,8 @@ window.UIManager = class UIManager {
         }
         
         // Accumulated multiplier indicator
-        const accumulatedMultiplierX = 977;
-        const accumulatedMultiplierY = 102;
+        const accumulatedMultiplierX = 987;
+        const accumulatedMultiplierY = 62;
         this.ui_accumulated_multiplier = this.safeCreateImage(accumulatedMultiplierX, accumulatedMultiplierY, 'ui_accumulated_multiplier');
         if (this.ui_accumulated_multiplier) {
             this.ui_accumulated_multiplier.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
@@ -575,7 +575,7 @@ window.UIManager = class UIManager {
                     align: 'center'
                 });
                 this.freeSpinsText.setOrigin(0.5);
-                this.freeSpinsText.setDepth(4);
+                this.freeSpinsText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 1);
             }
             
             this.freeSpinsText.setText(`FREE SPINS: ${freeSpinsData.count}`);

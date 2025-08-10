@@ -832,11 +832,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Play kaching sound for winning spin
                 window.SafeSound.play(this, 'kaching');
                 
-                // Highlight matches
-                this.gridManager.highlightMatches(matches);
-                
-                // Wait a bit
-                await this.delay(500);
+                // Shake matched symbols before shatter
+                await this.shakeMatches(matches, 320);
+                // Spawn shatter pieces that fly off while the gem destruction animation plays
+                this.createShatterEffect(matches);
                 
                 // Stop all animations before removing matches
                 this.gridManager.stopAllSymbolAnimations();
@@ -871,6 +870,91 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (cascadeCount > 0) { // Only if there were cascades
             await this.bonusManager.checkCascadingRandomMultipliers();
         }
+    }
+
+    // New: shake then shatter visual for matched symbols
+    async shakeMatches(matches, duration = 300) {
+        const tweens = [];
+        const jitter = 6;
+        matches.forEach(group => {
+            group.forEach(({ symbol }) => {
+                if (!symbol) return;
+                const tween = new Promise(resolve => {
+                    // Randomized shake around current position
+                    this.tweens.add({
+                        targets: symbol,
+                        x: symbol.x + Phaser.Math.Between(-jitter, jitter),
+                        y: symbol.y + Phaser.Math.Between(-jitter, jitter),
+                        duration: 60,
+                        yoyo: true,
+                        repeat: Math.max(2, Math.floor(duration / 60)),
+                        onComplete: resolve
+                    });
+                });
+                tweens.push(tween);
+            });
+        });
+        await Promise.all(tweens);
+    }
+
+    // Create shatter pieces that fly away from each matched symbol
+    createShatterEffect(matches) {
+        const cols = 4;
+        const rows = 4;
+        const pieceDisplayW = window.GameConfig.SYMBOL_SIZE / cols;
+        const pieceDisplayH = window.GameConfig.SYMBOL_SIZE / rows;
+        const pieceDepth = (window.GameConfig.UI_DEPTHS.GRID_SYMBOL || 4) + 1;
+
+        const makePiecesForSymbol = (symbol) => {
+            if (!symbol || !symbol.texture || !symbol.texture.key) return;
+            const key = symbol.texture.key;
+            const tex = this.textures.get(key);
+            if (!tex) return;
+            const srcImg = tex.getSourceImage ? tex.getSourceImage() : null;
+            const srcW = (srcImg && srcImg.width) || symbol.width || window.GameConfig.SYMBOL_SIZE;
+            const srcH = (srcImg && srcImg.height) || symbol.height || window.GameConfig.SYMBOL_SIZE;
+            const cropW = Math.floor(srcW / cols);
+            const cropH = Math.floor(srcH / rows);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    // Create a piece cropped from the original texture
+                    const px = symbol.x - window.GameConfig.SYMBOL_SIZE / 2 + (c + 0.5) * pieceDisplayW;
+                    const py = symbol.y - window.GameConfig.SYMBOL_SIZE / 2 + (r + 0.5) * pieceDisplayH;
+                    const piece = this.add.image(px, py, key);
+                    piece.setCrop(c * cropW, r * cropH, cropW, cropH);
+                    piece.setDisplaySize(pieceDisplayW, pieceDisplayH);
+                    piece.setDepth(pieceDepth);
+
+                    // Random fling
+                    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                    const distance = Phaser.Math.Between(window.GameConfig.SYMBOL_SIZE * 0.3, window.GameConfig.SYMBOL_SIZE * 1.2);
+                    const dx = Math.cos(angle) * distance;
+                    const dy = Math.sin(angle) * distance;
+                    const rot = Phaser.Math.Between(-360, 360);
+                    const dur = Phaser.Math.Between(450, 750);
+                    const del = Phaser.Math.Between(0, 60);
+
+                    this.tweens.add({
+                        targets: piece,
+                        x: px + dx,
+                        y: py + dy,
+                        angle: rot,
+                        alpha: 0,
+                        scaleX: 0.9,
+                        scaleY: 0.9,
+                        duration: dur,
+                        delay: del,
+                        ease: 'Quad.out',
+                        onComplete: () => piece.destroy()
+                    });
+                }
+            }
+        };
+
+        matches.forEach(group => {
+            group.forEach(({ symbol }) => makePiecesForSymbol(symbol));
+        });
     }
     
     // Win calculation is now handled by WinCalculator

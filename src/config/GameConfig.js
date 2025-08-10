@@ -21,6 +21,8 @@ window.GameConfig = {
         TITLE: 9,
         BUTTON: 10,
         TEXT_OVERLAY: 11,
+        // Ensure Free Spins UI sits above portraits but below titles/buttons
+        FREE_SPINS: 7,
         // Visual effects (particles, flashes, win banners, etc.)
         FX_UNDERLAY: 999,
         FX: 1000,
