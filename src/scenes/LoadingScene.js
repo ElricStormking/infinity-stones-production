@@ -443,6 +443,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.audio('winning_big', 'assets/audio/winning_big.mp3');
             this.load.audio('spin_drop_finish', 'assets/audio/spin_drop_finish.mp3');
             this.load.audio('kaching', 'assets/audio/kaching.mp3');
+            // Burst mode winning SFX
+            this.load.audio('burst_winning', 'assets/audio/burst_winning.mp3');
             
             console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big, spin_drop_finish, kaching');
             
@@ -474,6 +476,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.once('fileerror-audio-kaching', (error) => {
                 console.log('❌ Kaching sound effect failed to load:', error);
             });
+            this.load.once('fileerror-audio-burst_winning', (error) => {
+                console.log('❌ Burst mode winning sound failed to load:', error);
+            });
             
             // Success handlers to confirm loading
             this.load.once('filecomplete-audio-bgm_free_spins', () => {
@@ -499,6 +504,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             });
             this.load.once('filecomplete-audio-kaching', () => {
                 console.log('✅ Kaching sound effect loaded successfully!');
+            });
+            this.load.once('filecomplete-audio-burst_winning', () => {
+                console.log('✅ Burst mode winning sound loaded successfully!');
             });
             
             // General audio loading complete handler
