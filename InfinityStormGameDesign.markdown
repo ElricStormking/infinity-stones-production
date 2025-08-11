@@ -54,7 +54,7 @@ The symbols reflect the Thanos versus Scarlet Witch theme, divided into low-payi
 - **Certifications:** Compliant with gambling regulations for legal operation.
 
 ## 9. Testing and Balancing
-- Testing ensures a 96.00% RTP, with symbol probabilities and bonus frequencies balanced for the cascading 6x5 layout to maintain fairness and engagement.
+- Testing ensures a 96.5% RTP, with symbol probabilities and bonus frequencies balanced for the cascading 6x5 layout to maintain fairness and engagement.
 - The grid is calibrated to support frequent cascading wins and larger bonus payouts, adjusted for the 8+ symbol match requirement, the Random Multiplier feature, and the accumulating multiplier mechanic.
 
 ## 10. Marketing and Promotion
