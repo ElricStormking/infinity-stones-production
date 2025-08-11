@@ -415,6 +415,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 frameWidth: 150,
                 frameHeight: 150
             });
+
+            // Thanos weapon symbol spritesheet for grid symbol (150x150)
+            this.load.spritesheet('thanos_weap', 'assets/images/sprites/thanos_weapon_symbol/thanos_weap_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
             
             // Load win particle frames
             for (let i = 0; i <= 31; i++) {
@@ -900,6 +906,15 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                     repeat: -1
                 });
                 console.log('✅ Thanos symbol idle animation created');
+            }
+            if (this.textures.exists('thanos_weap') && !this.anims.exists('thanos_weapon_symbol_idle')) {
+                this.anims.create({
+                    key: 'thanos_weapon_symbol_idle',
+                    frames: this.anims.generateFrameNumbers('thanos_weap', { start: 0, end: 17 }),
+                    frameRate: 15,
+                    repeat: -1
+                });
+                console.log('✅ Thanos weapon symbol idle animation created');
             }
         } catch (e) {
             console.warn('Failed to create Thanos symbol animation:', e);

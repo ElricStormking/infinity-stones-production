@@ -87,6 +87,8 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         try {
             if (this.symbolType === 'thanos' && this.scene.anims && this.scene.anims.exists('thanos_symbol_idle')) {
                 this.setTexture('thanos_sprite', 0);
+            } else if (this.symbolType === 'thanos_weapon' && this.scene.anims && this.scene.anims.exists('thanos_weapon_symbol_idle')) {
+                this.setTexture('thanos_weap', 0);
             }
         } catch (_) {}
     }
@@ -105,6 +107,19 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     this.play('thanos_symbol_idle');
                 } catch (_) {
                     // Fallback gentle floating
+                    this.idleTween = this.scene.tweens.add({
+                        targets: this,
+                        y: this.y + 5,
+                        duration: 2000 + Math.random() * 1000,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                }
+            } else if (this.symbolType === 'thanos_weapon' && this.scene.anims && this.scene.anims.exists('thanos_weapon_symbol_idle')) {
+                try {
+                    this.play('thanos_weapon_symbol_idle');
+                } catch (_) {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,
                         y: this.y + 5,

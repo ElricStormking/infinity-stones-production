@@ -72,7 +72,7 @@ window.GridManager = class GridManager {
     }
     
     createSymbol(type, col, row) {
-        const textureKey = (type === 'thanos') ? 'thanos_sprite' : type;
+        const textureKey = (type === 'thanos') ? 'thanos_sprite' : (type === 'thanos_weapon' ? 'thanos_weap' : type);
         let symbol;
         
         // Try to get from pool first
