@@ -410,6 +410,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             });
             this.load.json('win_animations', 'assets/images/sprites/Winanimation/win_animation.json');
             
+            // Thanos symbol spritesheet for grid symbol (150x150)
+            this.load.spritesheet('thanos_sprite', 'assets/images/sprites/thanos_symbol/thanos_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
+            
             // Load win particle frames
             for (let i = 0; i <= 31; i++) {
                 const num = i.toString().padStart(2, '0');
@@ -884,6 +890,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     create() {
         console.log('LoadingScene create() called - transitioning to MenuScene');
         
+        // Create Thanos symbol animation for grid symbol (if spritesheet loaded)
+        try {
+            if (this.textures.exists('thanos_sprite') && !this.anims.exists('thanos_symbol_idle')) {
+                this.anims.create({
+                    key: 'thanos_symbol_idle',
+                    frames: this.anims.generateFrameNumbers('thanos_sprite', { start: 0, end: 19 }),
+                    frameRate: 20,
+                    repeat: -1
+                });
+                console.log('✅ Thanos symbol idle animation created');
+            }
+        } catch (e) {
+            console.warn('Failed to create Thanos symbol animation:', e);
+        }
+
         // Register the Red Lightning shader if it was loaded
         if (window.RedLightningShader) {
             try {

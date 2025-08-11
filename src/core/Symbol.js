@@ -51,6 +51,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
     
     createEffects() {
         // Create shadow
+        // Shadow should use the same visual as the symbol; for frame-based sprites, use the base texture key
         this.shadowEffect = this.scene.add.image(this.x + 5, this.y + 5, this.texture.key);
         this.shadowEffect.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
         this.shadowEffect.setTint(0x000000);
@@ -82,6 +83,12 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
     setupAnimations() {
         // Don't start idle animations immediately - they'll be started after cascading
         this.idleTween = null;
+        // If this is the Thanos symbol using spritesheet, prefer animation
+        try {
+            if (this.symbolType === 'thanos' && this.scene.anims && this.scene.anims.exists('thanos_symbol_idle')) {
+                this.setTexture('thanos_sprite', 0);
+            }
+        } catch (_) {}
     }
     
     startIdleAnimation() {
@@ -92,15 +99,32 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         
         // Only start idle animation if symbol is in IDLE state
         if (this.currentState === this.states.IDLE) {
-            // Idle animation - gentle floating
-            this.idleTween = this.scene.tweens.add({
-                targets: this,
-                y: this.y + 5,
-                duration: 2000 + Math.random() * 1000,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
+            // If Thanos symbol spritesheet is available, run its idle animation; otherwise, fallback tween
+            if (this.symbolType === 'thanos' && this.scene.anims && this.scene.anims.exists('thanos_symbol_idle')) {
+                try {
+                    this.play('thanos_symbol_idle');
+                } catch (_) {
+                    // Fallback gentle floating
+                    this.idleTween = this.scene.tweens.add({
+                        targets: this,
+                        y: this.y + 5,
+                        duration: 2000 + Math.random() * 1000,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                }
+            } else {
+                // Fallback gentle floating
+                this.idleTween = this.scene.tweens.add({
+                    targets: this,
+                    y: this.y + 5,
+                    duration: 2000 + Math.random() * 1000,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+            }
         }
     }
     

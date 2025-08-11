@@ -72,13 +72,14 @@ window.GridManager = class GridManager {
     }
     
     createSymbol(type, col, row) {
+        const textureKey = (type === 'thanos') ? 'thanos_sprite' : type;
         let symbol;
         
         // Try to get from pool first
         if (this.symbolPool.length > 0) {
             symbol = this.symbolPool.pop();
             // Properly reset the pooled symbol
-            symbol.setTexture(type);
+            symbol.setTexture(textureKey);
             symbol.setVisible(this.symbolsVisible !== false);
             symbol.setActive(true);
             symbol.reset();
@@ -94,13 +95,13 @@ window.GridManager = class GridManager {
         } else {
             // Create new symbol
             const pos = this.getSymbolPosition(col, row);
-            symbol = new window.Symbol(this.scene, pos.x, pos.y, type);
+            symbol = new window.Symbol(this.scene, pos.x, pos.y, textureKey);
             this.scene.add.existing(symbol);
             symbol.setVisible(this.symbolsVisible !== false);
         }
         
         // Set symbol properties
-        symbol.symbolType = type;
+        symbol.symbolType = type; // keep logical type as original (e.g., 'thanos') even if texture differs
         symbol.setGridPosition(col, row);
         // Make sure symbol and its effects render above UI panels
         if (symbol.setDepthWithEffects) {
