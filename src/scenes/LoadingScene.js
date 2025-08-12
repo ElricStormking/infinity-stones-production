@@ -61,13 +61,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         });
         assetText.setOrigin(0.5);
         
-        // Update progress bar
-        this.load.on('progress', (value) => {
+        // Update progress bar using loader's real totals
+        const updateProgress = () => {
+            const total = this.load.totalToLoad || 0;
+            const done = this.load.totalComplete || 0;
+            const pct = total > 0 ? (done / total) : 0;
             progressBar.clear();
             progressBar.fillStyle(0x9B59B6, 1);
-            progressBar.fillRect(width / 2 - 315, height / 2 - 20, 630 * value, 40);
-            loadingText.setText(`Loading... ${Math.round(value * 100)}%`);
-        });
+            progressBar.fillRect(width / 2 - 315, height / 2 - 20, 630 * pct, 40);
+            loadingText.setText(`Loading... ${Math.round(pct * 100)}% (${done}/${total})`);
+        };
+
+        this.load.on('progress', () => updateProgress());
+        this.load.on('fileprogress', () => updateProgress());
+        this.load.on('filecomplete', () => updateProgress());
+        this.load.on('loaderror', () => updateProgress());
         
         this.load.on('fileprogress', (file) => {
             assetText.setText('Loading: ' + file.key);
@@ -85,10 +93,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             loadingText.destroy();
             assetText.destroy();
             
-            // Proceed to menu
-            this.time.delayedCall(100, () => {
-                this.scene.start('MenuScene');
-            });
+            // Proceed to menu only after the next frame to ensure texture cache is ready
+            this.time.addEvent({ delay: 50, callback: () => this.scene.start('MenuScene'), loop: false });
         });
         
         this.load.on('loaderror', (file) => {
@@ -99,27 +105,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         // Load game assets - actual gem images and placeholder textures
         this.loadGameAssets();
         
-        // Add a timeout to force loading to complete if it hangs
-        this.time.delayedCall(3000, () => {
-            if (!this.load.isLoading() && this.load.totalComplete === this.load.totalToLoad) {
-                return; // Already finished successfully
-            }
-            
-            console.warn('Loading timeout or errors detected - creating fallback textures');
-            assetText.setText('Creating fallback textures...');
-            
-            // Stop the loader to prevent further errors
-            this.load.reset();
-            this.load.removeAllListeners();
-            
-            // Ensure all essential textures exist before continuing
-            this.createAllFallbackTextures();
-            
-            this.time.delayedCall(500, () => {
-                console.log('Proceeding to MenuScene with fallback textures');
-                this.scene.start('MenuScene');
-            });
-        });
+        // Note: we intentionally avoid forcing timeouts here to ensure
+        // the progress bar reflects real loading progress and we only
+        // proceed once every queued asset resolves (success or fileerror).
     }
     
     loadGameAssets() {

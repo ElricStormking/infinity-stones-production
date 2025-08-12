@@ -90,7 +90,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Create debug panel
         this.createDebugPanel();
         
-        // Fill initial grid
+        // Fill initial grid (after LoadingScene ensured assets are ready)
         this.gridManager.fillGrid();
         
         // Initialize game variables
