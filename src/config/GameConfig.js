@@ -125,17 +125,17 @@ window.GameConfig = {
     
     // Symbol Appearance Weights (for 96.5% RTP)
     SYMBOL_WEIGHTS: {
-        time_gem: 24,           // 14.1%
-        space_gem: 24,          // 14.1%
-        mind_gem: 20,           // 11.8%
-        power_gem: 16,          // 9.4%
-        reality_gem: 14,        // 8.2%
-        soul_gem: 12,           // 7.1%
-        thanos_weapon: 5, // 2.9%
-        scarlet_witch: 4,       // 2.4%
-        thanos: 2               // 1.2%
+        time_gem: 26,           // 14.1%
+        space_gem: 26,          // 14.1%
+        mind_gem: 22,           // 11.8%
+        power_gem: 20,          // 9.4%
+        reality_gem: 20,        // 8.2%
+        soul_gem: 18,           // 7.1%
+        thanos_weapon: 12, // 2.9%
+        scarlet_witch: 12,       // 2.4%
+        thanos: 12               // 1.2%
     },
-    SCATTER_CHANCE: 0.035,      // 3.5% chance for scatter symbols
+    SCATTER_CHANCE: 0.35,      // 3.5% chance for scatter symbols
     
     // Free Spins Configuration (for 96.5% RTP)
     FREE_SPINS: {
@@ -155,7 +155,7 @@ window.GameConfig = {
         TRIGGER_CHANCE: 0.14, // 14% chance to trigger after each spin
         MIN_WIN_REQUIRED: 0.01, // Minimum win amount required to apply multiplier
         ANIMATION_DURATION: 2000, // Duration of Thanos power grip animation
-        TABLE: [2, 2, 3, 3, 4, 4, 5, 6, 8, 10, 20] // Weighted multiplier table (avg 3.8x)
+        TABLE: [2, 2, 2,3, 3, 3,4, 4, 4,5, 6, 8, 10, 20, 100, 500] // Weighted multiplier table (avg 3.8x)
     },
     
     // Cascading Random Multiplier Configuration
