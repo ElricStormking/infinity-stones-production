@@ -21,17 +21,19 @@ const mimeTypes = {
 
 const server = http.createServer((req, res) => {
     console.log(`${req.method} ${req.url}`);
-    
-    // Parse URL
-    let filePath = '.' + req.url;
-    if (filePath === './') {
-        filePath = './index.html';
-    }
-    
+
+    // Normalize URL and strip query/hash so /?rtp=50000 resolves to /index.html
+    const parsed = new URL(req.url, `http://localhost:${PORT}`);
+    let pathname = parsed.pathname;
+    if (pathname === '/') pathname = '/index.html';
+
+    // Build filesystem path safely
+    const filePath = path.join('.', pathname);
+
     // Get file extension
     const extname = String(path.extname(filePath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
-    
+
     // Read and serve file
     fs.readFile(filePath, (error, content) => {
         if (error) {
@@ -43,7 +45,7 @@ const server = http.createServer((req, res) => {
                 res.end(`Server Error: ${error.code}`, 'utf-8');
             }
         } else {
-            res.writeHead(200, { 
+            res.writeHead(200, {
                 'Content-Type': contentType,
                 'Access-Control-Allow-Origin': '*'
             });

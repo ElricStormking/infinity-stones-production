@@ -236,9 +236,24 @@
         })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" onerror="this.onerror=null;this.src='phaser.min.js'"></script>
+    <!-- Engine primitives (pure logic / RNG) -->
+    <script src="src/engine/RNG.js"></script>
+    <script src="src/engine/Paytable.js"></script>
+    <script src="src/engine/SymbolSource.js"></script>
     <!-- Load all modules in order -->
     <script src="src/services/NetworkService-simple.js"></script>
     <script src="src/services/GameAPI-simple.js"></script>
+    <script>
+      // Initialize default symbol source (uses GameConfig via Paytable + RNG)
+      (function(){
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var seed = params.get('seed') || undefined;
+          var rng = new window.RNG(seed);
+          window.__symbolSource = new window.SymbolSource(rng);
+        } catch (e) {}
+      })();
+    </script>
     <script src="src/config/GameConfig.js"></script>
     <script src="src/core/GameStateManager.js"></script>
     <script src="src/core/Symbol.js"></script>

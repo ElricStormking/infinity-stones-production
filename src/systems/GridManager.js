@@ -30,6 +30,8 @@ window.GridManager = class GridManager {
             key !== 'INFINITY_GLOVE' // Scatter appears separately
         );
         
+        // Optional symbol provider (pure RNG-based source)
+        this.symbolProvider = (typeof window !== 'undefined' && window.__symbolSource) ? window.__symbolSource : null;
         this.initializeGrid();
     }
     
@@ -143,24 +145,17 @@ window.GridManager = class GridManager {
     }
     
     getRandomSymbolType() {
-        // Scatter first
-        if (Math.random() < window.GameConfig.SCATTER_CHANCE) {
-            return 'infinity_glove';
+        // Prefer injected provider if present (visual parity kept; only RNG source changes)
+        if (this.symbolProvider && typeof this.symbolProvider.rollOne === 'function') {
+            return this.symbolProvider.rollOne();
         }
-
-        // Use the new weighted symbol table for 96.5% RTP
+        // Fallback to legacy inline RNG
+        if (Math.random() < window.GameConfig.SCATTER_CHANCE) return 'infinity_glove';
         const table = window.GameConfig.SYMBOL_WEIGHTS;
         const totalW = Object.values(table).reduce((a, b) => a + b, 0);
         let r = Math.random() * totalW;
-
-        for (const [sym, w] of Object.entries(table)) {
-            r -= w;
-            if (r <= 0) {
-                return sym;
-            }
-        }
-        
-        return 'time_gem'; // fallback
+        for (const [sym, w] of Object.entries(table)) { r -= w; if (r <= 0) return sym; }
+        return 'time_gem';
     }
     
     findMatches() {

@@ -131,11 +131,11 @@ window.GameConfig = {
         power_gem: 20,          // 9.4%
         reality_gem: 20,        // 8.2%
         soul_gem: 18,           // 7.1%
-        thanos_weapon: 12, // 2.9%
-        scarlet_witch: 12,       // 2.4%
-        thanos: 12               // 1.2%
+        thanos_weapon: 16, // 2.9%
+        scarlet_witch: 13,       // 2.4%
+        thanos: 10,               // 1.2%
     },
-    SCATTER_CHANCE: 0.35,      // 3.5% chance for scatter symbols
+    SCATTER_CHANCE: 0.035,      // 3.5% chance for scatter symbols
     
     // Free Spins Configuration (for 96.5% RTP)
     FREE_SPINS: {
@@ -144,7 +144,7 @@ window.GameConfig = {
         BUY_FEATURE_COST: 100, // Buy feature costs 100x bet
         BUY_FEATURE_SPINS: 15, // Purchased free spins amount
         BASE_MULTIPLIER: 1,   // starts at x1
-        ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.18  // 18% chance each cascade in free spins
+        ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.33  // 18% chance each cascade in free spins
     },
     
     // Autoplay Configuration
@@ -155,7 +155,32 @@ window.GameConfig = {
         TRIGGER_CHANCE: 0.14, // 14% chance to trigger after each spin
         MIN_WIN_REQUIRED: 0.01, // Minimum win amount required to apply multiplier
         ANIMATION_DURATION: 2000, // Duration of Thanos power grip animation
-        TABLE: [2, 2, 2,3, 3, 3,4, 4, 4,5, 6, 8, 10, 20, 100, 500] // Weighted multiplier table (avg 3.8x)
+        // Weighted table with explicit 1% each for 100x and 500x (1/100 each)
+        // Total entries = 100
+        TABLE: [
+            // 2x ×45
+            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
+            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
+            2,2,2,2,2, 2,2,2,
+            // 3x ×18
+            3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3, 3,3,3,3,
+            // 4x ×9
+            4,4,4,4,4,4,4,4,4,
+            // 5x ×7
+            5,5,5,5,5,5,5,
+            // 6x ×7
+            6,6,6,6,6,6,6,
+            // 8x ×5
+            8,8,8,8,
+            // 10x ×5
+            10,10,
+            // 20x ×2
+            20,
+            // 100x ×1 (1%)
+            100,
+            // 500x ×1 (1%)
+            500
+        ]
     },
     
     // Cascading Random Multiplier Configuration
