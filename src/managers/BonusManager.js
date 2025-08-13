@@ -112,8 +112,16 @@ window.BonusManager = class BonusManager {
         container.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_SLOT);
 
         const size = window.GameConfig.SYMBOL_SIZE;
-        const frame = this.scene.add.image(0, 0, 'random_multiplier_frame');
-        frame.setDisplaySize(size, size);
+        // Prefer animated frame if available, else fallback to static image
+        let frame;
+        if (this.scene.textures && this.scene.textures.exists('random_multiplier_frame_bonus_sprite') && this.scene.anims && this.scene.anims.exists('random_multiplier_frame_bonus')) {
+            frame = this.scene.add.sprite(0, 0, 'random_multiplier_frame_bonus_sprite', 0);
+            frame.play('random_multiplier_frame_bonus');
+            frame.setDisplaySize(size, size);
+        } else {
+            frame = this.scene.add.image(0, 0, 'random_multiplier_frame');
+            frame.setDisplaySize(size, size);
+        }
         container.add(frame);
         const txt = this.scene.add.text(0, 0, `x${multiplier}`, {
             fontSize: Math.floor(size * 0.38) + 'px',

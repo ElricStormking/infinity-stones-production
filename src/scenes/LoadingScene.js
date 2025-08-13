@@ -102,6 +102,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             } catch (e) {
                 console.warn('Failed to create infinity_glove scatter animation:', e);
             }
+
+            // Create random multiplier frame animation if spritesheet is present
+            try {
+                if (this.textures && this.textures.exists('random_multiplier_frame_bonus_sprite') && !this.anims.exists('random_multiplier_frame_bonus')) {
+                    this.anims.create({
+                        key: 'random_multiplier_frame_bonus',
+                        frames: this.anims.generateFrameNumbers('random_multiplier_frame_bonus_sprite', { start: 0, end: 7 }),
+                        frameRate: 16,
+                        repeat: -1
+                    });
+                    console.log('✅ Random Multiplier frame animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create random multiplier frame animation:', e);
+            }
             
             progressBar.destroy();
             progressBox.destroy();
@@ -219,6 +234,18 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_box', 'assets/images/ui_box.png', 0x4a4a4a);
         this.loadImageWithFallback('ui_boxBG', 'assets/images/ui_boxBG.png', 0x333333);
         this.loadImageWithFallback('random_multiplier_frame', 'assets/images/random_multiplier_frame.png', 0x2f2f2f);
+        // Animated random multiplier frame (bonus) spritesheet
+        try {
+            this.load.spritesheet('random_multiplier_frame_bonus_sprite', 'assets/images/sprites/random_multiplier_frame/random_multiplier_frame_bonus_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
+            this.load.once('fileerror-spritesheet-random_multiplier_frame_bonus_sprite', () => {
+                console.warn('Failed to load random_multiplier_frame_bonus_sprite, fallback to static PNG');
+            });
+        } catch (error) {
+            console.warn('Error setting up random multiplier frame spritesheet:', error);
+        }
         
         // Load UI elements that actually exist
         this.loadImageWithFallback('ui_bottom_panel', 'assets/images/ui_bottom_panel.png', 0x333333);
