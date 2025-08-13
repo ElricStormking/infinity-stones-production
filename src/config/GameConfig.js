@@ -152,40 +152,29 @@ window.GameConfig = {
     
     // Random Multiplier Configuration (for 96.5% RTP)
     RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.14, // 14% chance to trigger after each spin
+        TRIGGER_CHANCE: 0.18, // 14% chance to trigger after each spin
         MIN_WIN_REQUIRED: 0.01, // Minimum win amount required to apply multiplier
         ANIMATION_DURATION: 2000, // Duration of Thanos power grip animation
-        // Weighted table with explicit 1% each for 100x and 500x (1/100 each)
-        // Total entries = 100
-        TABLE: [
-            // 2x ×45
-            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
-            2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2,
-            2,2,2,2,2, 2,2,2,
-            // 3x ×18
-            3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3, 3,3,3,3,
-            // 4x ×9
-            4,4,4,4,4,4,4,4,4,
-            // 5x ×7
-            5,5,5,5,5,5,5,
-            // 6x ×7
-            6,6,6,6,6,6,6,
-            // 8x ×5
-            8,8,8,8,
-            // 10x ×5
-            10,10,
-            // 20x ×2
-            20,
-            // 100x ×1 (1%)
-            100,
-            // 500x ×1 (1%)
-            500
-        ]
+        // Weighted table tuned so 500x ≈ 0.3% (3 in 1000). Others scaled from prior 100-entry mix.
+        // Total entries = 1000: 2x×487, 3x×200, 4x×90, 5x×70, 6x×70, 8x×40, 10x×20, 20x×10, 100x×10, 500x×3
+        TABLE: ([])
+            .concat(
+                Array(487).fill(2),
+                Array(200).fill(3),
+                Array(90).fill(4),
+                Array(70).fill(5),
+                Array(70).fill(6),
+                Array(40).fill(8),
+                Array(20).fill(10),
+                Array(10).fill(20),
+                Array(10).fill(100),
+                Array(3).fill(500)
+            )
     },
     
     // Cascading Random Multiplier Configuration
     CASCADE_RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.10, // 10% chance to trigger after cascading finishes
+        TRIGGER_CHANCE: 0.15, // 10% chance to trigger after cascading finishes
         MIN_MULTIPLIERS: 1, // Minimum number of multipliers to apply
         MAX_MULTIPLIERS: 3, // Maximum number of multipliers to apply
         MIN_WIN_REQUIRED: 0.01 // Minimum win amount required to apply multipliers
