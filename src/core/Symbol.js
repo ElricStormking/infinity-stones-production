@@ -89,6 +89,9 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                 this.setTexture('thanos_sprite', 0);
             } else if (this.symbolType === 'thanos_weapon' && this.scene.anims && this.scene.anims.exists('thanos_weapon_symbol_idle')) {
                 this.setTexture('thanos_weap', 0);
+            } else if (this.symbolType === 'infinity_glove' && this.scene.anims && this.scene.textures && this.scene.textures.exists('infinity_glove_scatter_sprite')) {
+                // Use animated scatter spritesheet for scatter symbol
+                this.setTexture('infinity_glove_scatter_sprite', 0);
             }
         } catch (_) {}
     }
@@ -119,6 +122,19 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
             } else if (this.symbolType === 'thanos_weapon' && this.scene.anims && this.scene.anims.exists('thanos_weapon_symbol_idle')) {
                 try {
                     this.play('thanos_weapon_symbol_idle');
+                } catch (_) {
+                    this.idleTween = this.scene.tweens.add({
+                        targets: this,
+                        y: this.y + 5,
+                        duration: 2000 + Math.random() * 1000,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                }
+            } else if (this.symbolType === 'infinity_glove' && this.scene.anims && this.scene.anims.exists('infinity_glove_scatter')) {
+                try {
+                    this.play('infinity_glove_scatter');
                 } catch (_) {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,

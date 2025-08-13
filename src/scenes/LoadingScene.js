@@ -87,6 +87,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             
             // Ensure all textures exist even after loading
             this.createAllFallbackTextures();
+
+            // Create scatter animation if spritesheet is present
+            try {
+                if (this.textures && this.textures.exists('infinity_glove_scatter_sprite') && !this.anims.exists('infinity_glove_scatter')) {
+                    this.anims.create({
+                        key: 'infinity_glove_scatter',
+                        frames: this.anims.generateFrameNumbers('infinity_glove_scatter_sprite', { start: 0, end: 23 }),
+                        frameRate: 16,
+                        repeat: -1
+                    });
+                    console.log('✅ Infinity Glove scatter animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create infinity_glove scatter animation:', e);
+            }
             
             progressBar.destroy();
             progressBox.destroy();
@@ -177,6 +192,19 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         } catch (error) {
             console.warn('Failed to load Thanos animation assets:', error);
             this.createFallbackThanosAnimation();
+        }
+        
+        // Infinity Glove scatter animation spritesheet (24 frames, 150x150)
+        try {
+            this.load.spritesheet('infinity_glove_scatter_sprite', 'assets/images/sprites/infinity_glove/infinity_glove_scatter_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
+            this.load.once('fileerror-spritesheet-infinity_glove_scatter_sprite', () => {
+                console.warn('Failed to load infinity_glove_scatter_sprite, falling back to static image');
+            });
+        } catch (error) {
+            console.warn('Error setting up infinity_glove scatter spritesheet:', error);
         }
         
         // Also load static portraits as fallback
