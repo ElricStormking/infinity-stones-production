@@ -1,113 +1,113 @@
 {
     "anims": [
         {
-            "key": "gem_weap",
+            "key": "thanos_weap_an",
             "type": "frame",
             "frames": [
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 0,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 1,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 2,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 3,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 4,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 5,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 6,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 7,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 8,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 9,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 10,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 11,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 12,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 13,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 14,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 15,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 16,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_weap_sprite",
+                    "key": "thanos_weap_an",
                     "frame": 17,
                     "duration": 0,
                     "keyframe": false

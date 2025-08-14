@@ -2,7 +2,7 @@
     "section1": {
         "files": [
             {
-                "url": "assets/thanos_symbol/thanos_sprite.png",
+                "url": "assets/infinity_glove_scatter/infinity_glove_scatter_sprite.png",
                 "frameConfig": {
                     "frameWidth": 150,
                     "frameHeight": 150,
@@ -12,7 +12,7 @@
                     "margin": 0
                 },
                 "type": "spritesheet",
-                "key": "ui_gem_head01_sprite"
+                "key": "infinity_glove_scatter_sprite"
             }
         ]
     },

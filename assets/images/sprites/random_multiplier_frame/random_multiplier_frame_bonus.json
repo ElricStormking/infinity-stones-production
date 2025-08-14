@@ -2,7 +2,7 @@
     "section1": {
         "files": [
             {
-                "url": "assets/thanos_symbol/thanos_sprite.png",
+                "url": "assets/random_multiplier_frame/random_multiplier_frame_bonus_sprite.png",
                 "frameConfig": {
                     "frameWidth": 150,
                     "frameHeight": 150,
@@ -12,7 +12,7 @@
                     "margin": 0
                 },
                 "type": "spritesheet",
-                "key": "ui_gem_head01_sprite"
+                "key": "random_multiplier_frame_bonus_sprite"
             }
         ]
     },

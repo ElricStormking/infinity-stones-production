@@ -130,10 +130,10 @@ window.GameConfig = {
         mind_gem: 22,           // 11.8%
         power_gem: 20,          // 9.4%
         reality_gem: 20,        // 8.2%
-        soul_gem: 18,           // 7.1%
-        thanos_weapon: 16, // 2.9%
-        scarlet_witch: 13,       // 2.4%
-        thanos: 10,               // 1.2%
+        soul_gem: 19,           // 7.1%
+        thanos_weapon: 17, // 2.9%
+        scarlet_witch: 12,       // 2.4%
+        thanos: 11,               // 1.2%
     },
     SCATTER_CHANCE: 0.035,      // 3.5% chance for scatter symbols
     
@@ -144,7 +144,7 @@ window.GameConfig = {
         BUY_FEATURE_COST: 100, // Buy feature costs 100x bet
         BUY_FEATURE_SPINS: 15, // Purchased free spins amount
         BASE_MULTIPLIER: 1,   // starts at x1
-        ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.33  // 18% chance each cascade in free spins
+        ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.35  // 18% chance each cascade in free spins
     },
     
     // Autoplay Configuration
@@ -152,7 +152,7 @@ window.GameConfig = {
     
     // Random Multiplier Configuration (for 96.5% RTP)
     RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.18, // 14% chance to trigger after each spin
+        TRIGGER_CHANCE: 0.21, // 14% chance to trigger after each spin
         MIN_WIN_REQUIRED: 0.01, // Minimum win amount required to apply multiplier
         ANIMATION_DURATION: 2000, // Duration of Thanos power grip animation
         // Weighted table tuned so 500x ≈ 0.3% (3 in 1000). Others scaled from prior 100-entry mix.
@@ -174,7 +174,7 @@ window.GameConfig = {
     
     // Cascading Random Multiplier Configuration
     CASCADE_RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.15, // 10% chance to trigger after cascading finishes
+        TRIGGER_CHANCE: 0.14, // 10% chance to trigger after cascading finishes
         MIN_MULTIPLIERS: 1, // Minimum number of multipliers to apply
         MAX_MULTIPLIERS: 3, // Maximum number of multipliers to apply
         MIN_WIN_REQUIRED: 0.01 // Minimum win amount required to apply multipliers

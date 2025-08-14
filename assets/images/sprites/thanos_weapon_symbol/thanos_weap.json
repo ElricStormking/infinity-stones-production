@@ -2,7 +2,7 @@
     "section1": {
         "files": [
             {
-                "url": "assets/ui_gem_weap/ui_gem_weap_sprite.png",
+                "url": "assets/thanos_weapon_symbol/thanos_weap.png",
                 "frameConfig": {
                     "frameWidth": 150,
                     "frameHeight": 150,
@@ -12,7 +12,7 @@
                     "margin": 0
                 },
                 "type": "spritesheet",
-                "key": "ui_gem_weap_sprite"
+                "key": "thanos_weap"
             }
         ]
     },
