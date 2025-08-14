@@ -288,11 +288,23 @@ window.UIManager = class UIManager {
             });
         }
         
+        // Menu button should open actual menu, not purchase
         this.ui_small_menu = this.safeCreateImage(1182, 499, 'ui_small_menu');
         if (this.ui_small_menu) {
             this.ui_small_menu.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_small_menu.setInteractive();
-            this.ui_small_menu.on('pointerdown', () => this.scene.showPurchaseUI());
+            this.ui_small_menu.on('pointerdown', () => {
+                this.scene.sound.stopAll();
+                this.scene.scene.start('MenuScene');
+            });
+        }
+
+        // New: Free Game Purchase button on the left side of the scene
+        this.ui_freegame_purchase = this.safeCreateImage(120, 500, 'ui_freegame_purchase', 0.6);
+        if (this.ui_freegame_purchase) {
+            this.ui_freegame_purchase.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
+            this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
+            this.ui_freegame_purchase.on('pointerdown', () => this.scene.showPurchaseUI());
         }
         
         // Accumulated multiplier indicator
@@ -419,6 +431,7 @@ window.UIManager = class UIManager {
             this.ui_small_stop,
             this.ui_small_burst,
             this.ui_small_menu,
+            this.ui_freegame_purchase,
             this.ui_number_bet_minus,
             this.ui_number_bet_plus
         ];
@@ -645,6 +658,7 @@ window.UIManager = class UIManager {
             this.ui_small_stop,
             this.ui_small_burst,
             this.ui_small_menu,
+            this.ui_freegame_purchase,
             this.ui_number_bet_minus,
             this.ui_number_bet_plus
         ];
