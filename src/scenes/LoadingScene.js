@@ -17,8 +17,29 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
         
-        // Background
-        this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
+        // Background: show fallback first, replace with Scarlet Witch image once loaded
+        const bgFallback = this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
+
+        try {
+            // Queue the loading-screen background image
+            this.load.image('scarlet_witch_loading', 'assets/images/scarlet_witch_loading.png');
+
+            // When ready, replace the fallback with the real image and scale to fill
+            this.load.once('filecomplete-image-scarlet_witch_loading', () => {
+                try { bgFallback.destroy(); } catch (e) {}
+                const bg = this.add.image(width / 2, height / 2, 'scarlet_witch_loading');
+                bg.setOrigin(0.5);
+                bg.setDisplaySize(width, height);
+                bg.setScrollFactor(0);
+            });
+
+            // If it fails, keep the fallback rectangle
+            this.load.once('fileerror-image-scarlet_witch_loading', () => {
+                console.warn('Failed to load scarlet_witch_loading.png; using solid background');
+            });
+        } catch (e) {
+            console.warn('Error queueing scarlet_witch_loading.png:', e);
+        }
         
         // Title
         const title = this.add.text(width / 2, height / 2 - 100, 'INFINITY STORM', {
