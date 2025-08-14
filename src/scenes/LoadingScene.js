@@ -282,6 +282,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_freegame', 'assets/images/ui_freegame.png', 0x666666);
         // New Free Game Purchase button
         this.loadImageWithFallback('ui_freegame_purchase', 'assets/images/ui_freegame_purchase.png', 0x2E86C1);
+        // Settings UI assets
+        this.loadImageWithFallback('settings_ui_bg', 'assets/images/settings_UI/settings_bg.png', 0x111111);
+        this.loadImageWithFallback('settings_ui_panel', 'assets/images/settings_UI/settings.png', 0x222222);
+        this.loadImageWithFallback('settings_ui_exit', 'assets/images/settings_UI/exit.png', 0xAA3333);
+        this.loadImageWithFallback('settings_ui_rules', 'assets/images/settings_UI/rules.png', 0x3366AA);
+        this.loadImageWithFallback('settings_ui_history', 'assets/images/settings_UI/history.png', 0xAAAA33);
         this.loadImageWithFallback('ui_number_bet', 'assets/images/ui_number_bet.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet-', 'assets/images/ui_number_bet-.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet+', 'assets/images/ui_number_bet+.png', 0x444444);
@@ -837,6 +843,11 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'ui_bottom_panel': 0x333333,
             'ui_freegame': 0x666666,
             'ui_freegame_purchase': 0x2E86C1,
+            'settings_ui_bg': 0x111111,
+            'settings_ui_panel': 0x222222,
+            'settings_ui_exit': 0xAA3333,
+            'settings_ui_rules': 0x3366AA,
+            'settings_ui_history': 0xAAAA33,
             'ui_number_bet': 0x444444,
             'ui_number_bet-': 0x444444,
             'ui_number_bet+': 0x444444,
@@ -872,7 +883,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'infinity_glove', 'thanos', 'scarlet_witch', 'thanos_weapon',
             'portrait_thanos', 'portrait_scarlet_witch', 'bg_infinity_storm',
             'button', 'background', 'particle', 'ui_box',
-            'ui_bottom_panel', 'ui_freegame', 'ui_freegame_purchase', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
+            'ui_bottom_panel', 'ui_freegame', 'ui_freegame_purchase', 'settings_ui_bg', 'settings_ui_panel', 'settings_ui_exit', 'settings_ui_rules', 'settings_ui_history', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
             'ui_number_score', 'ui_number_win', 'ui_accumulated_multiplier', 'ui_small_burst', 'ui_small_menu',
             'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_title', 'money_sprite'
         ];

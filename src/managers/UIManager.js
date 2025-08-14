@@ -288,19 +288,16 @@ window.UIManager = class UIManager {
             });
         }
         
-        // Menu button should open actual menu, not purchase
+        // Menu button opens settings overlay
         this.ui_small_menu = this.safeCreateImage(1182, 499, 'ui_small_menu');
         if (this.ui_small_menu) {
             this.ui_small_menu.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_small_menu.setInteractive();
-            this.ui_small_menu.on('pointerdown', () => {
-                this.scene.sound.stopAll();
-                this.scene.scene.start('MenuScene');
-            });
+            this.ui_small_menu.setInteractive({ useHandCursor: true });
+            this.ui_small_menu.on('pointerdown', () => this.openSettingsUI());
         }
 
         // New: Free Game Purchase button on the left side of the scene
-        this.ui_freegame_purchase = this.safeCreateImage(120, 500, 'ui_freegame_purchase', 0.6);
+        this.ui_freegame_purchase = this.safeCreateImage(150, 530, 'ui_freegame_purchase', 0.6);
         if (this.ui_freegame_purchase) {
             this.ui_freegame_purchase.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
@@ -315,6 +312,103 @@ window.UIManager = class UIManager {
             this.ui_accumulated_multiplier.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
             this.ui_accumulated_multiplier.setVisible(false);
         }
+    }
+
+    // Settings overlay
+    openSettingsUI() {
+        if (this.settingsContainer) {
+            this.settingsContainer.setVisible(true);
+            this.setButtonsEnabled(false);
+            return;
+        }
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const scaleX = width / 1280;
+        const scaleY = height / 720;
+        const depth = 1800;
+
+        // Container to group settings UI
+        this.settingsContainer = this.scene.add.container(0, 0);
+        this.settingsContainer.setDepth(depth);
+
+        // Dim background
+        const dim = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+        this.settingsContainer.add(dim);
+
+        // Panel background (use texture if exists)
+        let panel;
+        if (this.scene.textures.exists('settings_ui_bg')) {
+            panel = this.scene.add.image(width / 2, height / 2, 'settings_ui_bg');
+            panel.setDisplaySize(width, height);
+        } else if (this.scene.textures.exists('settings_ui_panel')) {
+            panel = this.scene.add.image(width / 2, height / 2, 'settings_ui_panel');
+            panel.setScale(scaleX * 0.8, scaleY * 0.8);
+        } else {
+            panel = this.scene.add.rectangle(width / 2, height / 2, 900 * scaleX, 540 * scaleY, 0x1E1E2E, 1);
+        }
+        this.settingsContainer.add(panel);
+
+        // Title
+        const title = this.scene.add.text(width / 2, height / 2 - 220 * scaleY, 'SETTINGS', {
+            fontSize: Math.floor(36 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000',
+            strokeThickness: 4
+        });
+        title.setOrigin(0.5);
+        this.settingsContainer.add(title);
+
+        // Example buttons (Rules, History) — display-only for now
+        const makeIcon = (x, y, key, fallbackColor, label) => {
+            let icon;
+            if (this.scene.textures.exists(key)) {
+                icon = this.scene.add.image(x, y, key);
+                icon.setScale(0.5 * scaleX, 0.5 * scaleY);
+            } else {
+                icon = this.scene.add.rectangle(x, y, 180 * scaleX, 180 * scaleY, fallbackColor, 1);
+                const t = this.scene.add.text(x, y, label, { fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px', color: '#ffffff' });
+                t.setOrigin(0.5);
+                this.settingsContainer.add(t);
+            }
+            this.settingsContainer.add(icon);
+        };
+
+        makeIcon(width / 2 - 180 * scaleX, height / 2 - 40 * scaleY, 'settings_ui_rules', 0x3366AA, 'RULES');
+        makeIcon(width / 2 + 180 * scaleX, height / 2 - 40 * scaleY, 'settings_ui_history', 0xAAAA33, 'HISTORY');
+
+        // Exit button
+        let exitBtn;
+        if (this.scene.textures.exists('settings_ui_exit')) {
+            exitBtn = this.scene.add.image(width / 2, height / 2 + 190 * scaleY, 'settings_ui_exit');
+            exitBtn.setScale(0.5 * scaleX, 0.5 * scaleY);
+        } else {
+            exitBtn = this.scene.add.rectangle(width / 2, height / 2 + 190 * scaleY, 200 * scaleX, 60 * scaleY, 0xC0392B, 1);
+            const exitText = this.scene.add.text(exitBtn.x, exitBtn.y, 'EXIT', {
+                fontSize: Math.floor(24 * Math.min(scaleX, scaleY)) + 'px', color: '#ffffff'
+            });
+            exitText.setOrigin(0.5);
+            this.settingsContainer.add(exitText);
+        }
+        exitBtn.setInteractive({ useHandCursor: true });
+        exitBtn.on('pointerup', () => this.closeSettingsUI());
+        this.settingsContainer.add(exitBtn);
+
+        // Block input behind settings
+        dim.setInteractive();
+        dim.on('pointerup', () => this.closeSettingsUI());
+
+        // Disable underlying buttons while open
+        this.setButtonsEnabled(false);
+    }
+
+    closeSettingsUI() {
+        if (this.settingsContainer) {
+            this.settingsContainer.destroy();
+            this.settingsContainer = null;
+        }
+        // Re-enable gameplay UI
+        this.setButtonsEnabled(true);
     }
     
     createTextOverlays(scaleX, scaleY) {
