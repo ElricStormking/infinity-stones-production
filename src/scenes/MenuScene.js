@@ -10,12 +10,21 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const stateManager = this.game.stateManager;
         
-        // Background
-        const bg = this.add.tileSprite(0, 0, width, height, 'background');
-        bg.setOrigin(0, 0);
+        // Background: use Scarlet Witch loading artwork if available
+        let bg;
+        if (this.textures && this.textures.exists('scarlet_witch_loading')) {
+            bg = this.add.image(width / 2, height / 2, 'scarlet_witch_loading');
+            bg.setOrigin(0.5);
+            bg.setDisplaySize(width, height);
+        } else {
+            bg = this.add.tileSprite(0, 0, width, height, 'background');
+            bg.setOrigin(0, 0);
+        }
+        bg.setDepth(-1000);
         
-        // Darken overlay
-        this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5);
+        // Darken overlay to improve text contrast
+        const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
+        shade.setDepth(-900);
         
         // Title
         const title = this.add.text(width / 2, height / 3, 'INFINITY STORM', {

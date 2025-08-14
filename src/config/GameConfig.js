@@ -141,7 +141,7 @@ window.GameConfig = {
     FREE_SPINS: {
         SCATTER_4_PLUS: 15,  // 4+ scatters = 15 free spins (base game)
         RETRIGGER_SPINS: 5,  // 4+ scatters during free spins = +5 extra free spins
-        BUY_FEATURE_COST: 100, // Buy feature costs 100x bet
+        BUY_FEATURE_COST: 10, // Buy feature costs 10x bet
         BUY_FEATURE_SPINS: 15, // Purchased free spins amount
         BASE_MULTIPLIER: 1,   // starts at x1
         ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.35  // 18% chance each cascade in free spins

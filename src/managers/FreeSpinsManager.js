@@ -67,6 +67,14 @@ window.FreeSpinsManager = class FreeSpinsManager {
             console.log('🔊 Playing winning big sound for Free Spins completion');
             window.SafeSound.play(this.scene, 'winning_big');
             
+            // While the final win animation (free spins complete screen) is showing,
+            // spit out money sprite particles 3 times in different directions
+            try {
+                this.spawnMoneyBurstSequence();
+            } catch (e) {
+                console.warn('Money burst sequence failed:', e);
+            }
+
             await this.scene.winPresentationManager.showFreeSpinsCompleteScreen(totalFreeSpinsWin);
             this.scene.uiManager.updateFreeSpinsDisplay();
             return true;
@@ -182,6 +190,55 @@ window.FreeSpinsManager = class FreeSpinsManager {
             this.scene.bonusManager.showMultiplier(totalMultiplier);
             this.scene.uiManager.updateAccumulatedMultiplierDisplay();
         }
+    }
+
+    // Visual: emit money sprite bursts three times in different directions
+    spawnMoneyBurstSequence() {
+        // Ensure texture exists
+        if (!this.scene.textures.exists('money_sprite')) {
+            console.warn('money_sprite not loaded; skipping money burst sequence');
+            return;
+        }
+
+        const cam = this.scene.cameras.main;
+        const x = cam.width / 2;
+        const y = cam.height / 2;
+
+        // Create particle manager on top of win presentation UI
+        const particles = this.scene.add.particles('money_sprite');
+        particles.setDepth(3000);
+
+        const frames = [];
+        for (let i = 0; i <= 15; i++) frames.push(i);
+
+        // Base config for bursts
+        const base = {
+            frame: frames,
+            speed: { min: 280, max: 520 },
+            lifespan: { min: 700, max: 1200 },
+            gravityY: 900,
+            rotate: { min: -180, max: 180 },
+            scale: { start: 0.7, end: 0 },
+            alpha: { start: 1, end: 0 },
+            on: false,
+            blendMode: 'NORMAL'
+        };
+
+        // Three emitters with different directions
+        const e1 = particles.createEmitter({ ...base, angle: { min: -70, max: -20 } });    // up-left
+        const e2 = particles.createEmitter({ ...base, angle: { min: 20, max: 70 } });      // up-right
+        const e3 = particles.createEmitter({ ...base, angle: { min: 150, max: 210 } });    // left/right sweep
+
+        // Explode sequence
+        const quantities = [24, 24, 24];
+        this.scene.time.delayedCall(0,     () => { if (e1 && particles.active) e1.explode(quantities[0], x, y); });
+        this.scene.time.delayedCall(550,   () => { if (e2 && particles.active) e2.explode(quantities[1], x, y); });
+        this.scene.time.delayedCall(1100,  () => { if (e3 && particles.active) e3.explode(quantities[2], x, y); });
+
+        // Cleanup after particles settle
+        this.scene.time.delayedCall(2500, () => {
+            try { particles.destroy(); } catch (_) {}
+        });
     }
     
     addFreeSpinsWin(totalWin) {

@@ -219,6 +219,15 @@ window.WinPresentationManager = class WinPresentationManager {
             console.log(`=== SHOW FREE SPINS COMPLETE SCREEN ===`);
             console.log(`Total Free Spins Win: $${totalWin.toFixed(2)}`);
 
+            // Ensure we don't overlap with the last spin's own win presentation.
+            // If a win presentation is still playing, defer this screen until it ends.
+            if (this.isShowingWinPresentation) {
+                this.scene.time.delayedCall(300, () => {
+                    this.showFreeSpinsCompleteScreen(totalWin).then(resolve);
+                });
+                return;
+            }
+
             const width = this.scene.cameras.main.width;
             const height = this.scene.cameras.main.height;
 
@@ -309,9 +318,60 @@ window.WinPresentationManager = class WinPresentationManager {
             };
             glowUpdate();
             
-            // Create money particle emitters
+            // Create money particle emitters and schedule continuous spawns for 14s
             const moneyParticles = this.createMoneyParticles(width, height);
+            const moneySpawnEvent = this.scheduleMoneyParticleSpawns(moneyParticles, width, height, 14000, 120);
+
+            // Helper to stop/destroy money particles
+            const stopMoneyParticles = () => {
+                if (moneySpawnEvent) {
+                    try { moneySpawnEvent.remove(false); } catch (_) {}
+                }
+                moneyParticles.forEach(particle => {
+                    if (particle && particle.sprite && particle.sprite.scene) {
+                        try { particle.sprite.destroy(); } catch (_) {}
+                    }
+                });
+            };
             
+            // Early skip handling: allow skip by left-click after 7s
+            let canSkip = false;
+            let finished = false;
+            const enableSkipTimer = this.scene.time.delayedCall(7000, () => { canSkip = true; });
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                try { enableSkipTimer && enableSkipTimer.remove(false); } catch (_) {}
+                try { autoFinishTimer && autoFinishTimer.remove(false); } catch (_) {}
+                stopMoneyParticles();
+                this.scene.tweens.add({
+                    targets: [overlay, winSprite, totalWinText, amountText, glowGraphics],
+                    alpha: 0,
+                    duration: 250,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        if (overlay && overlay.scene) overlay.destroy();
+                        if (winSprite && winSprite.scene) winSprite.destroy();
+                        if (totalWinText && totalWinText.scene) totalWinText.destroy();
+                        if (amountText && amountText.scene) amountText.destroy();
+                        if (glowGraphics && glowGraphics.scene) glowGraphics.destroy();
+                        // remove pointer listener
+                        this.scene.input.off('pointerdown', onPointerDown);
+                        resolve();
+                    }
+                });
+            };
+            const onPointerDown = (pointer) => {
+                // Left button only and only after 7s
+                if (!canSkip) return;
+                if (pointer && pointer.leftButtonDown && !pointer.leftButtonDown()) return; // if available
+                finish();
+            };
+            this.scene.input.on('pointerdown', onPointerDown);
+
+            // Auto finish fallback timer (original long duration)
+            let autoFinishTimer = null;
+
             // First tween - animate win sprite
             this.scene.tweens.add({
                 targets: winSprite,
@@ -334,41 +394,63 @@ window.WinPresentationManager = class WinPresentationManager {
                             this.animateMoneyParticles(moneyParticles);
                         },
                         onComplete: () => {
-                            // Wait longer to enjoy the money rain effect
-                            this.scene.time.delayedCall(14000, () => {
-                                // Stop and destroy any remaining money particles
-                                moneyParticles.forEach(particle => {
-                                    if (particle && particle.sprite && particle.sprite.scene) {
-                                        try {
-                                            particle.sprite.destroy();
-                                        } catch (error) {
-                                            console.warn('Error destroying money particle:', error);
-                                        }
-                                    }
-                                });
-                                
-                                this.scene.tweens.add({
-                                    targets: [overlay, winSprite, totalWinText, amountText, glowGraphics],
-                                    alpha: 0,
-                                    duration: 1000,
-                                    ease: 'Power2',
-                                    onComplete: () => {
-                                        // Safety checks before destroying objects
-                                        if (overlay && overlay.scene) overlay.destroy();
-                                        if (winSprite && winSprite.scene) winSprite.destroy();
-                                        if (totalWinText && totalWinText.scene) totalWinText.destroy();
-                                        if (amountText && amountText.scene) amountText.destroy();
-                                        if (glowGraphics && glowGraphics.scene) glowGraphics.destroy();
-                                        console.log(`Free spins complete screen removed`);
-                                        resolve();
-                                    }
-                                });
-                            });
+                            // Auto-finish after 14s if not skipped
+                            autoFinishTimer = this.scene.time.delayedCall(14000, () => finish());
                         }
                     });
                 }
             });
         });
+    }
+
+    // Continuously spawn money particles for durationMs
+    scheduleMoneyParticleSpawns(moneyParticles, width, height, durationMs = 14000, intervalMs = 120) {
+        if (!this.scene.textures.exists('money_sprite')) return null;
+        const timer = this.scene.time.addEvent({
+            delay: intervalMs,
+            loop: true,
+            callback: () => {
+                const p = this.createSingleMoneyParticle(width, height);
+                if (p) {
+                    p.active = true; // immediately active for update loop
+                    moneyParticles.push(p);
+                }
+            }
+        });
+        this.scene.time.delayedCall(durationMs, () => {
+            try { timer.remove(false); } catch (_) {}
+        });
+        return timer;
+    }
+
+    createSingleMoneyParticle(width, height) {
+        if (!this.scene.textures.exists('money_sprite')) return null;
+        const emitterX = width / 2 + (Math.random() - 0.5) * 600;
+        const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
+        moneySprite.setScale(0.3 + Math.random() * 0.2);
+        moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX - 1);
+        moneySprite.setVisible(false);
+
+        try {
+            const randomFrame = Math.floor(Math.random() * 16);
+            moneySprite.setFrame(randomFrame);
+            if (this.scene.anims.exists('money_animation')) {
+                moneySprite.play('money_animation');
+            }
+        } catch (_) {
+            moneySprite.setFrame(0);
+        }
+
+        return {
+            sprite: moneySprite,
+            velocityY: -(700 + Math.random() * 400),
+            velocityX: (Math.random() - 0.5) * 300,
+            gravity: 600,
+            lifespan: 16000,
+            startTime: Date.now(),
+            active: false,
+            rotationSpeed: (Math.random() - 0.5) * 5
+        };
     }
     
     createMoneyParticles(width, height) {
@@ -385,7 +467,7 @@ window.WinPresentationManager = class WinPresentationManager {
             const emitterX = width / 2 + (Math.random() - 0.5) * 600;
             const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
             moneySprite.setScale(0.3 + Math.random() * 0.2);
-            moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX + 1);
+            moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX - 1);
             moneySprite.setVisible(false);
             
             // Set a random frame first, then start animation

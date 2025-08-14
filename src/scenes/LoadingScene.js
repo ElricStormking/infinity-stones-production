@@ -288,6 +288,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('settings_ui_exit', 'assets/images/settings_UI/exit.png', 0xAA3333);
         this.loadImageWithFallback('settings_ui_rules', 'assets/images/settings_UI/rules.png', 0x3366AA);
         this.loadImageWithFallback('settings_ui_history', 'assets/images/settings_UI/history.png', 0xAAAA33);
+        this.loadImageWithFallback('settings_ui_settings', 'assets/images/settings_UI/settings.png', 0x888888);
         this.loadImageWithFallback('ui_number_bet', 'assets/images/ui_number_bet.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet-', 'assets/images/ui_number_bet-.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet+', 'assets/images/ui_number_bet+.png', 0x444444);
@@ -848,6 +849,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'settings_ui_exit': 0xAA3333,
             'settings_ui_rules': 0x3366AA,
             'settings_ui_history': 0xAAAA33,
+            'settings_ui_settings': 0x888888,
             'ui_number_bet': 0x444444,
             'ui_number_bet-': 0x444444,
             'ui_number_bet+': 0x444444,
@@ -883,7 +885,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'infinity_glove', 'thanos', 'scarlet_witch', 'thanos_weapon',
             'portrait_thanos', 'portrait_scarlet_witch', 'bg_infinity_storm',
             'button', 'background', 'particle', 'ui_box',
-            'ui_bottom_panel', 'ui_freegame', 'ui_freegame_purchase', 'settings_ui_bg', 'settings_ui_panel', 'settings_ui_exit', 'settings_ui_rules', 'settings_ui_history', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
+            'ui_bottom_panel', 'ui_freegame', 'ui_freegame_purchase', 'settings_ui_bg', 'settings_ui_panel', 'settings_ui_exit', 'settings_ui_rules', 'settings_ui_history', 'settings_ui_settings', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
             'ui_number_score', 'ui_number_win', 'ui_accumulated_multiplier', 'ui_small_burst', 'ui_small_menu',
             'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_title', 'money_sprite'
         ];

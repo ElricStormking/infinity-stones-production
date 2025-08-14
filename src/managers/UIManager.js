@@ -331,8 +331,15 @@ window.UIManager = class UIManager {
         this.settingsContainer = this.scene.add.container(0, 0);
         this.settingsContainer.setDepth(depth);
 
-        // Dim background
-        const dim = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+        // Dim background using full-screen settings background if available
+        let dim;
+        if (this.scene.textures.exists('settings_ui_bg')) {
+            dim = this.scene.add.image(width / 2, height / 2, 'settings_ui_bg');
+            dim.setDisplaySize(width, height);
+            dim.setAlpha(0.85);
+        } else {
+            dim = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+        }
         this.settingsContainer.add(dim);
 
         // Slim right-side column panel (visual backing for buttons)
@@ -373,10 +380,11 @@ window.UIManager = class UIManager {
 
         const rulesBtn = makeIcon(colX, startY, 'settings_ui_rules', 0x3366AA, 'RULES');
         const historyBtn = makeIcon(colX, startY + spacing, 'settings_ui_history', 0xAAAA33, 'HISTORY');
+        const settingsBtn = makeIcon(colX, startY + spacing * 2, 'settings_ui_settings', 0x888888, 'SETTINGS');
 
         // Exit button
         let exitBtn;
-        const exitY = startY + spacing * 2;
+        const exitY = startY + spacing * 3;
         if (this.scene.textures.exists('settings_ui_exit')) {
             exitBtn = this.scene.add.image(colX, exitY, 'settings_ui_exit');
             exitBtn.setScale(0.55 * scaleX, 0.55 * scaleY);
@@ -404,9 +412,14 @@ window.UIManager = class UIManager {
             });
         }
 
-        // Block input behind settings
+        // Block input behind settings, but avoid immediate auto-close (debounce)
         dim.setInteractive();
-        dim.on('pointerup', () => this.closeSettingsUI());
+        this._settingsJustOpened = true;
+        this.scene.time.delayedCall(200, () => { this._settingsJustOpened = false; });
+        dim.on('pointerup', () => {
+            if (this._settingsJustOpened) return;
+            this.closeSettingsUI();
+        });
 
         // Disable underlying buttons while open
         this.setButtonsEnabled(false);
