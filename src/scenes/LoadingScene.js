@@ -19,6 +19,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         
         // Background: show fallback first, replace with Scarlet Witch image once loaded
         const bgFallback = this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
+        bgFallback.setDepth(-1000);
 
         try {
             // Queue the loading-screen background image
@@ -31,6 +32,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 bg.setOrigin(0.5);
                 bg.setDisplaySize(width, height);
                 bg.setScrollFactor(0);
+                bg.setDepth(-1000);
             });
 
             // If it fails, keep the fallback rectangle
@@ -54,6 +56,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         // Progress bar background
         const progressBox = this.add.graphics();
         const progressBar = this.add.graphics();
+        progressBox.setDepth(10);
+        progressBar.setDepth(10);
         
         progressBox.fillStyle(0x222222, 0.8);
         progressBox.fillRect(width / 2 - 320, height / 2 - 25, 640, 50);
@@ -69,6 +73,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             }
         });
         loadingText.setOrigin(0.5);
+        loadingText.setDepth(10);
         
         // Asset text
         const assetText = this.make.text({
@@ -81,6 +86,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             }
         });
         assetText.setOrigin(0.5);
+        assetText.setDepth(10);
         
         // Update progress bar using loader's real totals
         const updateProgress = () => {
@@ -92,6 +98,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             progressBar.fillRect(width / 2 - 315, height / 2 - 20, 630 * pct, 40);
             loadingText.setText(`Loading... ${Math.round(pct * 100)}% (${done}/${total})`);
         };
+
+        // Draw initial state at 0%
+        updateProgress();
 
         this.load.on('progress', () => updateProgress());
         this.load.on('fileprogress', () => updateProgress());
