@@ -564,6 +564,11 @@ window.UIManager = class UIManager {
             if (this.ui_freegame) {
                 this.ui_freegame.setVisible(true);
             }
+            // Hide purchase button during Free Spins bonus mode
+            if (this.ui_freegame_purchase) {
+                this.ui_freegame_purchase.setVisible(false);
+                this.ui_freegame_purchase.disableInteractive();
+            }
             
             // Show accumulated multiplier display
             if (this.ui_accumulated_multiplier) {
@@ -608,6 +613,12 @@ window.UIManager = class UIManager {
             }
             if (this.accumulatedMultiplierText) {
                 this.accumulatedMultiplierText.setVisible(false);
+            }
+
+            // Re-enable and show purchase button when not in Free Spins
+            if (this.ui_freegame_purchase) {
+                this.ui_freegame_purchase.setVisible(true);
+                this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
             }
         }
     }
