@@ -335,36 +335,17 @@ window.UIManager = class UIManager {
         const dim = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
         this.settingsContainer.add(dim);
 
-        // Panel background (use texture if exists)
-        let panel;
-        if (this.scene.textures.exists('settings_ui_bg')) {
-            panel = this.scene.add.image(width / 2, height / 2, 'settings_ui_bg');
-            panel.setDisplaySize(width, height);
-        } else if (this.scene.textures.exists('settings_ui_panel')) {
-            panel = this.scene.add.image(width / 2, height / 2, 'settings_ui_panel');
-            panel.setScale(scaleX * 0.8, scaleY * 0.8);
-        } else {
-            panel = this.scene.add.rectangle(width / 2, height / 2, 900 * scaleX, 540 * scaleY, 0x1E1E2E, 1);
-        }
-        this.settingsContainer.add(panel);
-
-        // Title
-        const title = this.scene.add.text(width / 2, height / 2 - 220 * scaleY, 'SETTINGS', {
-            fontSize: Math.floor(36 * Math.min(scaleX, scaleY)) + 'px',
-            fontFamily: 'Arial Black',
-            color: '#FFD700',
-            stroke: '#000',
-            strokeThickness: 4
-        });
-        title.setOrigin(0.5);
-        this.settingsContainer.add(title);
+        // Slim right-side column panel (visual backing for buttons)
+        const columnWidth = 220 * scaleX;
+        const column = this.scene.add.rectangle(width - columnWidth / 2, height / 2, columnWidth, height, 0x000000, 0.55);
+        this.settingsContainer.add(column);
 
         // Example buttons (Rules, History) — display-only for now
         const makeIcon = (x, y, key, fallbackColor, label) => {
             let icon;
             if (this.scene.textures.exists(key)) {
                 icon = this.scene.add.image(x, y, key);
-                icon.setScale(0.5 * scaleX, 0.5 * scaleY);
+                icon.setScale(0.55 * scaleX, 0.55 * scaleY);
             } else {
                 icon = this.scene.add.rectangle(x, y, 180 * scaleX, 180 * scaleY, fallbackColor, 1);
                 const t = this.scene.add.text(x, y, label, { fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px', color: '#ffffff' });
@@ -372,18 +353,35 @@ window.UIManager = class UIManager {
                 this.settingsContainer.add(t);
             }
             this.settingsContainer.add(icon);
+            // Hover effect
+            icon.setInteractive({ useHandCursor: true });
+            icon.on('pointerover', () => {
+                icon.setScale(icon.scaleX * 1.08, icon.scaleY * 1.08);
+                icon.setTint(0xffffff);
+            });
+            icon.on('pointerout', () => {
+                icon.setScale(icon.scaleX / 1.08, icon.scaleY / 1.08);
+                icon.clearTint();
+            });
+            return icon;
         };
 
-        makeIcon(width / 2 - 180 * scaleX, height / 2 - 40 * scaleY, 'settings_ui_rules', 0x3366AA, 'RULES');
-        makeIcon(width / 2 + 180 * scaleX, height / 2 - 40 * scaleY, 'settings_ui_history', 0xAAAA33, 'HISTORY');
+        // Position icons in a vertical stack on the right, similar to the screenshot
+        const colX = width - columnWidth / 2;
+        const startY = height / 2 - 100 * scaleY;
+        const spacing = 120 * scaleY;
+
+        const rulesBtn = makeIcon(colX, startY, 'settings_ui_rules', 0x3366AA, 'RULES');
+        const historyBtn = makeIcon(colX, startY + spacing, 'settings_ui_history', 0xAAAA33, 'HISTORY');
 
         // Exit button
         let exitBtn;
+        const exitY = startY + spacing * 2;
         if (this.scene.textures.exists('settings_ui_exit')) {
-            exitBtn = this.scene.add.image(width / 2, height / 2 + 190 * scaleY, 'settings_ui_exit');
-            exitBtn.setScale(0.5 * scaleX, 0.5 * scaleY);
+            exitBtn = this.scene.add.image(colX, exitY, 'settings_ui_exit');
+            exitBtn.setScale(0.55 * scaleX, 0.55 * scaleY);
         } else {
-            exitBtn = this.scene.add.rectangle(width / 2, height / 2 + 190 * scaleY, 200 * scaleX, 60 * scaleY, 0xC0392B, 1);
+            exitBtn = this.scene.add.rectangle(colX, exitY, 200 * scaleX, 60 * scaleY, 0xC0392B, 1);
             const exitText = this.scene.add.text(exitBtn.x, exitBtn.y, 'EXIT', {
                 fontSize: Math.floor(24 * Math.min(scaleX, scaleY)) + 'px', color: '#ffffff'
             });
@@ -393,6 +391,18 @@ window.UIManager = class UIManager {
         exitBtn.setInteractive({ useHandCursor: true });
         exitBtn.on('pointerup', () => this.closeSettingsUI());
         this.settingsContainer.add(exitBtn);
+
+        // Simple click handlers for rules/history (placeholder behaviour for now)
+        if (rulesBtn) {
+            rulesBtn.on('pointerup', () => {
+                if (this.scene.showMessage) this.scene.showMessage('Rules coming soon');
+            });
+        }
+        if (historyBtn) {
+            historyBtn.on('pointerup', () => {
+                if (this.scene.showMessage) this.scene.showMessage('History coming soon');
+            });
+        }
 
         // Block input behind settings
         dim.setInteractive();
