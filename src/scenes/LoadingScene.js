@@ -304,10 +304,10 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         
         // Load spritesheets
         try {
-            // Money animation spritesheet
-        this.load.spritesheet('money_sprite', 'assets/images/sprites/money/money_sprite.png', {
-                frameWidth: 185,
-                frameHeight: 185
+            // Money animation spritesheet (use exact frame size to avoid edge clipping)
+            this.load.spritesheet('money_sprite', 'assets/images/sprites/money/money_sprite.png', {
+                frameWidth: 174,
+                frameHeight: 174
             });
             
             // Win animation spritesheet

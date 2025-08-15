@@ -1,148 +1,244 @@
-// Thanos Power Grip Magic Circle Shader for Phaser 3
+// Thanos Power Grip Magic Circle Shader (replaced with ShaderSample/thanos_power_grip.txt)
 window.ThanosPowerGripShader = class ThanosPowerGripShader extends Phaser.Renderer.WebGL.Pipelines.SinglePipeline {
     constructor(game) {
         super({
             game: game,
             renderer: game.renderer,
             fragShader: `
-                precision mediump float;
-                
-                uniform float time;
-                uniform vec2 resolution;
-                uniform sampler2D uMainSampler;
-                varying vec2 outTexCoord;
-                
-                #define PI 3.14159265359
-                #define TAU 6.28318530718
-                
-                // Hash function for noise
-                float hash(vec2 p, float s) {
-                    return fract(sin(dot(vec3(p.xy, 10.0 * abs(sin(s))), vec3(27.1, 61.7, 12.4))) * 273758.5453123);
-                }
-                
-                // Noise function
-                float noise(vec2 p, float s) {
-                    vec2 i = floor(p);
-                    vec2 f = fract(p);
-                    return mix(
-                        mix(hash(i + vec2(0., 0.), s), hash(i + vec2(1., 0.), s), f.x),
-                        mix(hash(i + vec2(0., 1.), s), hash(i + vec2(1., 1.), s), f.x),
-                        f.y
-                    ) * s;
-                }
-                
-                // Fractal brownian motion
-                float fbm(vec2 p) {
-                    float v = 0.0;
-                    v += noise(p * 34., 0.1);
-                    v += noise(p * 20., 0.04);
-                    return v;
-                }
-                
-                // Rotation matrix
-                mat2 rot(float a) {
-                    float c = cos(a);
-                    float s = sin(a);
-                    return mat2(c, -s, s, c);
-                }
-                
-                // Smooth step functions
-                float smootherstep(float edge0, float edge1, float x) {
-                    x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
-                    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
-                }
-                
-                // Ring effect
-                float ring(vec2 p, float radius, float width, float blur) {
-                    float d = length(p) - radius;
-                    return 1.0 - smoothstep(-width - blur, -width + blur, abs(d));
-                }
-                
-                // Hexagon distance
-                float hexagon(vec2 p, float r) {
-                    vec2 q = abs(p);
-                    return max(q.x * 0.866025 + q.y * 0.5, q.y) - r;
-                }
-                
-                // Star shape
-                float star(vec2 p, float r, int n) {
-                    float a = atan(p.y, p.x);
-                    float s = TAU / float(n);
-                    a = mod(a + s * 0.5, s) - s * 0.5;
-                    return length(p) * cos(a) - r;
-                }
-                
-                // Main magic circle effect
-                vec3 magicCircle(vec2 p) {
-                    vec3 col = vec3(0.0);
-                    
-                    // Rotate the whole effect
-                    p *= rot(time * 0.2);
-                    
-                    // Outer rings with energy flow
-                    float r1 = ring(p, 0.8, 0.02, 0.01);
-                    float r2 = ring(p, 0.85, 0.015, 0.01);
-                    float r3 = ring(p, 0.9, 0.01, 0.005);
-                    
-                    // Add energy flow
-                    vec2 polar = vec2(atan(p.y, p.x), length(p));
-                    float energy = fbm(vec2(polar.x * 3.0 + time, polar.y * 10.0));
-                    
-                    // Inner hexagon
-                    float hex = 1.0 - smoothstep(0.0, 0.02, abs(hexagon(p * rot(time * 0.5), 0.4)));
-                    
-                    // Central star
-                    float starShape = 1.0 - smoothstep(0.0, 0.02, abs(star(p * rot(-time), 0.2, 6)));
-                    
-                    // Rotating symbols
-                    vec2 sp = p * rot(time * 0.3);
-                    for (int i = 0; i < 6; i++) {
-                        float angle = float(i) * TAU / 6.0;
-                        vec2 pos = vec2(cos(angle), sin(angle)) * 0.6;
-                        float symbol = 1.0 - smoothstep(0.0, 0.01, length(sp - pos) - 0.05);
-                        col += vec3(0.8, 0.3, 1.0) * symbol * 0.5;
-                    }
-                    
-                    // Combine elements with purple/orange color scheme
-                    col += vec3(0.8, 0.3, 1.0) * r1 * (1.0 + energy * 0.5);
-                    col += vec3(1.0, 0.5, 0.2) * r2;
-                    col += vec3(0.6, 0.2, 0.8) * r3;
-                    col += vec3(1.0, 0.4, 0.1) * hex;
-                    col += vec3(1.0, 0.8, 0.0) * starShape;
-                    
-                    // Add pulsing glow
-                    float pulse = sin(time * 3.0) * 0.5 + 0.5;
-                    col *= 1.0 + pulse * 0.3;
-                    
-                    return col;
-                }
-                
-                void main() {
-                    vec2 fragCoord = outTexCoord * resolution;
-                    vec2 uv = (fragCoord - 0.5 * resolution) / min(resolution.x, resolution.y);
-                    
-                    // Scale for better visibility
-                    uv *= 1.5;
-                    
-                    vec3 col = magicCircle(uv);
-                    
-                    // Add vignette
-                    float vignette = 1.0 - length(uv) * 0.3;
-                    col *= vignette;
-                    
-                    // Sample original texture
-                    vec4 texColor = texture2D(uMainSampler, outTexCoord);
-                    
-                    // Blend with original texture
-                    gl_FragColor = vec4(col + texColor.rgb, max(length(col), texColor.a));
-                }
+precision mediump float;
+uniform float iTime;
+uniform vec3 iResolution;
+
+// ---- BEGIN: ShaderSample/thanos_power_grip.txt (verbatim) ----
+const float PI = acos(-1.);
+const float TAU = PI * 2.;
+
+#define saturate(x) clamp(x,0.,1.)
+#define _tail2x(p,n) (mod(p,2.)-1.)
+#define time iTime
+#define resolution iResolution.xy
+float Hash( vec2 p, in float s ){
+    return fract(sin(dot(vec3(p.xy,10.0 * abs(sin(s))),vec3(27.1,61.7, 12.4)))*273758.5453123);
+}
+
+float noise(in vec2 p, in float s){
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  return mix(
+    mix(Hash(i + vec2(0.,0.), s), Hash(i + vec2(1.,0.), s),f.x),
+    mix(Hash(i + vec2(0.,1.), s), Hash(i + vec2(1.,1.), s),f.x),f.y) * s;
+}
+
+float fbm(vec2 p){
+  float v = 0.0;
+  v += noise(p*34., .1);
+  v += noise(p*20., .04);
+  return v;
+}
+
+vec2 mPolar(vec2 p){
+  float a = atan(p.y, p.x);
+  float r = length(p);
+  return vec2(a, r);
+}
+
+vec2 tailY2x(vec2 p,float n){p*=n;return vec2(p.x,_tail2x(p.y,n));}
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+
+highp float rand(vec2 p){
+  highp float a = 12.9898;
+  highp float b = 78.233;
+  highp float c = 43758.5453;
+  highp float dt= dot(p ,vec2(a,b));
+  highp float sn= mod(dt,3.14);
+  return fract(sin(sn) * c);
+}
+
+// signed distance
+float sd(float d,float r){return r-d;}
+float sd(float d){return 1.-d;}
+
+// ease
+float o2(float t){t=1.-t;return 1.-t*t;}
+float oN(float t,float n){return 1.-pow(1.-t,n);} 
+
+float dot2(vec2 p){return dot(p,p);} 
+
+float ring(vec2 p,float t){
+  float alpha = fract(-t);
+  float l =saturate(.02/abs(sd(length(p),1.1+fract(t)))*alpha);
+  vec2 p4=mPolar(p*(.57-oN(t,1.3)*.28)).yx;
+  p4.x-=.65;
+  l+= saturate(abs(1./((p4.x + fbm( p4 + vec2(sin(t*.2),t*0.1))) * 50.0))*sd(dot2(tailY2x(p4+vec2(.1,0.),12.)),.9)*alpha);
+  return l;
+}
+
+float render(vec2 p){
+  p*=rot(time);
+  p*=2.;
+  float tt = time*.75;
+  float l2 = ring(p,o2(fract(tt)));
+  l2+=ring(p*rot(PI/3.),o2(fract(tt+.5)));
+  return l2;
+}
+
+float happy_star(vec2 uv, float anim)
+{
+    uv = abs(uv);
+    vec2 pos = min(uv.xy/uv.yx, anim);
+    float p = (2.0 - pos.x - pos.y);
+    return (2.0+p*(p*p-1.5)) / (uv.x+uv.y);      
+}
+ 
+
+// glow + fill
+float gf(float d,float r){return r/d;}
+float gf(float d){return 1./d;}
+
+float fill_na(float d){return step(0.,d);} 
+float fill(float d){return smoothstep(0.,0.01,d);} 
+float stroke(float d,float w){return 1.-smoothstep(w,w+0.01,abs(d));}
+float strokeInner(float d,float w){return stroke(d-w,w);} 
+float strokeOuter(float d,float w){return stroke(d+w,w);} 
+
+float lSquare(vec2 p){p = abs(p);return max(p.x,p.y);}    
+
+float lPoly(vec2 p,float n){
+  float a = atan(p.x,p.y)+PI;
+  float r = TAU/n;
+  return cos(floor(.5+a/r)*r-a)*length(p)/cos(r*.5);
+}
+
+float strokeStar(vec2 p,float n,float w){
+  float l =strokeInner(sd(lPoly(p,n*.5)),w);
+  l+=strokeInner(sd(lPoly(mod(n,2.)!=0.?vec2(-p.x,p.y):p*rot(TAU/n),n*.5)),w);
+  return l;
+}
+
+vec2 mPoly(vec2 p,float n,float s){
+  float r = TAU / n;
+  float a = floor(atan(p.y,p.x)/r)*r+r*.5;
+  return (vec2(cos(a),sin(a))*s-p)*rot(-a-PI*.5);
+}
+
+float wsaw(float x){return fract(x*.5+.5)*2.-1.;}
+float wtri(float x){return abs(2.*fract(x*.5-.25)-1.)*2.-1.;} 
+float utri(float x){return abs(2.*fract(x*.5-.5)-1.);} 
+float wtrz(float x,float w){return clamp(wtri(x*2.)*w,-1.,1.);} // 台形波 trapezoidal wave
+
+// ease
+
+vec2 mSimplePerspective(vec2 p){p.y+=.2;p.y*=3.;return p;}
+
+float ring2(vec2 p,float t){
+  float alpha =    fract(-t);
+  float l = 0.;
+  vec2 p3=mPoly(p*rot(PI*.5),10.,1.);
+  l+=saturate(gf(abs(p3.x),.03)*fill(sd(length(p),1.1+fract(t)))*(1.-fill(sd(length(p),.9+fract(t))))*alpha);
+ 
+  l+=saturate(.02/abs(sd(length(p),1.1+fract(t)))*alpha);
+  vec2 p4=mPolar(p*(.57-oN(t,1.3)*.28)).yx;
+  p4.x-=.65;
+  l+= saturate(abs(1./((p4.x + fbm( p4 + vec2(sin(t*.2),t*0.1))) * 50.0))*sd(dot2(tailY2x(p4+vec2(.1,0.),12.)),.9)*alpha);
+  return l;
+}
+
+float summoningCircle(vec2 p){
+  float l=0.;
+  l+=fill(sd(lSquare(p*rot(PI/3.*1.5)*vec2(100.,1.)),1.));
+  l+=fill(sd(lSquare(p*rot(PI/3.*2.5)*vec2(100.,1.)),1.));
+  l+=fill(sd(lSquare(p*rot(PI/3.*3.5)*vec2(100.,1.)),1.));
+  l=saturate(l);
+  l-=fill(sd(lPoly(p,3.)));
+  l=saturate(l);
+  float r = atan(p.y,p.x);
+  l+=strokeOuter(sd(length(p),.98),.008+wtrz(r/TAU*3.,12.)*.005);
+  l+=strokeInner(sd(length(p),.95),.005);
+  l+=strokeInner(sd(lPoly(p,3.)),.01);
+  l+=strokeInner(sd(lPoly(p,3.),.88),.02);
+  l+=strokeInner(sd(lPoly(p,6.),.53),.01);
+  vec2 q=mPoly(p*rot(PI*.5),3.,.5);
+  l+=fill(sd(lPoly(q,3.),.3));
+  vec2 q2=mPoly(p*rot(PI/3.+PI*.5),3.,.7);
+  l+=fill(sd(lPoly(q2,3.),.1));
+  l+=strokeInner(sd(lPoly(p*rot(PI),3.),.5),.02);
+  l+=fill(sd(length(p),.05));
+  vec2 q3=mPoly(p*rot(PI*.5),3.,1.);
+  l=saturate(l);
+  l-=fill(sd(length(q3),.2));
+  l=saturate(l);
+  l+=strokeInner(sd(length(q3),.18),.005);
+  l+=strokeInner(sd(length(q3),.15),.005);
+  l+=strokeStar(q3*rot(PI)*7.,6.,.1);
+  return l;
+}
+
+float render2(vec2 p){
+  //p=mSimplePerspective(p);
+  p*=rot(-time);
+  p*=2.;
+  float tt = -time*.75;
+  float l2 = ring(p,o2(fract(tt)));
+  l2+=ring(p*-rot(PI/3.),o2(fract(tt+.5)));
+  float l=0.;
+  l = summoningCircle(p*=rot(floor(time*12.)/3.));
+  return l2;
+}
+#define white vec4(1.0)
+#define black vec4(0.0, 0.0, 0.0, 1.0)
+#define blue  vec4(0.0, 0.3, 1.0, 1.0)
+
+#define edge 0.01
+
+
+uniform vec2 mouse;
+
+
+
+
+float inCircle(vec2 pt, vec2 center, float radius, float line)
+{
+return smoothstep(radius + line/2., radius, distance(pt, center)) -
+      smoothstep(radius, radius - line/2., distance(pt, center));
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+  vec2 p = (gl_FragCoord.xy * 2.0 - resolution) / max(resolution.x, resolution.y);
+  vec4 color = black;
+vec2 p3 = (2. * gl_FragCoord.xy - resolution.xy) / resolution.x;
+float t = time*0.5;
+for (int i = 0; i < 8; i ++){
+float offset = sin(t+sin(t));
+p *= rot(sin(t+offset));
+float a = atan(p3.y, p3.x);
+float f = sin(sin(t*0.1)+1.0 * a);
+vec2 center = vec2(0.0, offset*0.5);
+color += blue * inCircle(p, center, 0.35 + 0.05 * f, edge);
+}
+  float l=0.;
+  l = (render(p)+render(p+vec2(0.,1./min(resolution.x, resolution.y))))*.5;
+  vec2 p2 = (gl_FragCoord.xy * 2.0 - resolution) / 200.;
+  float l2=0.;
+  l2 = (render2(p2)+render2(p2+vec2(0.,1./min(resolution.x, resolution.y))))*.5;
+  fragColor= vec4(l2*vec3( 0.75, 0.5, .5 )*2.+color.xyz, 1.0);
+  fragColor+= vec4(l*vec3( 0.75, 0.5, .05 )*2., 1.0);
+  p *= 2.0 * ( cos(iTime * 2.0) -2.5); // scale
+    float anim = sin(iTime * 12.0) * 0.1 + 1.0;  // anim between 0.9 - 1.1
+    fragColor+= vec4(happy_star(p, anim) * vec3(0.55,0.5,0.55)*0.2, 1.0);
+}
+
+// ---- END: ShaderSample/thanos_power_grip.txt ----
+
+void main(){
+    mainImage(gl_FragColor, gl_FragCoord.xy);
+}
             `
         });
     }
-    
+
     onPreRender() {
-        this.set1f('time', this.game.loop.time / 1000.0);
-        this.set2f('resolution', this.game.config.width, this.game.config.height);
+        this.set1f('iTime', this.game.loop.time / 1000.0);
+        this.set3f('iResolution', this.game.config.width, this.game.config.height, 1.0);
     }
 };
 

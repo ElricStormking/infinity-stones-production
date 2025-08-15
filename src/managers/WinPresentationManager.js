@@ -427,16 +427,17 @@ window.WinPresentationManager = class WinPresentationManager {
         if (!this.scene.textures.exists('money_sprite')) return null;
         const emitterX = width / 2 + (Math.random() - 0.5) * 600;
         const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
-        moneySprite.setScale(0.3 + Math.random() * 0.2);
+        // Scale to 1/10 of original size for reasonable on-screen size
+        moneySprite.setScale(0.05);
         moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX - 1);
         moneySprite.setVisible(false);
 
         try {
-            const randomFrame = Math.floor(Math.random() * 16);
-            moneySprite.setFrame(randomFrame);
-            if (this.scene.anims.exists('money_animation')) {
-                moneySprite.play('money_animation');
-            }
+            // Use only center-aligned full-face coin frames to avoid broken edges
+            const FACE_FRAMES = [0, 8];
+            const faceFrame = FACE_FRAMES[Math.floor(Math.random() * FACE_FRAMES.length)];
+            moneySprite.setFrame(faceFrame);
+            // Do not play rotation on emitted coins
         } catch (_) {
             moneySprite.setFrame(0);
         }
@@ -466,23 +467,19 @@ window.WinPresentationManager = class WinPresentationManager {
         for (let i = 0; i < particleCount; i++) {
             const emitterX = width / 2 + (Math.random() - 0.5) * 600;
             const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
-            moneySprite.setScale(0.3 + Math.random() * 0.2);
+            // Scale to 1/10 of original size for reasonable on-screen size
+            moneySprite.setScale(0.05);
             moneySprite.setDepth(window.GameConfig.UI_DEPTHS.FX - 1);
             moneySprite.setVisible(false);
             
             // Set a random frame first, then start animation
             try {
-                const randomFrame = Math.floor(Math.random() * 16);
-                moneySprite.setFrame(randomFrame);
-                
-                // Only play animation if it exists
-                if (this.scene.anims.exists('money_animation')) {
-                    moneySprite.play('money_animation');
-                } else {
-                    console.warn('Money animation not found, using static frame');
-                }
+                // Use only center-aligned full-face coin frames to avoid broken edges
+                const FACE_FRAMES = [0, 8];
+                const faceFrame = FACE_FRAMES[Math.floor(Math.random() * FACE_FRAMES.length)];
+                moneySprite.setFrame(faceFrame);
             } catch (error) {
-                console.warn('Failed to setup money sprite animation:', error);
+                console.warn('Failed to setup money sprite frame:', error);
                 moneySprite.setFrame(0);
             }
             

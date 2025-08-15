@@ -63,7 +63,7 @@ float ring(vec2 p,float t){
 
 float render(vec2 p){
   p*=rot(time);
-  p*=2.;
+  p*=0.5;
   float tt = time*.75;
   float l2 = ring(p,o2(fract(tt)));
   l2+=ring(p*rot(PI/3.),o2(fract(tt+.5)));
