@@ -92,6 +92,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Fill initial grid (after LoadingScene ensured assets are ready)
         this.gridManager.fillGrid();
+        // Ensure all grid symbols that have animations start idling on first enter
+        // Use a short delay to let creation settle and avoid race conditions
+        this.time.delayedCall(50, () => {
+            if (this.gridManager && this.gridManager.startAllIdleAnimations) {
+                this.gridManager.startAllIdleAnimations();
+            }
+        });
         
         // Initialize game variables
         this.totalWin = 0;
@@ -843,8 +850,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Update win display
                 this.updateWinDisplay();
                 
-                // Play kaching sound for winning spin
-                window.SafeSound.play(this, 'kaching');
+                // Removed: kaching is now only played with Win animations (WinPresentationManager)
                 
                 // Shake matched symbols before shatter
                 await this.shakeMatches(matches, 320);

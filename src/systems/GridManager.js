@@ -74,7 +74,20 @@ window.GridManager = class GridManager {
     }
     
     createSymbol(type, col, row) {
-        const textureKey = (type === 'thanos') ? 'thanos_sprite' : (type === 'thanos_weapon' ? 'thanos_weap' : type);
+        // Map logical symbol types to their rendering texture keys for grid
+        let textureKey;
+        if (type === 'thanos') {
+            textureKey = 'thanos_sprite';
+        } else if (type === 'thanos_weapon') {
+            textureKey = 'thanos_weap';
+        } else if (type === 'scarlet_witch') {
+            // Use the new Scarlet Witch animated grid symbol
+            textureKey = this.scene.textures && this.scene.textures.exists('scarlet_witch_symbol_sprite')
+                ? 'scarlet_witch_symbol_sprite'
+                : 'scarlet_witch';
+        } else {
+            textureKey = type;
+        }
         let symbol;
         
         // Try to get from pool first

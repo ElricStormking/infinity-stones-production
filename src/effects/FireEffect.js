@@ -89,9 +89,7 @@ window.FireEffect = class FireEffect {
             }
         }
         
-        // Don't play winning_big here - it will be played at the end of free spins
-        // Just play a fire/magic sound effect if available
-        // window.SafeSound.play(this.scene, 'thanos_power', 0.6);
+        // No sound here; thanos_finger_snap plays only during portrait snap and only once per trigger
     }
     
     initializeShader() {

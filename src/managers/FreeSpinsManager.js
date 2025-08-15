@@ -18,6 +18,20 @@ window.FreeSpinsManager = class FreeSpinsManager {
             // Play Thanos finger snap sound for retrigger
             console.log('🔊 Playing Thanos finger snap sound for Free Spins retrigger');
             window.SafeSound.play(this.scene, 'thanos_finger_snap');
+            // Also play Thanos portrait finger snap animation during free spins
+            if (this.scene.animationManager && this.scene.animationManager.playThanosSnap) {
+                this.scene.animationManager.playThanosSnap();
+            } else if (this.scene.portrait_thanos && this.scene.anims && this.scene.anims.exists('thanos_snap_animation') && this.scene.portrait_thanos.anims) {
+                try { this.scene.portrait_thanos.stop(); } catch (_) {}
+                this.scene.portrait_thanos.play('thanos_snap_animation');
+                this.scene.portrait_thanos.once('animationcomplete', () => {
+                    try {
+                        if (this.scene.anims.exists('thanos_idle_animation')) {
+                            this.scene.portrait_thanos.play('thanos_idle_animation');
+                        }
+                    } catch (_) {}
+                });
+            }
             
             this.scene.stateManager.addFreeSpins(extraSpins);
             this.scene.showMessage(`+${extraSpins} Free Spins!`);
@@ -30,8 +44,9 @@ window.FreeSpinsManager = class FreeSpinsManager {
         // 4+ scatters always award 15 free spins in base game
         const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
         
-        // Show confirmation UI before starting free spins
-        this.showFreeSpinsStartUI(freeSpins, 'scatter');
+        // Play Thanos finger snap animation + SFX, then show the Free Spins Start UI
+        // Fire shader will run AFTER player clicks OK in the UI
+        this.showThanosSnapThenStartUI(freeSpins, 'scatter');
     }
     
     handleSpinButtonClick() {
@@ -375,7 +390,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         this.showFreeSpinsStartUI(amount, 'purchase');
     }
     
-    showFreeSpinsStartUI(freeSpins, triggerType) {
+    showFreeSpinsStartUI(freeSpins, triggerType, skipFireOnConfirm = false) {
         // Prevent duplicate UI triggers
         if (this.isProcessingFreeSpinsUI) {
             console.warn('🔥 Free Spins UI already being processed - preventing duplicate');
@@ -561,9 +576,9 @@ window.FreeSpinsManager = class FreeSpinsManager {
             // Reset spinning flag
             this.scene.isSpinning = false;
             
-            // Trigger fire effect exactly once
+            // Always trigger fire effect AFTER OK click, then start free spins
             if (!this.scene.fireEffect.isPlaying()) {
-                console.log('🔥 Triggering fire effect for Free Spins');
+                console.log('🔥 Triggering fire effect for Free Spins (post-OK)');
                 this.scene.fireEffect.triggerFire(() => {
                     console.log('🔥 Fire effect complete - starting Free Spins');
                     this.startFreeSpinsConfirmed(freeSpins, triggerType);
@@ -581,6 +596,83 @@ window.FreeSpinsManager = class FreeSpinsManager {
         
         // Play bonus sound
         window.SafeSound.play(this.scene, 'bonus');
+    }
+
+    // Sequence: Thanos snap animation + finger snap SFX → Free Spins Start UI (OK will run fire)
+    showThanosSnapThenStartUI(freeSpins, triggerType) {
+        // Prevent duplicate triggers
+        if (this.isProcessingFreeSpinsUI) {
+            console.warn('🔥 Free Spins UI already being processed - preventing duplicate (pre-UI sequence)');
+            return;
+        }
+        this.isProcessingFreeSpinsUI = true;
+
+        // Stop any auto spins that might interfere
+        if (this.scene.stateManager.gameData.autoplayActive) {
+            console.log('Stopping autoplay before Thanos snap sequence');
+            this.scene.stateManager.stopAutoplay();
+            if (this.scene.uiManager) this.scene.uiManager.updateAutoSpinCounterDisplay();
+        }
+        if (this.scene.burstAutoSpinning) {
+            console.log('Stopping burst auto-spin before Thanos snap sequence');
+            this.scene.burstAutoSpinning = false;
+            if (this.scene.burstAutoBtn) {
+                try { this.scene.burstAutoBtn.stop(); this.scene.burstAutoBtn.setFrame(0); this.scene.burstAutoBtn.clearTint(); } catch (_) {}
+            }
+        }
+
+        // Block gameplay interactions while we present the sequence
+        this.scene.isSpinning = true;
+        if (this.scene.uiManager) this.scene.uiManager.setButtonsEnabled(false);
+
+        // Helper to play Thanos snap if available
+        const playThanosSnap = () => new Promise(resolve => {
+            try {
+                const hasPortrait = !!this.scene.portrait_thanos;
+                const hasSnapAnim = this.scene.anims && this.scene.anims.exists && this.scene.anims.exists('thanos_snap_animation');
+                // Always play snap SFX (once per trigger)
+                console.log('🔊 Playing Thanos finger snap SFX');
+                window.SafeSound.play(this.scene, 'thanos_finger_snap');
+
+                if (hasPortrait && hasSnapAnim && this.scene.portrait_thanos.anims) {
+                    console.log('▶️ Playing Thanos SNAP animation');
+                    if (this.scene.animationManager && this.scene.animationManager.playThanosSnap) {
+                        this.scene.animationManager.playThanosSnap();
+                    } else {
+                        try { this.scene.portrait_thanos.stop(); } catch (_) {}
+                        this.scene.portrait_thanos.play('thanos_snap_animation');
+                        this.scene.portrait_thanos.once('animationcomplete', () => {
+                            try {
+                                if (this.scene.anims.exists('thanos_idle_animation')) {
+                                    this.scene.portrait_thanos.play('thanos_idle_animation');
+                                }
+                            } catch (_) {}
+                        });
+                    }
+                    // Safety timeout in case animationcomplete never fires
+                    this.scene.time.delayedCall(1500, resolve);
+                } else {
+                    console.warn('Thanos snap animation not available - proceeding with SFX only');
+                    // Small delay to pace the sequence
+                    this.scene.time.delayedCall(600, resolve);
+                }
+            } catch (e) {
+                console.warn('Error during Thanos snap animation:', e);
+                this.scene.time.delayedCall(200, resolve);
+            }
+        });
+
+        // Run sequence
+        (async () => {
+            await playThanosSnap();
+            // Re-enable UI for the confirmation dialog
+            if (this.scene.uiManager) this.scene.uiManager.setButtonsEnabled(true);
+
+            // Allow the UI method to set its own guard flag
+            this.isProcessingFreeSpinsUI = false;
+            // Show the confirmation UI; fire will play on OK
+            this.showFreeSpinsStartUI(freeSpins, triggerType, false);
+        })();
     }
     
     startFreeSpinsConfirmed(freeSpins, triggerType) {

@@ -951,16 +951,7 @@ window.BurstModeManager = class BurstModeManager {
         const scaleX = this._scaleX || 1;
         const scaleY = this._scaleY || 1;
 
-        // Play burst-mode win sound each time a winning entry is shown
-        try {
-            if (window && window.SafeSound) {
-                // Use 'winning_big' as the default burst-mode win SFX until burst_winning asset is provided
-                const fallbackKey = 'winning_big';
-                const cache = this.scene.cache && this.scene.cache.audio;
-                const key = (cache && cache.exists('burst_winning')) ? 'burst_winning' : (cache && cache.exists(fallbackKey) ? fallbackKey : 'kaching');
-                window.SafeSound.play(this.scene, key);
-            }
-        } catch (_) {}
+        // Removed: Let WinPresentationManager control when win SFX play (no kaching here)
 
         const winMultiplier = result.bet > 0 ? (result.win / result.bet).toFixed(1) : '0.0';
         const msg = `WIN $${result.win.toFixed(2)}  (${winMultiplier}x)` +

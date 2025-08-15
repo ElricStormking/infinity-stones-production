@@ -333,6 +333,28 @@ window.UIManager = class UIManager {
             this.ui_freegame_purchase.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
             this.ui_freegame_purchase.on('pointerdown', () => this.scene.showPurchaseUI());
+            // Overlay cost text on the purchase button (current bet x 100)
+            const width = this.scene.cameras.main.width;
+            const height = this.scene.cameras.main.height;
+            const scaleX = width / 1280;
+            const scaleY = height / 720;
+            const fontSize = Math.floor(18 * Math.min(scaleX, scaleY));
+            this.ui_freegame_purchase_text = this.scene.add.text(
+                this.ui_freegame_purchase.x,
+                this.ui_freegame_purchase.y + (12 * Math.min(scaleX, scaleY)),
+                '',
+                {
+                    fontSize: fontSize + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFFFFF',
+                    stroke: '#1B4F72',
+                    strokeThickness: Math.max(2, Math.floor(fontSize * 0.18)),
+                    align: 'center'
+                }
+            );
+            this.ui_freegame_purchase_text.setOrigin(0.5);
+            this.ui_freegame_purchase_text.setDepth((window.GameConfig.UI_DEPTHS.BUTTON || 0) + 1);
+            this.updatePurchaseButtonCost();
         }
         
         // Accumulated multiplier indicator
@@ -709,6 +731,8 @@ window.UIManager = class UIManager {
         if (this.betText) {
             this.betText.setText(`$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`);
         }
+        // Update purchase button overlay cost when bet changes
+        this.updatePurchaseButtonCost();
     }
     
     updateFreeSpinsDisplay() {
@@ -722,6 +746,9 @@ window.UIManager = class UIManager {
             if (this.ui_freegame_purchase) {
                 this.ui_freegame_purchase.setVisible(false);
                 this.ui_freegame_purchase.disableInteractive();
+            }
+            if (this.ui_freegame_purchase_text) {
+                this.ui_freegame_purchase_text.setVisible(false);
             }
             
             // Show accumulated multiplier display
@@ -773,6 +800,10 @@ window.UIManager = class UIManager {
             if (this.ui_freegame_purchase) {
                 this.ui_freegame_purchase.setVisible(true);
                 this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
+                if (this.ui_freegame_purchase_text) {
+                    this.ui_freegame_purchase_text.setVisible(true);
+                }
+                this.updatePurchaseButtonCost();
             }
         }
     }
@@ -843,6 +874,10 @@ window.UIManager = class UIManager {
                 this.ui_spin.setAlpha(enabled ? 1 : 0.5);
             }
         }
+        // Mirror alpha/visibility to purchase overlay text
+        if (this.ui_freegame_purchase_text) {
+            this.ui_freegame_purchase_text.setAlpha(enabled ? 1 : 0.5);
+        }
         
         // Also handle fallback buttons
         const fallbackButtons = [
@@ -878,4 +913,30 @@ window.UIManager = class UIManager {
     // Getters for UI elements
     getSpinButton() { return this.ui_spin; }
     getUIElements() { return this.uiElements; }
+
+    // Helper to compute and display the Free Spins purchase cost on the button overlay
+    updatePurchaseButtonCost() {
+        try {
+            if (!this.ui_freegame_purchase || !this.ui_freegame_purchase.visible) {
+                if (this.ui_freegame_purchase_text) this.ui_freegame_purchase_text.setVisible(false);
+                return;
+            }
+            const bet = (this.scene && this.scene.stateManager && this.scene.stateManager.gameData)
+                ? this.scene.stateManager.gameData.currentBet
+                : 0;
+            const costMult = (window.GameConfig && window.GameConfig.FREE_SPINS && window.GameConfig.FREE_SPINS.BUY_FEATURE_COST)
+                ? window.GameConfig.FREE_SPINS.BUY_FEATURE_COST
+                : 100;
+            const cost = bet * costMult;
+            if (this.ui_freegame_purchase_text) {
+                this.ui_freegame_purchase_text.setText(`$${cost.toFixed(2)}`);
+                this.ui_freegame_purchase_text.setVisible(true);
+                // Keep overlay centered on the button in case of layout shifts
+                this.ui_freegame_purchase_text.setPosition(this.ui_freegame_purchase.x, this.ui_freegame_purchase.y + 27 + (this.ui_freegame_purchase_text.style.fontSize ? 12 : 12));
+            }
+        } catch (e) {
+            // fail-safe: hide text if something is wrong
+            if (this.ui_freegame_purchase_text) this.ui_freegame_purchase_text.setVisible(false);
+        }
+    }
 } 

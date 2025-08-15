@@ -225,6 +225,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 const frameNum = i.toString().padStart(2, '0');
                 this.load.image(`thanos-attack_${frameNum}`, `assets/images/sprites/portrait_thanos/thanos-attack_${frameNum}.png`);
             }
+
+            // Load Thanos snap animation frames (added in latest assets)
+            for (let i = 0; i <= 34; i++) {
+                const frameNum = i.toString().padStart(2, '0');
+                this.load.image(`thanos-snap_${frameNum}`, `assets/images/sprites/portrait_thanos/thanos-snap_${frameNum}.png`);
+            }
             
             // Load the JSON animation file
             this.load.json('thanos_new_animations', 'assets/images/sprites/portrait_thanos/thanosnew_an.json');
@@ -517,6 +523,15 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 frameHeight: 379
             });
             this.load.json('win_animations', 'assets/images/sprites/Winanimation/win_animation.json');
+            
+            // Scarlet Witch grid symbol (150x150) animated spritesheet
+            this.load.spritesheet('scarlet_witch_symbol_sprite', 'assets/images/sprites/scarlet_witch_symbol/scarlet_witch_symbol_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
+            this.load.once('fileerror-spritesheet-scarlet_witch_symbol_sprite', () => {
+                console.warn('Failed to load scarlet_witch_symbol_sprite; grid will fallback to static scarlet_witch image');
+            });
             
             // Thanos symbol spritesheet for grid symbol (150x150)
             this.load.spritesheet('thanos_sprite', 'assets/images/sprites/thanos_symbol/thanos_sprite.png', {
@@ -1030,6 +1045,16 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                     repeat: -1
                 });
                 console.log('✅ Thanos weapon symbol idle animation created');
+            }
+            // Scarlet Witch grid symbol idle animation (if spritesheet loaded)
+            if (this.textures.exists('scarlet_witch_symbol_sprite') && !this.anims.exists('scarlet_witch_symbol_idle')) {
+                this.anims.create({
+                    key: 'scarlet_witch_symbol_idle',
+                    frames: this.anims.generateFrameNumbers('scarlet_witch_symbol_sprite', { start: 0, end: 19 }),
+                    frameRate: 20,
+                    repeat: -1
+                });
+                console.log('✅ Scarlet Witch grid symbol idle animation created');
             }
         } catch (e) {
             console.warn('Failed to create Thanos symbol animation:', e);

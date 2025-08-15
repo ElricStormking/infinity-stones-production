@@ -303,7 +303,7 @@ window.AnimationManager = class AnimationManager {
             this.createFallbackPortraitAnimation('scarlet_witch_portrait_animation', 'redwitch-idle2_32');
         }
         
-        // Create Thanos portrait animations (idle and attack)
+        // Create Thanos portrait animations (idle, attack, and snap)
         try {
             const thanosAnimsData = this.scene.cache.json.get('thanos_new_animations');
             if (thanosAnimsData && thanosAnimsData.anims) {
@@ -378,15 +378,53 @@ window.AnimationManager = class AnimationManager {
                         }
                     }
                 }
+
+                // Create snap animation (plays once)
+                const snapConfig = thanosAnimsData.anims.find(anim => anim.key === 'snap');
+                const snapAnimKey = 'thanos_snap_animation';
+                if (snapConfig && !this.scene.anims.exists(snapAnimKey)) {
+                    let snapFrames;
+                    if (snapConfig.frames && snapConfig.frames.length > 0) {
+                        if (snapConfig.frames[0].duration !== undefined) {
+                            // Phaser Editor format (duration-based)
+                            snapFrames = snapConfig.frames.map(frame => ({
+                                key: frame.key,
+                                duration: frame.duration || 0
+                            }));
+                        } else {
+                            // Fallback format
+                            snapFrames = snapConfig.frames.map(frame => ({
+                                key: frame.key,
+                                frame: frame.frame || 0
+                            }));
+                        }
+                        const validSnapFrames = snapFrames.filter(frame => this.scene.textures.exists(frame.key));
+                        if (validSnapFrames.length > 0) {
+                            this.scene.anims.create({
+                                key: snapAnimKey,
+                                frames: validSnapFrames,
+                                frameRate: snapConfig.frameRate || 20,
+                                repeat: 0,
+                                skipMissedFrames: true
+                            });
+                            console.log(`✓ Created Thanos snap animation with ${validSnapFrames.length} frames`);
+                        } else {
+                            console.warn('No valid frames found for Thanos snap animation');
+                        }
+                    }
+                }
             } else {
                 console.warn('Thanos animation data not found in cache');
                 this.createFallbackPortraitAnimation('thanos_idle_animation', 'thanos-idle_00');
                 this.createFallbackPortraitAnimation('thanos_attack_animation', 'thanos-attack_00');
+                // Fallback for snap: reuse attack frame as a placeholder
+                this.createFallbackPortraitAnimation('thanos_snap_animation', 'thanos-attack_00');
             }
         } catch (error) {
             console.warn('Failed to create Thanos portrait animations:', error);
             this.createFallbackPortraitAnimation('thanos_idle_animation', 'thanos-idle_00');
             this.createFallbackPortraitAnimation('thanos_attack_animation', 'thanos-attack_00');
+            this.createFallbackPortraitAnimation('thanos_snap_animation', 'thanos-attack_00');
         }
         
         console.log('All animations created.');
@@ -815,5 +853,26 @@ window.AnimationManager = class AnimationManager {
     destroy() {
         // Clean up any references and timers
         this.scene = null;
+    }
+
+    // Play Thanos portrait SNAP animation once, then return to idle (no SFX here)
+    playThanosSnap() {
+        try {
+            if (!this.scene || !this.scene.portrait_thanos) return;
+            if (!this.scene.anims || !this.scene.anims.exists('thanos_snap_animation')) return;
+            if (!this.scene.portrait_thanos.anims) return;
+
+            try { this.scene.portrait_thanos.stop(); } catch (_) {}
+            this.scene.portrait_thanos.play('thanos_snap_animation');
+            this.scene.portrait_thanos.once('animationcomplete', () => {
+                try {
+                    if (this.scene.anims.exists('thanos_idle_animation')) {
+                        this.scene.portrait_thanos.play('thanos_idle_animation');
+                    }
+                } catch (_) {}
+            });
+        } catch (e) {
+            console.warn('Failed to play Thanos snap animation:', e);
+        }
     }
 } 
