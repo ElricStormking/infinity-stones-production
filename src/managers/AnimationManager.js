@@ -143,6 +143,50 @@ window.AnimationManager = class AnimationManager {
                     }
                 });
             }
+
+            // Create spin button LIGHT animations
+            // Spin button LIGHT animations (supports both Phaser-Editor formats)
+            let lightAnimsData = this.scene.cache.json.get('button_light_animations');
+            if (!lightAnimsData) {
+                // Should not happen, but keep defensive
+                lightAnimsData = this.scene.cache.json.get('button_light_animation');
+            }
+            if (lightAnimsData && lightAnimsData.anims) {
+                lightAnimsData.anims.forEach(animConfig => {
+                    const key = `light_${animConfig.key || 'button_light'}`; // namespace to avoid collisions
+                    if (!this.scene.anims.exists(key)) {
+                        // Phaser Editor sometimes outputs frames with duration only; normalize
+                        const frames = (animConfig.frames || []).map(frame => {
+                            if (frame.key && (frame.frame !== undefined)) {
+                                return { key: frame.key, frame: frame.frame };
+                            }
+                            // Duration-only format: assume sequential frames 0..N-1 on button_light_sprite
+                            if (frame.key && (frame.duration !== undefined)) {
+                                return { key: frame.key, frame: frame.frame || 0 };
+                            }
+                            return { key: 'button_light_sprite', frame: 0 };
+                        });
+                        this.scene.anims.create({
+                            key,
+                            frames,
+                            frameRate: animConfig.frameRate || 24,
+                            repeat: (animConfig.repeat !== undefined) ? animConfig.repeat : -1,
+                            skipMissedFrames: true
+                        });
+                    }
+                });
+            } else if (this.scene.textures.exists('button_light_sprite')) {
+                // Fallback: generate a simple 0..19 animation if JSON missing
+                const fallbackKey = 'light_button_light';
+                if (!this.scene.anims.exists(fallbackKey)) {
+                    this.scene.anims.create({
+                        key: fallbackKey,
+                        frames: this.scene.anims.generateFrameNumbers('button_light_sprite', { start: 0, end: 19 }),
+                        frameRate: 24,
+                        repeat: -1
+                    });
+                }
+            }
         } catch (error) {
             console.warn('Failed to create spin button animations:', error);
         }

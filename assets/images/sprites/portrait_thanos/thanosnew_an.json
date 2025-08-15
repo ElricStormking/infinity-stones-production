@@ -147,7 +147,7 @@
             ],
             "frameRate": 18,
             "skipMissedFrames": true,
-            "repeat": 0,
+            "repeat": -1,
             "randomFrame": false
         },
         {
@@ -316,6 +316,191 @@
                 }
             ],
             "frameRate": 24,
+            "skipMissedFrames": true,
+            "repeat": -1,
+            "randomFrame": false
+        },
+        {
+            "key": "snap",
+            "type": "frame",
+            "frames": [
+                {
+                    "key": "thanos-snap_00",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_01",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_02",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_03",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_04",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_05",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_06",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_07",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_08",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_09",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_10",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_11",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_12",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_13",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_14",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_15",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_16",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_17",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_18",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_19",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_20",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_21",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_22",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_23",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_24",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_25",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_26",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_27",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_28",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_29",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_30",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_31",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_32",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_33",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "thanos-snap_34",
+                    "duration": 0,
+                    "keyframe": false
+                }
+            ],
+            "frameRate": 18,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false

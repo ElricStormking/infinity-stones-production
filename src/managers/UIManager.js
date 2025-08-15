@@ -262,6 +262,37 @@ window.UIManager = class UIManager {
             // Store original scale values to prevent accumulation bugs
             this.ui_spin.originalScaleX = uiScale * scaleX;
             this.ui_spin.originalScaleY = uiScale * scaleY;
+
+            // Create spin button LIGHT FX sprite layered above spin button
+            const lightKey = this.scene.textures.exists('button_light_sprite') ? 'button_light_sprite' : null;
+            if (lightKey) {
+                this.ui_spin_light = this.scene.add.sprite(this.ui_spin.x, this.ui_spin.y, lightKey);
+                // Correct for differing spritesheet frame sizes (ui_buttonloop: 244px, light: 512px).
+                // Slightly larger to surround the button cleanly.
+                this.ui_spin_light._scaleMultiplier = (244 / 512) * 1.38; // slightly larger than button so ring surrounds it
+                const applyLightScale = () => {
+                    this.ui_spin_light.setScale(
+                        this.ui_spin.scaleX * this.ui_spin_light._scaleMultiplier,
+                        this.ui_spin.scaleY * this.ui_spin_light._scaleMultiplier
+                    );
+                };
+                applyLightScale();
+                // Keep utility to reuse on hover/resets
+                this.ui_spin_light.applyScaleFromSpin = applyLightScale;
+                this.ui_spin_light.setOrigin(0.5, 0.5);
+                this.ui_spin_light.setDepth(window.GameConfig.UI_DEPTHS.BUTTON + 1);
+                this.ui_spin_light.setBlendMode(Phaser.BlendModes.ADD);
+                this.ui_spin_light.setVisible(false);
+
+                // Keep the light locked to the spin button center each frame to prevent drift
+                const syncSpinLight = () => {
+                    if (!this.ui_spin || !this.ui_spin_light) return;
+                    this.ui_spin_light.setPosition(this.ui_spin.x, this.ui_spin.y);
+                    if (this.ui_spin_light.applyScaleFromSpin) this.ui_spin_light.applyScaleFromSpin();
+                };
+                this.ui_spin_light.on(Phaser.Animations.Events.ANIMATION_START, syncSpinLight);
+                this.ui_spin_light.on(Phaser.Animations.Events.ANIMATION_UPDATE, syncSpinLight);
+            }
         }
         
         this.ui_small_stop = this.safeCreateImage(1038, 578, 'ui_small_stop');
@@ -579,6 +610,9 @@ window.UIManager = class UIManager {
                 if (!this.scene.isSpinning) {
                     // Use original scale * 1.1 to prevent accumulation bugs
                     this.ui_spin.setScale(this.ui_spin.originalScaleX * 1.1, this.ui_spin.originalScaleY * 1.1);
+                    if (this.ui_spin_light && this.ui_spin_light.applyScaleFromSpin) {
+                        this.ui_spin_light.applyScaleFromSpin();
+                    }
                     this.ui_spin.setTint(0xFFFFFF);
                 }
             });
@@ -587,6 +621,9 @@ window.UIManager = class UIManager {
                 if (!this.scene.isSpinning) {
                     // Reset to original scale to prevent accumulation bugs
                     this.ui_spin.setScale(this.ui_spin.originalScaleX, this.ui_spin.originalScaleY);
+                    if (this.ui_spin_light && this.ui_spin_light.applyScaleFromSpin) {
+                        this.ui_spin_light.applyScaleFromSpin();
+                    }
                     this.ui_spin.clearTint();
                 }
             });

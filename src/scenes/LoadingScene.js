@@ -316,10 +316,36 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 frameHeight: 512
             });
             
-            // Button light animation spritesheet
-            this.load.spritesheet('button_light_sprite', 'assets/images/sprites/button_light/button_light_sprite.png', {
-                frameWidth: 256,
-                frameHeight: 256
+            // Button light animation spritesheet (new art uses 512x512 tiles)
+            this.load.spritesheet('button_light_sprite', 'assets/images/sprites/spin_button_light/button_light_sprite.png', {
+                frameWidth: 512,
+                frameHeight: 512
+            });
+            // Button light animation JSON (new naming: button_light_an.json)
+            this.load.json('button_light_animations', 'assets/images/sprites/spin_button_light/button_light_an.json');
+            
+            // Error handlers for button light assets
+            this.load.once('fileerror-spritesheet-button_light_sprite', () => {
+                console.warn('Failed to load button_light_sprite, creating fallback');
+                const fallbackTexture = this.generateColoredTexture(0xFFDD55, 'LIGHT');
+                this.textures.addBase64('button_light_sprite', fallbackTexture);
+            });
+            this.load.once('fileerror-json-button_light_animations', () => {
+                console.warn('Failed to load button_light_an.json, trying legacy button_light_animation.json');
+                try {
+                    this.load.json('button_light_animations', 'assets/images/sprites/spin_button_light/button_light_animation.json');
+                    this.load.start();
+                } catch (e) {
+                    console.warn('Failed to queue legacy button_light_animation.json; creating fallback');
+                    this.cache.json.add('button_light_animations', {
+                        anims: [{
+                            key: 'button_light',
+                            frames: [{ key: 'button_light_sprite', frame: 0 }],
+                            frameRate: 24,
+                            repeat: -1
+                        }]
+                    });
+                }
             });
         } catch (error) {
             console.warn('Failed to load sprite sheets:', error);

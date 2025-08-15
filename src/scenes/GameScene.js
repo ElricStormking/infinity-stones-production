@@ -597,10 +597,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.totalWin = 0;
         this.cascadeMultiplier = 1;
         
-        // Start spin button animation
+        // Start spin button animation + light FX
         const spinButton = this.uiManager && this.uiManager.getSpinButton();
         if (spinButton && this.anims.exists('animation')) {
             spinButton.play('animation');
+        }
+        if (this.uiManager && this.uiManager.ui_spin_light) {
+            // Re-snap overlay to the button position/scale before play
+            // Hard snap center every time we play to avoid drift
+            this.uiManager.ui_spin_light.setOrigin(0.5, 0.5);
+            this.uiManager.ui_spin_light.setPosition(this.uiManager.ui_spin.x, this.uiManager.ui_spin.y);
+            if (this.uiManager.ui_spin_light.applyScaleFromSpin) {
+                this.uiManager.ui_spin_light.applyScaleFromSpin();
+            }
+            this.uiManager.ui_spin_light.setVisible(true);
+            if (this.anims.exists('light_button_light')) {
+                // Play with zero offset and no random start to keep centered
+                this.uiManager.ui_spin_light.play({ key: 'light_button_light', startFrame: 0, delay: 0, repeat: -1 });
+            }
         }
         
         // Disable buttons
@@ -1056,11 +1070,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
     
     async endSpin() {
-        // Stop spin button animation
+        // Stop spin button animation + light FX
         const spinButton = this.uiManager && this.uiManager.getSpinButton();
         if (spinButton) {
             spinButton.stop();
             spinButton.setFrame(0); // Reset to first frame
+        }
+        if (this.uiManager && this.uiManager.ui_spin_light) {
+            this.uiManager.ui_spin_light.stop();
+            this.uiManager.ui_spin_light.setVisible(false);
+            this.uiManager.ui_spin_light.setFrame(0);
         }
         
         // Add win to balance
@@ -1584,19 +1603,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
     async burstSingleSpin() {
         if (!this.burstModeActive) return;
         
-        // Start spin button animation in burst mode
+        // Start spin button animation + light in burst mode
         const spinButton = this.uiManager && this.uiManager.getSpinButton();
         if (spinButton && this.anims.exists('animation')) {
             spinButton.play('animation');
+        }
+        if (this.uiManager && this.uiManager.ui_spin_light) {
+            this.uiManager.ui_spin_light.setVisible(true);
+            if (this.anims.exists('light_button_light')) {
+                this.uiManager.ui_spin_light.play('light_button_light');
+            }
         }
         
         const spinResult = await this.performBurstSpin();
         this.addBurstResult(spinResult);
         
-        // Stop spin button animation
+        // Stop spin button animation + light
         if (spinButton) {
             spinButton.stop();
             spinButton.setFrame(0);
+        }
+        if (this.uiManager && this.uiManager.ui_spin_light) {
+            this.uiManager.ui_spin_light.stop();
+            this.uiManager.ui_spin_light.setVisible(false);
+            this.uiManager.ui_spin_light.setFrame(0);
         }
         
         // Handle bonus notifications
@@ -1638,18 +1668,29 @@ window.GameScene = class GameScene extends Phaser.Scene {
         try {
         while (this.burstAutoSpinning && this.burstModeActive) {
             if (!this.isSpinning && (this.stateManager.canAffordBet() || this.stateManager.freeSpinsData.active)) {
-                    // Start spin button animation for auto-spin
+                    // Start spin button animation + light for auto-spin
                     if (this.ui_spin && this.anims.exists('animation')) {
                         this.ui_spin.play('animation');
+                    }
+                    if (this.uiManager && this.uiManager.ui_spin_light) {
+                        this.uiManager.ui_spin_light.setVisible(true);
+                        if (this.anims.exists('light_button_light')) {
+                            this.uiManager.ui_spin_light.play('light_button_light');
+                        }
                     }
                     
                 const spinResult = await this.performBurstSpin();
                 this.addBurstResult(spinResult);
                     
-                    // Stop spin button animation
+                    // Stop spin button animation + light
                     if (this.ui_spin) {
                         this.ui_spin.stop();
                         this.ui_spin.setFrame(0);
+                    }
+                    if (this.uiManager && this.uiManager.ui_spin_light) {
+                        this.uiManager.ui_spin_light.stop();
+                        this.uiManager.ui_spin_light.setVisible(false);
+                        this.uiManager.ui_spin_light.setFrame(0);
                     }
                 
                 // Handle bonus notifications
