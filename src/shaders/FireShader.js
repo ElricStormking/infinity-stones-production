@@ -46,7 +46,7 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
 
                     vec2 speed = vec2(0.1, 0.9);
                     float shift = 1.327+sin(time*2.0)/2.4;
-                    float alpha = intensity;
+                    float alpha = clamp(intensity, 0.0, 1.0);
                     
                     float dist = 3.5-sin(time*0.4)/1.89;
                     dist *= fireScale;
@@ -75,6 +75,7 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
                     // Apply intensity and create final color
                     color *= alpha;
                     
+                    // Emit colored fire using additive-friendly alpha
                     gl_FragColor = vec4(color, alpha);
                 }
             `

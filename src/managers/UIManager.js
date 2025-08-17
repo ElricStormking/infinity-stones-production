@@ -435,6 +435,50 @@ window.UIManager = class UIManager {
         const historyBtn = makeIcon(colX, startY + spacing, 'settings_ui_history', 0xAAAA33, 'HISTORY');
         const settingsBtn = makeIcon(colX, startY + spacing * 2, 'settings_ui_settings', 0x888888, 'SETTINGS');
 
+        // Audio toggles (moved from Title Menu)
+        const togglesY = startY + spacing * 2 + 100 * scaleY;
+        const labelStyle = { fontSize: Math.floor(20 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial Black', color: '#FFD700' };
+        const makeToggle = (y, label, getOn, onToggle) => {
+            const container = this.scene.add.container(colX, y);
+            const bg = this.scene.add.rectangle(0, 0, 180 * scaleX, 44 * scaleY, 0x6B46C1, 1);
+            bg.setStrokeStyle(2, 0xffffff);
+            const text = this.scene.add.text(0, 0, `${label}: ${getOn() ? 'ON' : 'OFF'}`, labelStyle);
+            text.setOrigin(0.5);
+            container.add([bg, text]);
+            container.setSize(180 * scaleX, 44 * scaleY);
+            container.setInteractive(new Phaser.Geom.Rectangle(-90 * scaleX, -22 * scaleY, 180 * scaleX, 44 * scaleY), Phaser.Geom.Rectangle.Contains);
+            container.on('pointerup', () => {
+                onToggle();
+                text.setText(`${label}: ${getOn() ? 'ON' : 'OFF'}`);
+                window.SafeSound.play(this.scene, 'click');
+            });
+            this.settingsContainer.add(container);
+            return container;
+        };
+
+        // moved: Sound/Music toggles now live in the dedicated Settings panel
+        // makeToggle(togglesY, 'SOUND', () => this.scene.stateManager.gameData.soundEnabled, () => {
+        //     this.scene.stateManager.gameData.soundEnabled = !this.scene.stateManager.gameData.soundEnabled;
+        // });
+        // makeToggle(togglesY + 60 * scaleY, 'MUSIC', () => this.scene.stateManager.gameData.musicEnabled, () => {
+        //     const gd = this.scene.stateManager.gameData;
+        //     gd.musicEnabled = !gd.musicEnabled;
+        //     if (gd.musicEnabled) {
+        //         window.SafeSound.startMainBGM(this.scene);
+        //     } else if (window.SafeSound.currentBGM) {
+        //         try { window.SafeSound.currentBGM.stop(); } catch (_) {}
+        //         window.SafeSound.currentBGM = null;
+        //     }
+        // });
+
+        // Link settings icon to open the dedicated Settings panel
+        if (settingsBtn) {
+            settingsBtn.on('pointerup', () => {
+                window.SafeSound.play(this.scene, 'click');
+                this.openSettingsPanel();
+            });
+        }
+
         // Exit button
         let exitBtn;
         const exitY = startY + spacing * 3;
@@ -485,6 +529,90 @@ window.UIManager = class UIManager {
         }
         // Re-enable gameplay UI
         this.setButtonsEnabled(true);
+    }
+    
+    // Dedicated Settings panel with Sound/Music toggles
+    openSettingsPanel() {
+        if (this.settingsPanel) {
+            this.settingsPanel.setVisible(true);
+            return;
+        }
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const scaleX = width / 1280;
+        const scaleY = height / 720;
+        const depth = 2000;
+
+        this.settingsPanel = this.scene.add.container(0, 0);
+        this.settingsPanel.setDepth(depth);
+
+        // Panel background image if available, else a rectangle
+        let panel;
+        if (this.scene.textures.exists('settings_ui_panel')) {
+            panel = this.scene.add.image(width / 2, height / 2, 'settings_ui_panel');
+            panel.setScale(0.9 * scaleX, 0.9 * scaleY);
+        } else {
+            panel = this.scene.add.rectangle(width / 2, height / 2, 500 * scaleX, 360 * scaleY, 0x1F2937, 0.95);
+            panel.setStrokeStyle(4, 0xFFD700);
+        }
+        this.settingsPanel.add(panel);
+
+        const title = this.scene.add.text(width / 2, (height / 2) - 140 * scaleY, 'SETTINGS', {
+            fontSize: Math.floor(26 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700'
+        });
+        title.setOrigin(0.5);
+        this.settingsPanel.add(title);
+
+        const labelStyle = { fontSize: Math.floor(22 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial Black', color: '#FFFFFF' };
+        const makeToggle = (y, label, getOn, onToggle) => {
+            const container = this.scene.add.container(width / 2, y);
+            const bg = this.scene.add.rectangle(0, 0, 360 * scaleX, 54 * scaleY, 0x6B46C1, 1);
+            bg.setStrokeStyle(2, 0xffffff);
+            const text = this.scene.add.text(0, 0, `${label}: ${getOn() ? 'ON' : 'OFF'}`, labelStyle);
+            text.setOrigin(0.5);
+            container.add([bg, text]);
+            container.setSize(360 * scaleX, 54 * scaleY);
+            container.setInteractive(new Phaser.Geom.Rectangle(-180 * scaleX, -27 * scaleY, 360 * scaleX, 54 * scaleY), Phaser.Geom.Rectangle.Contains);
+            container.on('pointerup', () => {
+                onToggle();
+                text.setText(`${label}: ${getOn() ? 'ON' : 'OFF'}`);
+                window.SafeSound.play(this.scene, 'click');
+            });
+            this.settingsPanel.add(container);
+            return container;
+        };
+
+        makeToggle((height / 2) - 50 * scaleY, 'SOUND', () => this.scene.stateManager.gameData.soundEnabled, () => {
+            this.scene.stateManager.gameData.soundEnabled = !this.scene.stateManager.gameData.soundEnabled;
+        });
+        makeToggle((height / 2) + 20 * scaleY, 'MUSIC', () => this.scene.stateManager.gameData.musicEnabled, () => {
+            const gd = this.scene.stateManager.gameData;
+            gd.musicEnabled = !gd.musicEnabled;
+            if (gd.musicEnabled) {
+                window.SafeSound.startMainBGM(this.scene);
+            } else if (window.SafeSound.currentBGM) {
+                try { window.SafeSound.currentBGM.stop(); } catch (_) {}
+                window.SafeSound.currentBGM = null;
+            }
+        });
+
+        // Close button
+        const closeBtn = this.scene.add.text(width / 2, (height / 2) + 120 * scaleY, 'CLOSE', {
+            fontSize: Math.floor(20 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#000000',
+            backgroundColor: '#FFD700',
+            padding: { x: 16, y: 8 }
+        });
+        closeBtn.setOrigin(0.5);
+        closeBtn.setInteractive({ useHandCursor: true });
+        closeBtn.on('pointerup', () => {
+            window.SafeSound.play(this.scene, 'click');
+            this.settingsPanel.setVisible(false);
+        });
+        this.settingsPanel.add(closeBtn);
     }
     
     createTextOverlays(scaleX, scaleY) {

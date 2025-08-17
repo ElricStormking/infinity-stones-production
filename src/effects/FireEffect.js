@@ -22,8 +22,9 @@ window.FireEffect = class FireEffect {
     /**
      * Trigger the fire effect for Free Spins transition
      * @param {Function} onComplete - Callback when effect is complete
+     * @param {{headline?: string, subline?: string}} textOptions - Optional texts to show during the shader
      */
-    triggerFire(onComplete) {
+    triggerFire(onComplete, textOptions = null) {
         // Global guard to avoid back-to-back triggers coming from any caller
         const now = Date.now();
         if (typeof window !== 'undefined') {
@@ -46,6 +47,11 @@ window.FireEffect = class FireEffect {
         this.completionCalled = false; // Reset completion flag for new effect
         if (typeof window !== 'undefined') window.__FIRE_ACTIVE = true;
         console.log('🔥 Starting Fire Effect (flags set: isActive=true, effectInProgress=true)');
+        // Stash overlay texts (shown above the shader)
+        this._overlayText = {
+            headline: (textOptions && textOptions.headline) || 'FREE SPINS AWARDED!',
+            subline: (textOptions && textOptions.subline) || 'FREE SPINS'
+        };
         
         // Create the fire effect
         this.createFireEffect(onComplete);
@@ -127,14 +133,16 @@ window.FireEffect = class FireEffect {
         const width = this.scene.game.config.width;
         const height = this.scene.game.config.height;
         
-        // Create a fullscreen graphics object
+        // Create a fullscreen graphics object (transparent; shader colors + additive blend)
         this.fireQuad = this.scene.add.graphics();
-        this.fireQuad.fillStyle(0x000000, 1.0); // Black background - shader will override this
+        this.fireQuad.fillStyle(0x000000, 0.0);
         this.fireQuad.fillRect(0, 0, width, height);
         this.fireQuad.setDepth(10000); // Above everything
         
         // Apply the fire shader pipeline
         this.fireQuad.setPipeline('Fire');
+        // Additive so it brightens instead of blacking out
+        this.fireQuad.setBlendMode(Phaser.BlendModes.ADD);
         
         console.log('🔥 Fire quad created and shader applied');
     }
@@ -176,6 +184,9 @@ window.FireEffect = class FireEffect {
         let currentTime = 0;
         let animationCompleted = false; // Prevent multiple completion calls
         
+        // Headline and subline during the fire
+        this.createOverlayTexts();
+
         phases.forEach((phase, index) => {
             // Intensity animation
             this.scene.tweens.addCounter({
@@ -222,6 +233,51 @@ window.FireEffect = class FireEffect {
         });
         
         console.log(`🔥 Fire shader animation started (${phases.length} phases, total duration: ${currentTime}ms)`);
+    }
+
+    createOverlayTexts() {
+        try {
+            const w = this.scene.cameras.main.width;
+            const h = this.scene.cameras.main.height;
+            const headline = (this._overlayText && this._overlayText.headline) || '';
+            const subline = (this._overlayText && this._overlayText.subline) || '';
+
+            this._headlineText = this.scene.add.text(w / 2, h / 2 - 30, headline, {
+                fontSize: '64px',
+                fontFamily: 'Arial Black',
+                color: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 6
+            });
+            this._headlineText.setOrigin(0.5);
+            this._headlineText.setDepth(10001);
+            this._headlineText.setAlpha(0);
+
+            this._sublineText = this.scene.add.text(w / 2, h / 2 + 20, subline, {
+                fontSize: '40px',
+                fontFamily: 'Arial Black',
+                color: '#00FF00',
+                stroke: '#000000',
+                strokeThickness: 5
+            });
+            this._sublineText.setOrigin(0.5);
+            this._sublineText.setDepth(10001);
+            this._sublineText.setAlpha(0);
+
+            // Fade in quickly
+            this.scene.tweens.add({ targets: [this._headlineText, this._sublineText], alpha: 1, duration: 350, ease: 'Power2' });
+            // Gentle pulse while effect plays
+            this.scene.tweens.add({ targets: [this._headlineText, this._sublineText], scaleX: 1.04, scaleY: 1.04, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.easeInOut' });
+        } catch (e) {
+            console.warn('Failed to create overlay texts for fire:', e);
+        }
+    }
+
+    destroyOverlayTexts() {
+        try {
+            if (this._headlineText) { this._headlineText.destroy(); this._headlineText = null; }
+            if (this._sublineText) { this._sublineText.destroy(); this._sublineText = null; }
+        } catch (e) { /* ignore */ }
     }
     
     createFallbackFireEffect(onComplete) {
@@ -309,6 +365,7 @@ window.FireEffect = class FireEffect {
             this.fireQuad.destroy();
         }
         this.fireQuad = null;
+        this.destroyOverlayTexts();
 
         // Call completion callback immediately
         if (onComplete && typeof onComplete === 'function') {

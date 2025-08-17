@@ -598,7 +598,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
                     console.log('🔥 Fire effect complete - starting Free Spins');
                     this.startFreeSpinsConfirmed(freeSpins, triggerType);
                     this.isProcessingFreeSpinsUI = false;
-                });
+                }, { headline: 'FREE SPINS AWARDED!', subline: `${freeSpins} FREE SPINS` });
             } else {
                 console.warn('🔥 Fire effect already playing - skipping to Free Spins');
                 this.startFreeSpinsConfirmed(freeSpins, triggerType);
@@ -713,23 +713,17 @@ window.FreeSpinsManager = class FreeSpinsManager {
             }
         });
         
-        // Play Thanos finger snap sound
-        console.log('🔊 Playing Thanos finger snap sound for Free Spins start');
-        window.SafeSound.play(this.scene, 'thanos_finger_snap');
-        
-        // Show big prominent free spins message
-        this.scene.winPresentationManager.showBigFreeSpinsMessage(freeSpins);
+        // Optional SFX cue
+        console.log('🔊 Free Spins start cue');
+        window.SafeSound.play(this.scene, 'bonus');
+
+        // Update FS UI and start immediately
         this.scene.uiManager.updateFreeSpinsDisplay();
-        
-        // Start auto-spinning free spins after the message is shown
-        this.freeSpinsAutoPlay = true; // Enable auto-play for new free spins
-        console.log(`Free spins awarded: ${freeSpins} - will start auto-spinning in 5 seconds`);
-        this.scene.time.delayedCall(5000, () => {
-            if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count > 0 && !this.scene.isSpinning && this.freeSpinsAutoPlay) {
-                console.log(`Starting first free spin auto-play`);
-                this.scene.startSpin();
-            }
-        });
+        this.freeSpinsAutoPlay = true;
+        if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count > 0 && !this.scene.isSpinning) {
+            console.log(`Starting first free spin immediately`);
+            this.scene.startSpin();
+        }
         
         // Save game state
         this.scene.stateManager.saveState();

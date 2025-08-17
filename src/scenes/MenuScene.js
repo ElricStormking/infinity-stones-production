@@ -70,31 +70,7 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         });
         balanceText.setOrigin(0.5);
         
-        // Sound toggle buttons
-        const soundButton = this.createToggleButton(width - 100, 50, 
-            stateManager.gameData.soundEnabled ? 'Sound: ON' : 'Sound: OFF',
-            () => {
-                stateManager.gameData.soundEnabled = !stateManager.gameData.soundEnabled;
-                soundButton.text.setText(stateManager.gameData.soundEnabled ? 'Sound: ON' : 'Sound: OFF');
-                window.SafeSound.play(this, 'click');
-            }
-        );
-        
-        const musicButton = this.createToggleButton(width - 100, 110, 
-            stateManager.gameData.musicEnabled ? 'Music: ON' : 'Music: OFF',
-            () => {
-                stateManager.gameData.musicEnabled = !stateManager.gameData.musicEnabled;
-                musicButton.text.setText(stateManager.gameData.musicEnabled ? 'Music: ON' : 'Music: OFF');
-                window.SafeSound.play(this, 'click');
-                
-                if (stateManager.gameData.musicEnabled && !this.bgMusic) {
-                    this.bgMusic = window.SafeSound.add(this, 'bgm_infinity_storm', { loop: true, volume: 0.5 });
-                    if (this.bgMusic) this.bgMusic.play();
-                } else if (!stateManager.gameData.musicEnabled && this.bgMusic) {
-                    this.bgMusic.stop();
-                }
-            }
-        );
+        // Sound/Music toggles moved to Settings UI (in-game). Title menu no longer shows them.
         
         // Version text
         this.add.text(10, height - 20, 'v1.0.0 - Demo', {

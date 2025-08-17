@@ -290,13 +290,13 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_freegame_purchase', 'assets/images/ui_freegame_purchase.png', 0x2E86C1);
         // Background art for Free Spins Purchase UI (needs to exist early)
         this.loadImageWithFallback('free_spins_purchase_check', 'assets/images/free_spins_purchase_check.png', 0xDC143C);
-        // Settings UI assets
-        this.loadImageWithFallback('settings_ui_bg', 'assets/images/settings_UI/settings_bg.png', 0x111111);
-        this.loadImageWithFallback('settings_ui_panel', 'assets/images/settings_UI/settings.png', 0x222222);
-        this.loadImageWithFallback('settings_ui_exit', 'assets/images/settings_UI/exit.png', 0xAA3333);
-        this.loadImageWithFallback('settings_ui_rules', 'assets/images/settings_UI/rules.png', 0x3366AA);
-        this.loadImageWithFallback('settings_ui_history', 'assets/images/settings_UI/history.png', 0xAAAA33);
-        this.loadImageWithFallback('settings_ui_settings', 'assets/images/settings_UI/settings.png', 0x888888);
+        // Settings UI assets (moved to sidemenu_UI)
+        this.loadImageWithFallback('settings_ui_bg', 'assets/images/sidemenu_UI/sidemenu_bg.png', 0x111111);
+        this.loadImageWithFallback('settings_ui_panel', 'assets/images/sidemenu_UI/settings.png', 0x222222);
+        this.loadImageWithFallback('settings_ui_exit', 'assets/images/sidemenu_UI/exit.png', 0xAA3333);
+        this.loadImageWithFallback('settings_ui_rules', 'assets/images/sidemenu_UI/rules.png', 0x3366AA);
+        this.loadImageWithFallback('settings_ui_history', 'assets/images/sidemenu_UI/history.png', 0xAAAA33);
+        this.loadImageWithFallback('settings_ui_settings', 'assets/images/sidemenu_UI/settings.png', 0x888888);
         this.loadImageWithFallback('ui_number_bet', 'assets/images/ui_number_bet.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet-', 'assets/images/ui_number_bet-.png', 0x444444);
         this.loadImageWithFallback('ui_number_bet+', 'assets/images/ui_number_bet+.png', 0x444444);
