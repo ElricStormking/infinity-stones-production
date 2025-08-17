@@ -288,21 +288,27 @@ window.FreeSpinsManager = class FreeSpinsManager {
         let bgImage;
         if (this.scene.textures.exists('free_spins_purchase_check')) {
             bgImage = this.scene.add.image(width / 2, height / 2, 'free_spins_purchase_check');
-            const scaleX = width / bgImage.width;
-            const scaleY = height / bgImage.height;
-            const scale = Math.max(scaleX, scaleY);
+            // Make character prominent: scale to ~95% of viewport height so she towers over the dialog
+            const desiredHeight = height * 0.9;
+            const scale = desiredHeight / bgImage.height;
             bgImage.setScale(scale);
-            bgImage.setAlpha(0.85);
+            // Absolute position for easy future tweaks (canvas coordinates)
+            // Adjust these numbers to fine-tune the hand alignment with the dialog
+            const CHARACTER_X = 720; // px
+            const CHARACTER_Y = 620; // px
+            bgImage.setPosition(CHARACTER_X, CHARACTER_Y);
+            bgImage.setAlpha(0.95);
             bgImage.setDepth(1501);
         }
         
         // Purchase dialog background card over character art
-        const dialogBg = this.scene.add.rectangle(width / 2, height / 2, 500, 300, 0x2C3E50, 0.92);
+        const dialogCenterY = height / 1.5;
+        const dialogBg = this.scene.add.rectangle(width / 2, dialogCenterY, 350, 210, 0x2C3E50, 0.92);
         dialogBg.setStrokeStyle(4, 0xFFD700);
         dialogBg.setDepth(1502);
         
         // Title
-        const title = this.scene.add.text(width / 2, height / 2 - 80, 'PURCHASE FREE SPINS', {
+        const title = this.scene.add.text(width / 2, dialogCenterY - 70, 'PURCHASE FREE SPINS', {
             fontSize: '28px',
             fontFamily: 'Arial Black',
             color: '#FFD700'
@@ -311,7 +317,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         title.setDepth(1503);
         
         // Description
-        const description = this.scene.add.text(width / 2, height / 2 - 30, `Get ${freeSpinsAmount} Free Spins for $${freeSpinsCost.toFixed(2)}`, {
+        const description = this.scene.add.text(width / 2, dialogCenterY - 30, `Get ${freeSpinsAmount} Free Spins for $${freeSpinsCost.toFixed(2)}`, {
             fontSize: '20px',
             fontFamily: 'Arial',
             color: '#FFFFFF'
@@ -320,7 +326,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         description.setDepth(1503);
         
         // Current balance display
-        const balanceInfo = this.scene.add.text(width / 2, height / 2 + 10, `Current Balance: $${this.scene.stateManager.gameData.balance.toFixed(2)}`, {
+        const balanceInfo = this.scene.add.text(width / 2, dialogCenterY + 5, `Current Balance: $${this.scene.stateManager.gameData.balance.toFixed(2)}`, {
             fontSize: '16px',
             fontFamily: 'Arial',
             color: '#CCCCCC'
@@ -329,7 +335,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         balanceInfo.setDepth(1503);
         
         // Purchase button
-        const purchaseBtn = this.scene.add.container(width / 2 - 80, height / 2 + 60);
+        const purchaseBtn = this.scene.add.container(width / 2 - 80, dialogCenterY + 45);
         const purchaseBg = this.scene.add.rectangle(0, 0, 120, 40, 0x27AE60);
         purchaseBg.setStrokeStyle(2, 0xFFFFFF);
         purchaseBg.setInteractive({ useHandCursor: true });
@@ -343,7 +349,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         purchaseBtn.setDepth(1503);
         
         // Cancel button
-        const cancelBtn = this.scene.add.container(width / 2 + 80, height / 2 + 60);
+        const cancelBtn = this.scene.add.container(width / 2 + 80, dialogCenterY + 45);
         const cancelBg = this.scene.add.rectangle(0, 0, 120, 40, 0xE74C3C);
         cancelBg.setStrokeStyle(2, 0xFFFFFF);
         cancelBg.setInteractive({ useHandCursor: true });
