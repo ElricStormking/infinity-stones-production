@@ -53,8 +53,8 @@ window.UIManager = class UIManager {
         this.ui_grid_bg = safeCreateImage(650, 327, 'ui_boxBG');
         if (this.ui_grid_bg) this.ui_grid_bg.setDepth(window.GameConfig.UI_DEPTHS.GRID_BG);
         
-        // Title
-        this.ui_title = safeCreateImage(650, 44, 'ui_title');
+        // Title / formula plaque
+        this.ui_title = safeCreateImage(650, 44, 'ui_formula_plaque');
         if (this.ui_title) this.ui_title.setDepth(window.GameConfig.UI_DEPTHS.TITLE); // title on top of frame
         
         // Top elements removed (ui_top not used currently)
@@ -704,11 +704,32 @@ window.UIManager = class UIManager {
             this.winText.setText(`$${this.scene.totalWin.toFixed(2)}`);
         }
 
-        // Mirror win amount to the top-center visual, show only when > 0
+        // Mirror win amount or formula to the top-center visual, show only when > 0
         if (this.winTopText) {
             const amount = this.scene.totalWin;
             if (amount > 0) {
-                this.winTopText.setText(`$${amount.toFixed(2)}`);
+                const inFreeSpins = !!(this.scene.stateManager && this.scene.stateManager.freeSpinsData && this.scene.stateManager.freeSpinsData.active);
+                let base;
+                let mult;
+                if (inFreeSpins) {
+                    // During Free Spins show (bet x payout) x Accumulated FS Multiplier = total
+                    const fsMult = Math.max(1, (this.scene.stateManager.freeSpinsData.multiplierAccumulator || 1));
+                    mult = fsMult;
+                    base = amount / fsMult; // derive pre-FS base so the equation matches the visible total
+                } else {
+                    base = Math.max(0, this.scene.baseWinForFormula || 0);
+                    mult = Math.max(1, this.scene.spinAppliedMultiplier || 1);
+                }
+                let text;
+                if (base > 0 && mult > 1) {
+                    const baseStr = `$${base.toFixed(2)}`;
+                    const multStr = `x${mult.toFixed(2).replace(/\.00$/, '')}`;
+                    const finalStr = `$${amount.toFixed(2)}`;
+                    text = `${baseStr} ${multStr} = ${finalStr}`;
+                } else {
+                    text = `$${amount.toFixed(2)}`;
+                }
+                this.winTopText.setText(text);
                 this.winTopText.setVisible(true);
 
                 // brief pulse to draw attention without changing layout
@@ -725,6 +746,55 @@ window.UIManager = class UIManager {
                 this.winTopText.setVisible(false);
             }
         }
+    }
+
+    // Expose the current plaque position for FX targeting
+    getPlaquePosition() {
+        if (this.winTopText) {
+            return { x: this.winTopText.x, y: this.winTopText.y };
+        }
+        // Fallback to top-center of canvas
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        return { x: width / 2, y: Math.max(30, 50 * (height / 720)) };
+    }
+
+    // Expose the accumulated-multiplier badge position (Free Spins UI) for FX targeting
+    getAccumulatedMultiplierPosition() {
+        if (this.accumulatedMultiplierText) {
+            return { x: this.accumulatedMultiplierText.x, y: this.accumulatedMultiplierText.y };
+        }
+        if (this.ui_accumulated_multiplier) {
+            return { x: this.ui_accumulated_multiplier.x, y: this.ui_accumulated_multiplier.y };
+        }
+        // Fallback to the design-time coordinates scaled to current canvas
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const scaleX = width / 1280;
+        const scaleY = height / 720;
+        return { x: 987 * scaleX, y: 62 * scaleY };
+    }
+
+    // Set the plaque formula explicitly (used by shooting-star FX incremental updates)
+    setWinFormula(baseAmount, accumulatedMultiplier, finalAmount) {
+        if (!this.winTopText) return;
+        const baseStr = `$${Number(baseAmount || 0).toFixed(2)}`;
+        const multStr = `x${Number(accumulatedMultiplier || 0).toFixed(2).replace(/\.00$/, '')}`;
+        const finalStr = `$${Number(finalAmount || 0).toFixed(2)}`;
+        const text = `${baseStr} ${multStr} = ${finalStr}`;
+        this.winTopText.setText(text);
+        this.winTopText.setVisible(true);
+
+        // subtle pulse
+        this.winTopText.setScale(this.winTopText.originalScaleX, this.winTopText.originalScaleY);
+        this.scene.tweens.add({
+            targets: this.winTopText,
+            scaleX: this.winTopText.originalScaleX * 1.08,
+            scaleY: this.winTopText.originalScaleY * 1.08,
+            duration: 140,
+            yoyo: true,
+            ease: 'Power2'
+        });
     }
     
     updateBetDisplay() {

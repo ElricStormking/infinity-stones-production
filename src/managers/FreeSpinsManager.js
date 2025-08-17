@@ -160,15 +160,16 @@ window.FreeSpinsManager = class FreeSpinsManager {
                     await this.scene.bonusManager.showScarletWitchRandomMultiplier(col, row, randomMultiplier);
                 }
                 
-                // Apply to free spins accumulation
-                this.scene.stateManager.accumulateMultiplier(randomMultiplier);
-                
+                // Defer accumulation to shooting-star arrival; fire the FX to both targets
+                if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+                    this.scene.playRandomMultiplierShootingStar(col, row, randomMultiplier);
+                }
+
                 // Show appropriate message
                 const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
                 this.scene.showMessage(`FREE SPINS ${characterName} ${randomMultiplier}x MULTIPLIER!`);
                 
-                // Update accumulated multiplier display
-                this.scene.uiManager.updateAccumulatedMultiplierDisplay();
+                // Accumulated display will be updated on star arrival
                 
                 // Always play bonus sound
                 window.SafeSound.play(this.scene, 'bonus');
@@ -181,21 +182,17 @@ window.FreeSpinsManager = class FreeSpinsManager {
     applyFreeSpinsMultiplier(multiplier) {
         // Accumulate multiplier during free spins
         if (this.scene.stateManager.freeSpinsData.active) {
-            this.scene.stateManager.accumulateMultiplier(multiplier);
+            // Do not accumulate immediately; accumulation happens when shooting-star hits the badge
+            // Still show a transient multiplier overlay if desired
             this.scene.bonusManager.showMultiplier(multiplier);
-            this.scene.uiManager.updateAccumulatedMultiplierDisplay();
-            console.log(`Accumulated multiplier to free spins: ${multiplier}x`);
+            console.log(`[Deferred] Free Spins multiplier will accumulate on star arrival: ${multiplier}x`);
         }
     }
     
     applyCascadingMultipliers(multipliers) {
         // Accumulate each multiplier during free spins
         if (this.scene.stateManager.freeSpinsData.active) {
-            multipliers.forEach(mult => {
-                this.scene.stateManager.accumulateMultiplier(mult);
-                console.log(`Accumulated cascading multiplier to free spins: ${mult}x`);
-            });
-            
+            // Defer accumulation; stars fired elsewhere will update on arrival
             // Calculate total multiplier for display - ADD multipliers together
             let totalMultiplier = 0;
             multipliers.forEach(mult => {
@@ -203,7 +200,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
             });
             
             this.scene.bonusManager.showMultiplier(totalMultiplier);
-            this.scene.uiManager.updateAccumulatedMultiplierDisplay();
+            // Display of accumulated value updates as stars arrive
         }
     }
 
@@ -282,15 +279,27 @@ window.FreeSpinsManager = class FreeSpinsManager {
         const width = this.scene.cameras.main.width;
         const height = this.scene.cameras.main.height;
         
-        // Create overlay
-        const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        // Create overlay (dim)
+        const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.82);
         overlay.setDepth(1500);
         overlay.setInteractive(); // Block clicks behind it
         
-        // Purchase dialog background
-        const dialogBg = this.scene.add.rectangle(width / 2, height / 2, 500, 300, 0x2C3E50, 1);
+        // Backdrop character art
+        let bgImage;
+        if (this.scene.textures.exists('free_spins_purchase_check')) {
+            bgImage = this.scene.add.image(width / 2, height / 2, 'free_spins_purchase_check');
+            const scaleX = width / bgImage.width;
+            const scaleY = height / bgImage.height;
+            const scale = Math.max(scaleX, scaleY);
+            bgImage.setScale(scale);
+            bgImage.setAlpha(0.85);
+            bgImage.setDepth(1501);
+        }
+        
+        // Purchase dialog background card over character art
+        const dialogBg = this.scene.add.rectangle(width / 2, height / 2, 500, 300, 0x2C3E50, 0.92);
         dialogBg.setStrokeStyle(4, 0xFFD700);
-        dialogBg.setDepth(1501);
+        dialogBg.setDepth(1502);
         
         // Title
         const title = this.scene.add.text(width / 2, height / 2 - 80, 'PURCHASE FREE SPINS', {
@@ -299,7 +308,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
             color: '#FFD700'
         });
         title.setOrigin(0.5);
-        title.setDepth(1502);
+        title.setDepth(1503);
         
         // Description
         const description = this.scene.add.text(width / 2, height / 2 - 30, `Get ${freeSpinsAmount} Free Spins for $${freeSpinsCost.toFixed(2)}`, {
@@ -308,7 +317,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
             color: '#FFFFFF'
         });
         description.setOrigin(0.5);
-        description.setDepth(1502);
+        description.setDepth(1503);
         
         // Current balance display
         const balanceInfo = this.scene.add.text(width / 2, height / 2 + 10, `Current Balance: $${this.scene.stateManager.gameData.balance.toFixed(2)}`, {
@@ -317,7 +326,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
             color: '#CCCCCC'
         });
         balanceInfo.setOrigin(0.5);
-        balanceInfo.setDepth(1502);
+        balanceInfo.setDepth(1503);
         
         // Purchase button
         const purchaseBtn = this.scene.add.container(width / 2 - 80, height / 2 + 60);
@@ -331,7 +340,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         });
         purchaseLabel.setOrigin(0.5);
         purchaseBtn.add([purchaseBg, purchaseLabel]);
-        purchaseBtn.setDepth(1502);
+        purchaseBtn.setDepth(1503);
         
         // Cancel button
         const cancelBtn = this.scene.add.container(width / 2 + 80, height / 2 + 60);
@@ -345,10 +354,10 @@ window.FreeSpinsManager = class FreeSpinsManager {
         });
         cancelLabel.setOrigin(0.5);
         cancelBtn.add([cancelBg, cancelLabel]);
-        cancelBtn.setDepth(1502);
+        cancelBtn.setDepth(1503);
         
         // Store references for cleanup
-        const purchaseElements = [overlay, dialogBg, title, description, balanceInfo, purchaseBtn, cancelBtn];
+        const purchaseElements = [overlay, bgImage, dialogBg, title, description, balanceInfo, purchaseBtn, cancelBtn];
         
         // Purchase button handler
         purchaseBg.on('pointerup', () => {

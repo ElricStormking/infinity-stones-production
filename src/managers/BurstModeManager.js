@@ -747,10 +747,7 @@ window.BurstModeManager = class BurstModeManager {
                             const randomMultiplier = multiplierTable[
                                 Math.floor(Math.random() * multiplierTable.length)
                             ];
-                            this.scene.stateManager.accumulateMultiplier(randomMultiplier);
-                            
-                            // Update accumulated multiplier display in burst mode too
-                            this.scene.updateAccumulatedMultiplierDisplay();
+                            // Defer accumulation; handled by star arrival when FX is emitted elsewhere
                         }
                     }
                 } else {
@@ -780,8 +777,7 @@ window.BurstModeManager = class BurstModeManager {
                         
                         // Accumulate each multiplier during free spins
                         if (this.scene.stateManager.freeSpinsData.active) {
-                            this.scene.stateManager.accumulateMultiplier(multiplier);
-                            this.scene.updateAccumulatedMultiplierDisplay();
+                            // Defer accumulation to star arrival
                         }
                     }
                     
@@ -827,8 +823,7 @@ window.BurstModeManager = class BurstModeManager {
                 
                 // Accumulate multiplier during free spins
                 if (this.scene.stateManager.freeSpinsData.active) {
-                    this.scene.stateManager.accumulateMultiplier(multiplier);
-                    this.scene.updateAccumulatedMultiplierDisplay();
+                    // Defer accumulation to star arrival
                 }
             }
             

@@ -603,6 +603,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         this.totalWin = 0;
         this.cascadeMultiplier = 1;
+        // Reset per-spin formula helpers
+        this.baseWinForFormula = 0; // Win before any Random Multipliers are applied
+        this.spinAppliedMultiplier = 1; // Product of all Random Multipliers applied this spin
+        this.spinAccumulatedRM = 0; // Sum of all Random Multiplier values that have ARRIVED at the plaque this spin
+        this.fsPendingRMStars = 0; // Free Spins: number of RM stars in flight this spin
         
         // Start spin button animation + light FX
         const spinButton = this.uiManager && this.uiManager.getSpinButton();
@@ -656,6 +661,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Check for other bonus features
         this.freeSpinsManager.checkOtherBonusFeatures();
         
+        // Capture base win before any Random Multipliers (used for top plaque formula)
+        this.baseWinForFormula = this.totalWin;
+        this.spinAppliedMultiplier = 1;
+        this.spinAccumulatedRM = 0;
+
         // Check for Random Multiplier after spin results are decided
         // Run twice with a small delay to avoid race with end-of-cascade settlement
         await this.bonusManager.checkRandomMultiplier();
@@ -665,6 +675,122 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // End spin
         this.endSpin();
+    }
+
+    // FX: shooting star(s) from a grid cell to one or more targets; updates UI on arrival
+    // During base game: target is the top plaque (formula)
+    // During Free Spins: only send stars to the accumulated-multiplier badge; update plaque after all arrivals
+    playRandomMultiplierShootingStar(fromCol, fromRow, multiplierValue) {
+        try {
+            const startX = this.gridManager.getSymbolScreenX(fromCol);
+            const startY = this.gridManager.getSymbolScreenY(fromRow);
+            const inFreeSpins = !!(this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.active);
+            const targets = [];
+            if (inFreeSpins) {
+                this.fsPendingRMStars = (this.fsPendingRMStars || 0) + 1;
+                targets.push({ type: 'fsAccum', pos: this.uiManager.getAccumulatedMultiplierPosition() });
+            } else {
+                targets.push({ type: 'plaque', pos: this.uiManager.getPlaquePosition() });
+            }
+
+            const fireOneStarTo = (target) => {
+                // Create star sprite or a small graphics circle if texture missing
+                let star;
+                if (this.textures.exists('reality_gem')) {
+                    star = this.add.image(startX, startY, 'reality_gem');
+                    star.setScale(0.25);
+                } else {
+                    const g = this.add.graphics({ x: startX, y: startY });
+                    g.fillStyle(0xFFD700, 1);
+                    g.fillCircle(0, 0, 6);
+                    star = g;
+                }
+                star.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
+                if (star.setBlendMode) star.setBlendMode(Phaser.BlendModes.ADD);
+
+                // Trail particles (optional)
+                let trail;
+                try {
+                    trail = this.add.particles(startX, startY, 'mind_gem', {
+                        speed: { min: 50, max: 100 },
+                        lifespan: 300,
+                        scale: { start: 0.25, end: 0 },
+                        alpha: { start: 0.9, end: 0 },
+                        quantity: 1,
+                        frequency: 40,
+                        gravityY: 0,
+                        blendMode: 'ADD'
+                    });
+                    trail.setDepth((window.GameConfig.UI_DEPTHS.FX_UNDERLAY || 2400));
+                } catch (_) {}
+
+                // Arc-like tween control points
+                const ctrlX = (startX + target.pos.x) / 2 + Phaser.Math.Between(-80, 80);
+                const ctrlY = Math.min(startY, target.pos.y) - Phaser.Math.Between(60, 140);
+                const duration = 550;
+                const updatePos = (t) => {
+                    const x = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * ctrlX + t * t * target.pos.x;
+                    const y = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * ctrlY + t * t * target.pos.y;
+                    if (star.setPosition) star.setPosition(x, y); else { star.x = x; star.y = y; }
+                    if (trail) trail.setPosition(x, y);
+                };
+
+                let elapsed = 0;
+                const onUpdate = (_, delta) => {
+                    elapsed += delta;
+                    const t = Math.min(1, elapsed / duration);
+                    updatePos(t);
+                    if (t >= 1) {
+                        this.events.off('update', onUpdate);
+                        if (star.destroy) star.destroy(); else if (star.clear) star.clear();
+                        if (trail) { try { trail.destroy(); } catch (_) {} }
+
+                        if (target.type === 'plaque') {
+                            // Base game or FS: update plaque formula sum ONLY on arrival
+                            const prevSum = Math.max(0, this.spinAccumulatedRM || 0);
+                            this.spinAccumulatedRM = prevSum + multiplierValue;
+                            const base = Math.max(0, this.baseWinForFormula || 0);
+                            const shownFinal = this.totalWin;
+                            this.uiManager.setWinFormula(base, this.spinAccumulatedRM, shownFinal);
+                        } else if (target.type === 'fsAccum') {
+                            // Free Spins: increment the visible accumulator ONLY on arrival
+                            this.stateManager.accumulateMultiplier(multiplierValue);
+                            this.uiManager.updateAccumulatedMultiplierDisplay();
+                            this.fsPendingRMStars = Math.max(0, (this.fsPendingRMStars || 0) - 1);
+                            if ((this.fsPendingRMStars || 0) === 0) {
+                                const fsMult = Math.max(1, (this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.multiplierAccumulator) || 1);
+                                const finalAmount = this.totalWin;
+                                const base = fsMult > 0 ? finalAmount / fsMult : finalAmount;
+                                this.uiManager.setWinFormula(base, fsMult, finalAmount);
+                            }
+                        }
+
+                        // Tiny sparkle at target
+                        try {
+                            const spark = this.add.particles(target.pos.x, target.pos.y, 'space_gem', {
+                                speed: { min: 60, max: 140 },
+                                scale: { start: 0.25, end: 0 },
+                                lifespan: 300,
+                                quantity: 8,
+                                angle: { min: 0, max: 360 },
+                                blendMode: 'ADD'
+                            });
+                            spark.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
+                            this.time.delayedCall(350, () => { try { spark.destroy(); } catch (_) {} });
+                        } catch (_) {}
+                    }
+                };
+                this.events.on('update', onUpdate);
+            };
+
+            // Fire stars (FS: only one target)
+            targets.forEach((tgt, i) => {
+                const delay = i === 0 ? 0 : 90;
+                this.time.delayedCall(delay, () => fireOneStarTo(tgt));
+            });
+        } catch (e) {
+            console.warn('Shooting star FX failed:', e);
+        }
     }
     
     async clearGridWithAnimation() {
@@ -1156,6 +1282,34 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Save game state
         this.stateManager.saveState();
+
+        // Update the top plaque text with detailed formula if we had a positive win
+        if (this.uiManager && this.uiManager.winTopText) {
+            const amount = this.totalWin || 0;
+            if (amount > 0) {
+                const inFreeSpins = !!(this.stateManager && this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.active);
+                let base, mult;
+                if (inFreeSpins) {
+                    // Use the FS accumulated multiplier from state and backsolve base for consistent display
+                    mult = Math.max(1, (this.stateManager.freeSpinsData.multiplierAccumulator || 1));
+                    base = mult > 0 ? amount / mult : amount;
+                } else {
+                    const multSum = Math.max(0, this.spinAccumulatedRM || 0);
+                    mult = multSum > 0 ? multSum : Math.max(1, this.spinAppliedMultiplier || 1);
+                    base = Math.max(0, this.baseWinForFormula || 0);
+                }
+                // Render concise formula inside the formula plaque area
+                // Format: (Bet x SymbolPayout) x AccumMult = Final
+                const baseStr = `$${base.toFixed(2)}`;
+                const multStr = `x${mult.toFixed(2).replace(/\.00$/, '')}`;
+                const finalStr = `$${amount.toFixed(2)}`;
+                const formula = `${baseStr} ${multStr} = ${finalStr}`;
+                this.uiManager.winTopText.setText(formula);
+                this.uiManager.winTopText.setVisible(true);
+            } else {
+                this.uiManager.winTopText.setVisible(false);
+            }
+        }
     }
     
     // setButtonsEnabled method is now defined in the helper methods section

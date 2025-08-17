@@ -288,6 +288,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_freegame', 'assets/images/ui_freegame.png', 0x666666);
         // New Free Game Purchase button
         this.loadImageWithFallback('ui_freegame_purchase', 'assets/images/ui_freegame_purchase.png', 0x2E86C1);
+        // Background art for Free Spins Purchase UI (needs to exist early)
+        this.loadImageWithFallback('free_spins_purchase_check', 'assets/images/free_spins_purchase_check.png', 0xDC143C);
         // Settings UI assets
         this.loadImageWithFallback('settings_ui_bg', 'assets/images/settings_UI/settings_bg.png', 0x111111);
         this.loadImageWithFallback('settings_ui_panel', 'assets/images/settings_UI/settings.png', 0x222222);
@@ -305,7 +307,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_small_menu', 'assets/images/ui_small_menu.png', 0x666666);
         this.loadImageWithFallback('ui_small_stop', 'assets/images/ui_small_stop.png', 0x666666);
         this.loadImageWithFallback('ui_spin', 'assets/images/ui_spin.png', 0x777777);
-        this.loadImageWithFallback('ui_title', 'assets/images/ui_title.png', 0x888888);
+        this.loadImageWithFallback('ui_formula_plaque', 'assets/images/ui_formula_plaque.png', 0x888888);
         // ui_top currently unused
         
         // Load spritesheets
@@ -902,7 +904,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'ui_small_stop': 0x666666,
             'ui_spin': 0x777777,
             'ui_buttonloop_sprite': 0x777777,
-            'ui_title': 0x888888,
+            'ui_formula_plaque': 0x888888,
+            'free_spins_purchase_check': 0xDC143C,
             'money_sprite': 0xFFD700
         };
         
@@ -928,7 +931,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             'button', 'background', 'particle', 'ui_box',
             'ui_bottom_panel', 'ui_freegame', 'ui_freegame_purchase', 'settings_ui_bg', 'settings_ui_panel', 'settings_ui_exit', 'settings_ui_rules', 'settings_ui_history', 'settings_ui_settings', 'ui_number_bet', 'ui_number_bet-', 'ui_number_bet+',
             'ui_number_score', 'ui_number_win', 'ui_accumulated_multiplier', 'ui_small_burst', 'ui_small_menu',
-            'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_title', 'money_sprite'
+            'ui_small_stop', 'ui_spin', 'ui_buttonloop_sprite', 'ui_formula_plaque', 'free_spins_purchase_check', 'money_sprite'
         ];
         
         requiredTextures.forEach(key => {

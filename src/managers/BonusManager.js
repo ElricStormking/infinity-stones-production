@@ -78,6 +78,10 @@ window.BonusManager = class BonusManager {
         // Apply multiplier to total win
         const originalWin = this.scene.totalWin;
         this.scene.totalWin *= multiplier;
+        // Track applied multiplier for win math (product). Sum is updated by FX on arrival
+        if (typeof this.scene.spinAppliedMultiplier === 'number') {
+            this.scene.spinAppliedMultiplier *= multiplier;
+        }
         
         // Accumulate multiplier during free spins
         this.scene.freeSpinsManager.applyFreeSpinsMultiplier(multiplier);
@@ -90,6 +94,11 @@ window.BonusManager = class BonusManager {
         
         // Place persistent multiplier frame on replaced symbol
         this.placeRandomMultiplierOverlay(col, row, multiplier);
+
+        // FX: shooting star to plaque and incremental sum update
+        if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+            this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
+        }
 
         // Show multiplier message with appropriate character
         const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
@@ -403,6 +412,10 @@ window.BonusManager = class BonusManager {
         // Apply total multiplier to win
         const originalWin = this.scene.totalWin;
         this.scene.totalWin *= totalMultiplier;
+        // Track applied multiplier for win math (product). Sum is updated by FX on arrival
+        if (typeof this.scene.spinAppliedMultiplier === 'number') {
+            this.scene.spinAppliedMultiplier *= totalMultiplier;
+        }
         
         // Accumulate each multiplier during free spins
         this.scene.freeSpinsManager.applyCascadingMultipliers(multipliers);
@@ -417,6 +430,17 @@ window.BonusManager = class BonusManager {
         // Show cascading multiplier message
         const multiplierText = multipliers.map(m => `${m}x`).join(' × ');
         this.scene.showMessage(`CASCADING POWER! ${multiplierText} = ${totalMultiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
+
+        // Fire a shooting star per applied multiplier to build the plaque sum visually, arrival controls sum
+        if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+            positions.forEach((pos, idx) => {
+                const m = multipliers[idx];
+                // stagger each star slightly
+                this.scene.time.delayedCall(140 * idx, () => {
+                    this.scene.playRandomMultiplierShootingStar(pos.col, pos.row, m);
+                });
+            });
+        }
     }
     
     async showCascadingRandomMultipliers(positions, multipliers) {
