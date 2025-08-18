@@ -152,7 +152,7 @@ window.GameConfig = {
     
     // Random Multiplier Configuration (for 96.5% RTP)
     RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.21, // 14% chance to trigger after each spin
+        TRIGGER_CHANCE: 0.4, // 14% chance to trigger after each spin
         MIN_WIN_REQUIRED: 0.01, // Minimum win amount required to apply multiplier
         ANIMATION_DURATION: 2000, // Duration of Thanos power grip animation
         // Weighted table tuned so 500x ≈ 0.3% (3 in 1000). Others scaled from prior 100-entry mix.
@@ -174,7 +174,7 @@ window.GameConfig = {
     
     // Cascading Random Multiplier Configuration
     CASCADE_RANDOM_MULTIPLIER: {
-        TRIGGER_CHANCE: 0.14, // 10% chance to trigger after cascading finishes
+        TRIGGER_CHANCE: 0.20, // 14% chance to trigger after cascading finishes
         MIN_MULTIPLIERS: 1, // Minimum number of multipliers to apply
         MAX_MULTIPLIERS: 3, // Maximum number of multipliers to apply
         MIN_WIN_REQUIRED: 0.01 // Minimum win amount required to apply multipliers

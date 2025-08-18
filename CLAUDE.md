@@ -27,12 +27,6 @@ cd infinity-storm-server
 npm install
 ```
 
-### Build with Webpack (optional)
-```bash
-# If using webpack build process
-npm run build
-```
-
 ## High-Level Architecture
 
 ### Game Type
@@ -79,7 +73,7 @@ Single Express + Socket.io server running on port 3000 that:
 
 ### Development Notes
 - Single server deployment: Players download and play the WebGL game directly from port 3000
-- All JavaScript classes are globally available via window object
+- All JavaScript classes are globally available via window object for Phaser compatibility
 - SafeSound system handles missing audio gracefully
 - Responsive design scales from 960×540 to 1920×1080
 - WebSocket integration ready but simplified for demo
@@ -98,6 +92,11 @@ Single Express + Socket.io server running on port 3000 that:
 - **UI Components**: src/ui/ and src/managers/UIManager.js
 - **Network Layer**: src/services/ (NetworkService.js handles both HTTP and WebSocket)
 - **Scene Flow**: LoadingScene → MenuScene → GameScene (defined in src/scenes/)
+
+### Testing & Development Tools
+- **Math Simulator**: src/tools/MathSimulator.js - RTP and payout validation
+- **Animation Tester**: test-animations.html - Sprite animation debugging
+- **No webpack build required** - Game runs directly with script tags
 
 ### Planned Server Architecture
 The InfinityStormServer-ClientArch.txt file contains the complete planned server architecture including:
