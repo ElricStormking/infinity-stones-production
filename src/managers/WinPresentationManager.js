@@ -3,6 +3,13 @@ window.WinPresentationManager = class WinPresentationManager {
     constructor(scene) {
         this.scene = scene;
         this.isShowingWinPresentation = false;
+        // SECURITY: Always use controlled RNG - no Math.random() fallbacks allowed
+        if (!window.RNG) {
+            console.error('SECURITY: RNG system not initialized for WinPresentation effects');
+            this.effectRng = null;
+        } else {
+            this.effectRng = new window.RNG();
+        }
     }
     
     showWinPresentation(totalWin) {
@@ -155,7 +162,7 @@ window.WinPresentationManager = class WinPresentationManager {
             
             // Create animated particle
             const frameCount = 32;
-            const randomStart = Math.floor(Math.random() * frameCount);
+            const randomStart = this.effectRng ? this.effectRng.int(0, frameCount - 1) : 0;
             
             let currentFrame = randomStart;
             const particle = this.scene.add.image(particleX, particleY, `skeleton-animation_${currentFrame.toString().padStart(2, '0')}`);
@@ -425,7 +432,7 @@ window.WinPresentationManager = class WinPresentationManager {
 
     createSingleMoneyParticle(width, height) {
         if (!this.scene.textures.exists('money_sprite')) return null;
-        const emitterX = width / 2 + (Math.random() - 0.5) * 600;
+        const emitterX = width / 2 + (this.effectRng ? (this.effectRng.random() - 0.5) * 600 : 0);
         const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
         // Scale to 1/10 of original size for reasonable on-screen size
         moneySprite.setScale(0.05);
@@ -435,7 +442,7 @@ window.WinPresentationManager = class WinPresentationManager {
         try {
             // Use only center-aligned full-face coin frames to avoid broken edges
             const FACE_FRAMES = [0, 8];
-            const faceFrame = FACE_FRAMES[Math.floor(Math.random() * FACE_FRAMES.length)];
+            const faceFrame = FACE_FRAMES[this.effectRng ? this.effectRng.int(0, FACE_FRAMES.length - 1) : 0];
             moneySprite.setFrame(faceFrame);
             // Do not play rotation on emitted coins
         } catch (_) {
@@ -444,13 +451,13 @@ window.WinPresentationManager = class WinPresentationManager {
 
         return {
             sprite: moneySprite,
-            velocityY: -(700 + Math.random() * 400),
-            velocityX: (Math.random() - 0.5) * 300,
+            velocityY: -(700 + (this.effectRng ? this.effectRng.random() * 400 : 200)),
+            velocityX: this.effectRng ? (this.effectRng.random() - 0.5) * 300 : 0,
             gravity: 600,
             lifespan: 16000,
             startTime: Date.now(),
             active: false,
-            rotationSpeed: (Math.random() - 0.5) * 5
+            rotationSpeed: this.effectRng ? (this.effectRng.random() - 0.5) * 5 : 0
         };
     }
     
@@ -465,7 +472,7 @@ window.WinPresentationManager = class WinPresentationManager {
         }
         
         for (let i = 0; i < particleCount; i++) {
-            const emitterX = width / 2 + (Math.random() - 0.5) * 600;
+            const emitterX = width / 2 + (this.effectRng ? (this.effectRng.random() - 0.5) * 600 : 0);
             const moneySprite = this.scene.add.sprite(emitterX, height + 100, 'money_sprite');
             // Scale to 1/10 of original size for reasonable on-screen size
             moneySprite.setScale(0.05);
@@ -476,7 +483,7 @@ window.WinPresentationManager = class WinPresentationManager {
             try {
                 // Use only center-aligned full-face coin frames to avoid broken edges
                 const FACE_FRAMES = [0, 8];
-                const faceFrame = FACE_FRAMES[Math.floor(Math.random() * FACE_FRAMES.length)];
+                const faceFrame = FACE_FRAMES[this.effectRng ? this.effectRng.int(0, FACE_FRAMES.length - 1) : 0];
                 moneySprite.setFrame(faceFrame);
             } catch (error) {
                 console.warn('Failed to setup money sprite frame:', error);
@@ -485,13 +492,13 @@ window.WinPresentationManager = class WinPresentationManager {
             
             moneyParticles.push({
                 sprite: moneySprite,
-                velocityY: -(700 + Math.random() * 400),
-                velocityX: (Math.random() - 0.5) * 300,
+                velocityY: -(700 + (this.effectRng ? this.effectRng.random() * 400 : 200)),
+                velocityX: this.effectRng ? (this.effectRng.random() - 0.5) * 300 : 0,
                 gravity: 600,
                 lifespan: 16000,
                 startTime: Date.now() + i * 100,
                 active: false,
-                rotationSpeed: (Math.random() - 0.5) * 5
+                rotationSpeed: this.effectRng ? (this.effectRng.random() - 0.5) * 5 : 0
             });
         }
         

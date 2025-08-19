@@ -273,6 +273,12 @@ window.WinCalculator = class WinCalculator {
     }
     
     simulateWinProbability(betAmount, simulations = 1000) {
+        // SECURITY: Use controlled RNG for win probability simulation
+        if (!window.RNG) {
+            throw new Error('SECURITY: WinCalculator requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Simple win probability simulation based on current RTP
         const stats = this.getSessionStats();
         const observedRTP = parseFloat(stats.rtp) / 100 || GameConfig.RTP;
@@ -282,11 +288,11 @@ window.WinCalculator = class WinCalculator {
         let totalPayout = 0;
         
         for (let i = 0; i < simulations; i++) {
-            if (Math.random() < winRate) {
+            if (rng.chance(winRate)) {
                 wins++;
-                // Simulate win amount based on RTP
+                // Simulate win amount based on RTP using controlled RNG
                 const avgWinMultiplier = observedRTP / winRate;
-                const winAmount = betAmount * avgWinMultiplier * (0.5 + Math.random() * 1.5);
+                const winAmount = betAmount * avgWinMultiplier * (0.5 + rng.random() * 1.5);
                 totalPayout += winAmount;
             }
         }

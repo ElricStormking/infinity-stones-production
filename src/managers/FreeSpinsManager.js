@@ -128,25 +128,31 @@ window.FreeSpinsManager = class FreeSpinsManager {
     }
     
     async processCascadeMultiplier(cascadeCount) {
+        // SECURITY: Use controlled RNG for free spins cascade multiplier
+        if (!window.RNG) {
+            throw new Error('SECURITY: FreeSpinsManager requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Apply cascade multiplier in free spins with new trigger chance
         if (this.scene.stateManager.freeSpinsData.active && cascadeCount > 1) {
-            const shouldTrigger = Math.random() < window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE;
+            const shouldTrigger = rng.chance(window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE);
             if (shouldTrigger) {
                 console.log('=== FREE SPINS CASCADE MULTIPLIER TRIGGERED ===');
                 
-                // Use proper Random Multiplier flow with character animations
+                // Use proper Random Multiplier flow with character animations using controlled RNG
                 const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                 const randomMultiplier = multiplierTable[
-                    Math.floor(Math.random() * multiplierTable.length)
+                    rng.int(0, multiplierTable.length - 1)
                 ];
                 
-                // Select random position for the effect
-                const col = Math.floor(Math.random() * this.scene.gridManager.cols);
-                const row = Math.floor(Math.random() * this.scene.gridManager.rows);
+                // Select random position for the effect using controlled RNG
+                const col = rng.int(0, this.scene.gridManager.cols - 1);
+                const row = rng.int(0, this.scene.gridManager.rows - 1);
                 
-                // Choose character for animation
+                // Choose character for animation using controlled RNG
                 // TESTING: 80% chance for Thanos to test power grip animation and sound
-                const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
+                const useThanos = rng.chance(0.8); // 80% Thanos, 20% Scarlet Witch
                 
                 console.log(`Free Spins Cascade Multiplier: ${randomMultiplier}x at position (${col}, ${row})`);
                 console.log(`Using character: ${useThanos ? 'Thanos' : 'Scarlet Witch'}`);

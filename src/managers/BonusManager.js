@@ -30,8 +30,14 @@ window.BonusManager = class BonusManager {
             return;
         }
         
+        // SECURITY: Use controlled RNG for Random Multiplier trigger
+        if (!window.RNG) {
+            throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Check if Random Multiplier should trigger
-        const shouldTrigger = Math.random() < window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+        const shouldTrigger = rng.chance(window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE);
         
         if (!shouldTrigger) {
             return;
@@ -42,24 +48,24 @@ window.BonusManager = class BonusManager {
             return;
         }
         
-        // Select random multiplier from weighted table
+        // Select random multiplier from weighted table using controlled RNG
         const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
         const multiplier = multiplierTable[
-            Math.floor(Math.random() * multiplierTable.length)
+            rng.int(0, multiplierTable.length - 1)
         ];
         
-        // Select random position to replace a symbol
-        const col = Math.floor(Math.random() * this.scene.gridManager.cols);
-        const row = Math.floor(Math.random() * this.scene.gridManager.rows);
+        // Select random position to replace a symbol using controlled RNG
+        const col = rng.int(0, this.scene.gridManager.cols - 1);
+        const row = rng.int(0, this.scene.gridManager.rows - 1);
         
         console.log(`=== RANDOM MULTIPLIER TRIGGERED ===`);
         console.log(`Multiplier: ${multiplier}x`);
         console.log(`Position: (${col}, ${row})`);
         console.log(`Original Win: $${this.scene.totalWin.toFixed(2)}`);
         
-        // Randomly choose between Thanos and Scarlet Witch
-        // TESTING: 80% chance for Thanos to test power grip animation and sound
-        const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
+        // Randomly choose between Thanos and Scarlet Witch using controlled RNG
+        // 50/50 distribution between characters for random multipliers
+        const useThanos = rng.chance(0.5); // 50% Thanos, 50% Scarlet Witch
         
         // Always trigger character attack animation and show multiplier effect
         if (useThanos) {
@@ -353,8 +359,14 @@ window.BonusManager = class BonusManager {
             return;
         }
         
+        // SECURITY: Use controlled RNG for Cascading Random Multipliers
+        if (!window.RNG) {
+            throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Check if Cascading Random Multipliers should trigger
-        const shouldTrigger = Math.random() < window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+        const shouldTrigger = rng.chance(window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE);
         
         if (!shouldTrigger) {
             return;
@@ -365,10 +377,10 @@ window.BonusManager = class BonusManager {
             return;
         }
         
-        // Determine number of multipliers to apply (1-3)
+        // Determine number of multipliers to apply (1-3) using controlled RNG
         const minMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS;
         const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
-        const numMultipliers = Math.floor(Math.random() * (maxMults - minMults + 1)) + minMults;
+        const numMultipliers = rng.int(minMults, maxMults);
         
         console.log(`=== CASCADING RANDOM MULTIPLIERS TRIGGERED ===`);
         console.log(`Number of multipliers: ${numMultipliers}`);
@@ -382,7 +394,7 @@ window.BonusManager = class BonusManager {
             // Select random multiplier from weighted table
             const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
             const multiplier = multiplierTable[
-                Math.floor(Math.random() * multiplierTable.length)
+                rng.int(0, multiplierTable.length - 1)
             ];
             multipliers.push(multiplier);
             
@@ -390,8 +402,8 @@ window.BonusManager = class BonusManager {
             let col, row;
             let attempts = 0;
             do {
-                col = Math.floor(Math.random() * this.scene.gridManager.cols);
-                row = Math.floor(Math.random() * this.scene.gridManager.rows);
+                col = rng.int(0, this.scene.gridManager.cols - 1);
+                row = rng.int(0, this.scene.gridManager.rows - 1);
                 attempts++;
             } while (positions.some(pos => pos.col === col && pos.row === row) && attempts < 20);
             
@@ -460,13 +472,19 @@ window.BonusManager = class BonusManager {
         return new Promise(resolve => {
             // Delay for staggered effect
             this.scene.time.delayedCall(delay, () => {
+                // SECURITY: Use controlled RNG for character selection
+                if (!window.RNG) {
+                    throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+                }
+                const rng = new window.RNG();
+                
                 // Get the symbol position on screen
                 const symbolX = this.scene.gridManager.getSymbolScreenX(col);
                 const symbolY = this.scene.gridManager.getSymbolScreenY(row);
                 
                 // Randomly choose between Thanos and Scarlet Witch animation
-                // TESTING: 80% chance for Thanos to test power grip animation and sound
-                const useThanos = Math.random() < 0.8; // 80% Thanos, 20% Scarlet Witch
+                // 50/50 distribution between characters for cascading multipliers
+                const useThanos = rng.chance(0.5); // 50% Thanos, 50% Scarlet Witch
                 const characterKey = useThanos ? 'thanos' : 'scarlet_witch';
                 const characterTint = useThanos ? 0x6B46C1 : 0xFF1493; // Purple for Thanos, Pink for Scarlet Witch
                 
@@ -657,16 +675,22 @@ window.BonusManager = class BonusManager {
     
     // Burst mode bonus checking (no character animations - portraits are hidden)
     checkBonusesInBurstMode(cascadeCount) {
+        // SECURITY: Use controlled RNG for burst mode bonuses
+        if (!window.RNG) {
+            throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Check for Cascading Random Multipliers in burst mode
         if (cascadeCount > 0) {
-            const shouldTriggerCRM = Math.random() < window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+            const shouldTriggerCRM = rng.chance(window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE);
             if (shouldTriggerCRM && this.scene.totalWin >= window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
                 console.log('=== BURST MODE CASCADING MULTIPLIERS TRIGGERED ===');
                 
-                // Determine number of multipliers to apply (1-3)
+                // Determine number of multipliers to apply (1-3) using controlled RNG
                 const minMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS;
                 const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
-                const numMultipliers = Math.floor(Math.random() * (maxMults - minMults + 1)) + minMults;
+                const numMultipliers = rng.int(minMults, maxMults);
                 
                 console.log(`Burst Mode Cascading Multipliers: ${numMultipliers} multipliers`);
                 
@@ -676,7 +700,7 @@ window.BonusManager = class BonusManager {
                 for (let i = 0; i < numMultipliers; i++) {
                     const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                     const multiplier = multiplierTable[
-                        Math.floor(Math.random() * multiplierTable.length)
+                        rng.int(0, multiplierTable.length - 1)
                     ];
                     multipliers.push(multiplier);
                     totalMultiplier += multiplier;
@@ -709,14 +733,20 @@ window.BonusManager = class BonusManager {
     }
     
     checkRandomMultiplierInBurstMode() {
+        // SECURITY: Use controlled RNG for burst mode random multiplier
+        if (!window.RNG) {
+            throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Check for Random Multiplier in burst mode (no character animations - portraits are hidden)
-        const shouldTriggerRM = Math.random() < window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+        const shouldTriggerRM = rng.chance(window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE);
         if (shouldTriggerRM && this.scene.totalWin >= window.GameConfig.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
             console.log('=== BURST MODE RANDOM MULTIPLIER TRIGGERED ===');
             
             const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
             const multiplier = multiplierTable[
-                Math.floor(Math.random() * multiplierTable.length)
+                rng.int(0, multiplierTable.length - 1)
             ];
             
             console.log(`Burst Mode Random Multiplier: ${multiplier}x`);
@@ -1059,8 +1089,10 @@ window.BonusManager = class BonusManager {
             const y = y1 + (y2 - y1) * progress;
             
             // Add horizontal zigzag for lightning effect (more dramatic)
-            const horizontalOffset = (Math.random() - 0.5) * horizontalVariance * (1 - progress * 0.3); // Reduce variance as it goes down
-            const verticalOffset = (Math.random() - 0.5) * verticalVariance;
+            // Use controlled RNG for visual effect variations
+            const effectRng = new window.RNG();
+            const horizontalOffset = (effectRng.random() - 0.5) * horizontalVariance * (1 - progress * 0.3); // Reduce variance as it goes down
+            const verticalOffset = (effectRng.random() - 0.5) * verticalVariance;
             
             segments.push({
                 x: x + horizontalOffset,
@@ -1086,8 +1118,10 @@ window.BonusManager = class BonusManager {
             const y = y1 + (y2 - y1) * progress;
             
             // Add random offset for jagged effect
-            const offsetX = (Math.random() - 0.5) * variance;
-            const offsetY = (Math.random() - 0.5) * variance;
+            // Use controlled RNG for visual effect variations
+            const effectRng = new window.RNG();
+            const offsetX = (effectRng.random() - 0.5) * variance;
+            const offsetY = (effectRng.random() - 0.5) * variance;
             
             segments.push({
                 x: x + offsetX,

@@ -162,13 +162,21 @@ window.GridManager = class GridManager {
         if (this.symbolProvider && typeof this.symbolProvider.rollOne === 'function') {
             return this.symbolProvider.rollOne();
         }
-        // Fallback to legacy inline RNG
-        if (Math.random() < window.GameConfig.SCATTER_CHANCE) return 'infinity_glove';
+        
+        // SECURITY: Require controlled RNG - no Math.random() fallbacks allowed
+        if (!window.RNG) {
+            throw new Error('SECURITY: GridManager requires window.RNG to be initialized. Cannot generate symbols without controlled RNG.');
+        }
+        
+        // Use controlled RNG instance for all random generation
+        const rng = new window.RNG(); // This will use seeded RNG if available, or Math.random wrapper if unseeded
+        
+        // Check for scatter symbols using controlled RNG
+        if (rng.chance(window.GameConfig.SCATTER_CHANCE)) return 'infinity_glove';
+        
+        // Generate weighted symbol using controlled RNG
         const table = window.GameConfig.SYMBOL_WEIGHTS;
-        const totalW = Object.values(table).reduce((a, b) => a + b, 0);
-        let r = Math.random() * totalW;
-        for (const [sym, w] of Object.entries(table)) { r -= w; if (r <= 0) return sym; }
-        return 'time_gem';
+        return rng.weighted(table);
     }
     
     findMatches() {

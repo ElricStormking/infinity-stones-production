@@ -57,7 +57,10 @@ app.post('/api/spin', (req, res) => {
         for (let col = 0; col < 6; col++) {
             const gridCol = [];
             for (let row = 0; row < 5; row++) {
-                gridCol.push(Math.floor(Math.random() * 10) + 1); // Random symbol 1-10
+                // Use crypto.randomBytes for secure server-side randomness
+                const randomBytes = require('crypto').randomBytes(4);
+                const randomValue = randomBytes.readUInt32BE(0) / 0xFFFFFFFF;
+                gridCol.push(Math.floor(randomValue * 10) + 1); // Random symbol 1-10
             }
             grid.push(gridCol);
         }
@@ -89,7 +92,10 @@ io.on('connection', (socket) => {
         for (let col = 0; col < 6; col++) {
             const gridCol = [];
             for (let row = 0; row < 5; row++) {
-                gridCol.push(Math.floor(Math.random() * 10) + 1);
+                // Use crypto.randomBytes for secure server-side randomness
+                const randomBytes = require('crypto').randomBytes(4);
+                const randomValue = randomBytes.readUInt32BE(0) / 0xFFFFFFFF;
+                gridCol.push(Math.floor(randomValue * 10) + 1);
             }
             grid.push(gridCol);
         }

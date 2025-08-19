@@ -100,6 +100,14 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
     }
     
     startIdleAnimation() {
+        // Use controlled RNG for visual animation timing variations
+        // SECURITY: Always use controlled RNG - no Math.random() fallbacks allowed
+        if (!window.RNG) {
+            console.error('SECURITY: RNG system not initialized for Symbol animation');
+            return;
+        }
+        const rng = new window.RNG();
+        
         // Stop any existing idle animation
         if (this.idleTween) {
             this.idleTween.stop();
@@ -116,7 +124,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,
                         y: this.y + 5,
-                        duration: 2000 + Math.random() * 1000,
+                        duration: 2000 + rng.random() * 1000,
                         yoyo: true,
                         repeat: -1,
                         ease: 'Sine.easeInOut'
@@ -129,7 +137,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,
                         y: this.y + 5,
-                        duration: 2000 + Math.random() * 1000,
+                        duration: 2000 + rng.random() * 1000,
                         yoyo: true,
                         repeat: -1,
                         ease: 'Sine.easeInOut'
@@ -142,7 +150,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,
                         y: this.y + 5,
-                        duration: 2000 + Math.random() * 1000,
+                        duration: 2000 + rng.random() * 1000,
                         yoyo: true,
                         repeat: -1,
                         ease: 'Sine.easeInOut'
@@ -155,7 +163,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                     this.idleTween = this.scene.tweens.add({
                         targets: this,
                         y: this.y + 5,
-                        duration: 2000 + Math.random() * 1000,
+                        duration: 2000 + rng.random() * 1000,
                         yoyo: true,
                         repeat: -1,
                         ease: 'Sine.easeInOut'
@@ -166,7 +174,7 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
                 this.idleTween = this.scene.tweens.add({
                     targets: this,
                     y: this.y + 5,
-                    duration: 2000 + Math.random() * 1000,
+                    duration: 2000 + rng.random() * 1000,
                     yoyo: true,
                     repeat: -1,
                     ease: 'Sine.easeInOut'

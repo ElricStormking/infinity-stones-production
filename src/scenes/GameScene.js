@@ -1897,6 +1897,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     async performBurstSpin() {
         try {
+        // SECURITY: Use controlled RNG for burst spin operations
+        if (!window.RNG) {
+            throw new Error('SECURITY: GameScene requires window.RNG to be initialized.');
+        }
+        const rng = new window.RNG();
+        
         // Check if player can afford bet (unless in free spins)
         if (!this.stateManager.freeSpinsData.active && !this.stateManager.canAffordBet()) {
             return { win: 0, bet: 0, balance: this.stateManager.gameData.balance };
@@ -1954,13 +1960,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 
                 cascadeCount++;
                 
-                // Apply cascade multiplier in free spins like normal game
+                // Apply cascade multiplier in free spins like normal game using controlled RNG
                 if (this.stateManager.freeSpinsData.active && cascadeCount > 1) {
-                    const shouldTrigger = Math.random() < window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE;
+                    const shouldTrigger = rng.chance(window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE);
                     if (shouldTrigger) {
                         const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                         const randomMultiplier = multiplierTable[
-                            Math.floor(Math.random() * multiplierTable.length)
+                            rng.int(0, multiplierTable.length - 1)
                     ];
                     this.stateManager.accumulateMultiplier(randomMultiplier);
                     

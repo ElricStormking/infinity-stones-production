@@ -682,6 +682,12 @@ window.BurstModeManager = class BurstModeManager {
     
     async performSpin() {
         try {
+            // SECURITY: Use controlled RNG for burst mode operations
+            if (!window.RNG) {
+                throw new Error('SECURITY: BurstModeManager requires window.RNG to be initialized.');
+            }
+            const rng = new window.RNG();
+            
             // Check if player can afford bet (unless in free spins)
             if (!this.scene.stateManager.freeSpinsData.active && !this.scene.stateManager.canAffordBet()) {
                 return { win: 0, bet: 0, balance: this.scene.stateManager.gameData.balance };
@@ -739,13 +745,13 @@ window.BurstModeManager = class BurstModeManager {
                     
                     cascadeCount++;
                     
-                    // Apply cascade multiplier in free spins like normal game
+                    // Apply cascade multiplier in free spins like normal game using controlled RNG
                     if (this.scene.stateManager.freeSpinsData.active && cascadeCount > 1) {
-                        const shouldTrigger = Math.random() < window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE;
+                        const shouldTrigger = rng.chance(window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE);
                         if (shouldTrigger) {
                             const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                             const randomMultiplier = multiplierTable[
-                                Math.floor(Math.random() * multiplierTable.length)
+                                rng.int(0, multiplierTable.length - 1)
                             ];
                             // Defer accumulation; handled by star arrival when FX is emitted elsewhere
                         }
@@ -755,14 +761,14 @@ window.BurstModeManager = class BurstModeManager {
                 }
             }
             
-            // Check for Cascading Random Multipliers in burst mode (simplified)
+            // Check for Cascading Random Multipliers in burst mode (simplified) using controlled RNG
             if (cascadeCount > 0) {
-                const shouldTriggerCRM = Math.random() < window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+                const shouldTriggerCRM = rng.chance(window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE);
                 if (shouldTriggerCRM && this.scene.totalWin >= window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
                     // Determine number of multipliers to apply (1-3)
                     const minMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS;
                     const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
-                    const numMultipliers = Math.floor(Math.random() * (maxMults - minMults + 1)) + minMults;
+                    const numMultipliers = rng.int(minMults, maxMults);
                     
                     // Apply multiple multipliers (simplified for burst mode) - ADD multipliers together
                     let totalMultiplier = 0;
@@ -770,7 +776,7 @@ window.BurstModeManager = class BurstModeManager {
                     for (let i = 0; i < numMultipliers; i++) {
                         const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                         const multiplier = multiplierTable[
-                            Math.floor(Math.random() * multiplierTable.length)
+                            rng.int(0, multiplierTable.length - 1)
                         ];
                         multipliers.push(multiplier);
                         totalMultiplier += multiplier;
@@ -813,11 +819,11 @@ window.BurstModeManager = class BurstModeManager {
             }
             
             // Check for Random Multiplier in burst mode (simplified)
-            const shouldTriggerRM = Math.random() < window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE;
+            const shouldTriggerRM = rng.chance(window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE);
             if (shouldTriggerRM && this.scene.totalWin >= window.GameConfig.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
                 const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
                 const multiplier = multiplierTable[
-                    Math.floor(Math.random() * multiplierTable.length)
+                    rng.int(0, multiplierTable.length - 1)
                 ];
                 this.scene.totalWin *= multiplier;
                 
