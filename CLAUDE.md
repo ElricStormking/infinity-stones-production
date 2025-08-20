@@ -31,11 +31,32 @@ npm install
 
 ### Development Tools
 ```bash
+# Start development server with auto-reload (client-only)
+npm run dev
+# or
+npm start
+
 # Test animations
 # Open test-animations.html in browser
 
 # Run math simulator for RTP validation
 node src/tools/MathSimulator.js
+```
+
+### Server Development
+```bash
+# Install server dependencies
+cd infinity-storm-server
+npm install
+
+# Start full-stack development
+cd infinity-storm-server
+npm start
+# Server runs on http://localhost:3000 with client served as static files
+
+# Development mode with nodemon (auto-restart on changes)
+cd infinity-storm-server
+npx nodemon server.js
 ```
 
 ## High-Level Architecture
@@ -54,11 +75,12 @@ The game uses a **global window object pattern** for Phaser compatibility (NOT E
 
 ### Server Architecture (infinity-storm-server/)
 Express + Socket.io server running on port 3000:
-- Serves the complete WebGL game client as static files
-- Provides HTTP endpoints for game actions (/api/spin, /api/health)
-- Handles WebSocket connections for real-time game events
-- Currently implements simplified spin logic (random grid generation)
-- CORS configured for localhost:3000 and 127.0.0.1:3000
+- **Static File Serving**: Serves the complete WebGL game client from parent directory
+- **HTTP API**: RESTful endpoints (/api/spin, /api/health) with JSON responses
+- **WebSocket Support**: Real-time communication via Socket.io for game events
+- **Security**: Crypto.randomBytes for server-side RNG, CORS protection
+- **Development Features**: Cache-Control disabled, nodemon support for hot-reload
+- **Dependencies**: express, socket.io, cors, dotenv, bcrypt, jsonwebtoken, pg (PostgreSQL ready)
 
 ### Key Game Mechanics
 - **Grid**: 6 columns × 5 rows of symbols
@@ -109,10 +131,20 @@ Must match exactly between GameConfig.js and asset filenames:
 - BGM management with automatic switching
 - Audio context initialization after user interaction
 
+#### Development Patterns
+- **No Build System**: Direct script tag loading for rapid development
+- **Global Namespace**: All classes use `window.ClassName = class` pattern
+- **Symbol Recycling**: GridManager maintains object pools for performance
+- **Config-Driven**: GameConfig.js contains all gameplay parameters and tuning
+- **Phaser Lifecycle**: Follows create() → update() → destroy() scene patterns
+- **Async Pattern**: NetworkService uses axios with Promise-based API calls
+
 #### Network Architecture
-- HTTP for game actions (spin, balance)
-- WebSocket for real-time events (future implementation)
-- Currently simplified for demo (random grid generation)
+- **HTTP API**: axios-based client with interceptors for auth and error handling
+- **WebSocket**: Socket.io for real-time events (spin_request/spin_result, test messages)
+- **Authentication**: JWT token support with localStorage persistence
+- **Error Handling**: 401 auth error handling, timeout configuration (10s)
+- **Development**: Simplified server spin logic using crypto.randomBytes
 
 ### File Organization
 ```
@@ -131,6 +163,18 @@ assets/
 ├── images/        # UI elements, symbols, backgrounds
 ├── sprites/       # Animated sequences for wins, characters
 └── audio/         # Background music and sound effects
+
+infinity-storm-server/
+├── server.js      # Main Express + Socket.io server
+├── package.json   # Server dependencies (express, socket.io, cors, etc.)
+└── node_modules/  # Server-side dependencies
+
+Root files:
+├── index.html     # Game entry point
+├── start-server.js # Simple static file server (client-only)
+├── run-game.ps1   # PowerShell launcher script
+├── package.json   # Client dependencies (phaser, http-server)
+└── test-animations.html # Animation testing utility
 ```
 
 ### Testing & Debugging
@@ -138,13 +182,18 @@ assets/
 - **Animation Testing**: test-animations.html for sprite debugging
 - **Math Validation**: src/tools/MathSimulator.js for RTP testing
 - **Network Testing**: Server provides /api/health endpoint
+- **Global Objects**: All game classes attached to window (GridManager, NetworkService, etc.)
+- **Symbol Pool**: GridManager includes symbol recycling for performance
+- **Development**: No build step required - direct browser loading with script tags
 
 ### Current Development State
-- Single server deployment model (client and backend on same port)
-- Simplified server spin logic (random generation)
-- WebSocket handlers ready but not fully integrated
-- Free spins and multiplier mechanics implemented client-side
-- Authentication system planned but not implemented
+- **Deployment**: Single server model (client and backend on same port 3000)
+- **Game Logic**: Simplified server spin logic using crypto.randomBytes
+- **Communication**: HTTP API endpoints functional, WebSocket handlers implemented
+- **Features**: Free spins and multiplier mechanics implemented client-side
+- **Authentication**: JWT infrastructure in place but not fully activated
+- **Database**: PostgreSQL dependencies ready but models not implemented
+- **Development Mode**: Both client-only (npm run dev) and full-stack (server start) workflows
 
 ### Planned Architecture (InfinityStormServer-ClientArch.txt)
 Future implementation includes:
