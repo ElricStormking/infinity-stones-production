@@ -10,6 +10,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.stateManager = this.game.stateManager;
         this.stateManager.setState(this.stateManager.states.PLAYING);
         
+        // Initialize cascade synchronization system
+        this.initializeCascadeSync();
+        
         // Create animation manager and animations FIRST before creating UI elements
         this.animationManager = new window.AnimationManager(this);
         this.animationManager.createAllAnimations();
@@ -90,6 +93,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Create debug panel
         this.createDebugPanel();
         
+        // Create cascade sync status display
+        this.createCascadeSyncDisplay();
+        
+        // Initialize cascade debug mode if enabled
+        this.cascadeDebugMode = window.CASCADE_DEBUG || false;
+        this.cascadeSyncEnabled = window.CASCADE_SYNC_ENABLED !== false; // Default to true
+        this.manualCascadeControl = false; // Manual step-through mode
+        this.cascadeStepPaused = false; // Pause between cascade steps
+        
         // Fill initial grid (after LoadingScene ensured assets are ready)
         this.gridManager.fillGrid();
         // Ensure all grid symbols that have animations start idling on first enter
@@ -140,6 +152,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         };
         this.input.keyboard.on('keydown-T', keyTListener);
         this.keyboardListeners.push({key: 'keydown-T', callback: keyTListener});
+        
+        // Add cascade sync debug controls
+        this.addCascadeDebugControls();
         
         // Add test key for BGM switching (DEBUG)
         const keyBListener = () => {
@@ -332,6 +347,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Debug panel background - top right
         this.debugPanel = this.add.rectangle(width - 200, 120, 380, 200, 0x000000, 0.8);
         this.debugPanel.setStrokeStyle(2, 0xFFFFFF);
+        this.debugPanel.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
         
         // Debug title
         this.debugTitle = this.add.text(width - 200, 50, 'WIN CALCULATION DEBUG', {
@@ -361,6 +377,225 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.debugPanel.setVisible(visible);
         this.debugTitle.setVisible(visible);
         this.debugLines.forEach(line => line.setVisible(visible));
+    }
+    
+    // Task 12.2.1: Initialize cascade synchronization system
+    initializeCascadeSync() {
+        // Initialize cascade API if available
+        this.cascadeAPI = window.CascadeAPI ? new window.CascadeAPI() : null;
+        
+        // Initialize sync state tracking
+        this.syncState = {
+            enabled: true,
+            sessionActive: false,
+            currentStep: 0,
+            totalSteps: 0,
+            lastValidationHash: null,
+            desyncCount: 0,
+            recoveryAttempts: 0,
+            performanceMetrics: {
+                stepValidationTime: [],
+                averageStepTime: 0,
+                syncSuccessRate: 100
+            }
+        };
+        
+        // Initialize cascade step queue for manual control
+        this.cascadeStepQueue = [];
+        this.currentCascadeSession = null;
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade synchronization system initialized');
+            console.log('🔄 CascadeAPI available:', !!this.cascadeAPI);
+        }
+    }
+    
+    // Task 12.2.3: Create cascade sync status display
+    createCascadeSyncDisplay() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Sync status panel - bottom left
+        this.syncStatusPanel = this.add.rectangle(200, height - 120, 380, 180, 0x000033, 0.9);
+        this.syncStatusPanel.setStrokeStyle(2, 0x0066FF);
+        this.syncStatusPanel.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        
+        // Sync status title
+        this.syncStatusTitle = this.add.text(200, height - 190, 'CASCADE SYNC STATUS', {
+            fontSize: '14px',
+            fontFamily: 'Arial Bold',
+            color: '#0099FF'
+        });
+        this.syncStatusTitle.setOrigin(0.5);
+        this.syncStatusTitle.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        
+        // Sync status lines
+        this.syncStatusLines = [];
+        for (let i = 0; i < 8; i++) {
+            const line = this.add.text(30, height - 170 + (i * 18), '', {
+                fontSize: '11px',
+                fontFamily: 'Arial',
+                color: '#FFFFFF'
+            });
+            line.setOrigin(0, 0);
+            line.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+            this.syncStatusLines.push(line);
+        }
+        
+        // Manual control panel - bottom right (only in debug mode)
+        if (window.DEBUG || window.CASCADE_DEBUG) {
+            this.createManualControlPanel();
+        }
+        
+        // Initially hide sync display
+        this.setSyncDisplayVisible(false);
+    }
+    
+    // Task 12.2.4: Create manual override control panel
+    createManualControlPanel() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Manual control panel
+        this.manualControlPanel = this.add.rectangle(width - 200, height - 120, 380, 180, 0x330033, 0.9);
+        this.manualControlPanel.setStrokeStyle(2, 0xFF6600);
+        this.manualControlPanel.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        
+        // Manual control title
+        this.manualControlTitle = this.add.text(width - 200, height - 190, 'MANUAL CASCADE CONTROL', {
+            fontSize: '12px',
+            fontFamily: 'Arial Bold',
+            color: '#FF9900'
+        });
+        this.manualControlTitle.setOrigin(0.5);
+        this.manualControlTitle.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        
+        // Control buttons
+        const buttonStyle = {
+            fontSize: '10px',
+            fontFamily: 'Arial Bold',
+            color: '#FFFFFF'
+        };
+        
+        // Step button
+        this.stepButton = this.add.text(width - 350, height - 160, '[1] STEP', buttonStyle);
+        this.stepButton.setInteractive({ useHandCursor: true });
+        this.stepButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.stepButton.on('pointerup', () => this.manualCascadeStep());
+        
+        // Play/Pause button
+        this.playPauseButton = this.add.text(width - 280, height - 160, '[2] PAUSE', buttonStyle);
+        this.playPauseButton.setInteractive({ useHandCursor: true });
+        this.playPauseButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.playPauseButton.on('pointerup', () => this.toggleCascadePause());
+        
+        // Reset button
+        this.resetButton = this.add.text(width - 200, height - 160, '[3] RESET', buttonStyle);
+        this.resetButton.setInteractive({ useHandCursor: true });
+        this.resetButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.resetButton.on('pointerup', () => this.resetCascadeSync());
+        
+        // Toggle sync button
+        this.toggleSyncButton = this.add.text(width - 350, height - 140, '[4] SYNC: ON', buttonStyle);
+        this.toggleSyncButton.setInteractive({ useHandCursor: true });
+        this.toggleSyncButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.toggleSyncButton.on('pointerup', () => this.toggleCascadeSync());
+        
+        // Recovery button
+        this.recoveryButton = this.add.text(width - 260, height - 140, '[5] RECOVER', buttonStyle);
+        this.recoveryButton.setInteractive({ useHandCursor: true });
+        this.recoveryButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.recoveryButton.on('pointerup', () => this.triggerSyncRecovery());
+        
+        // Debug info button
+        this.debugInfoButton = this.add.text(width - 170, height - 140, '[6] INFO', buttonStyle);
+        this.debugInfoButton.setInteractive({ useHandCursor: true });
+        this.debugInfoButton.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        this.debugInfoButton.on('pointerup', () => this.showCascadeDebugInfo());
+        
+        // Status indicator
+        this.manualStatusText = this.add.text(width - 350, height - 120, 'Auto Mode', {
+            fontSize: '10px',
+            fontFamily: 'Arial',
+            color: '#00FF00'
+        });
+        this.manualStatusText.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
+        
+        // Initially hide manual control panel
+        this.setManualControlVisible(false);
+    }
+    
+    // Task 12.2.2: Add cascade debug keyboard controls
+    addCascadeDebugControls() {
+        if (!window.DEBUG && !window.CASCADE_DEBUG) return;
+        
+        // 1 - Manual cascade step
+        const key1Listener = () => {
+            this.manualCascadeStep();
+        };
+        this.input.keyboard.on('keydown-ONE', key1Listener);
+        this.keyboardListeners.push({key: 'keydown-ONE', callback: key1Listener});
+        
+        // 2 - Toggle cascade pause
+        const key2Listener = () => {
+            this.toggleCascadePause();
+        };
+        this.input.keyboard.on('keydown-TWO', key2Listener);
+        this.keyboardListeners.push({key: 'keydown-TWO', callback: key2Listener});
+        
+        // 3 - Reset cascade sync
+        const key3Listener = () => {
+            this.resetCascadeSync();
+        };
+        this.input.keyboard.on('keydown-THREE', key3Listener);
+        this.keyboardListeners.push({key: 'keydown-THREE', callback: key3Listener});
+        
+        // 4 - Toggle cascade sync
+        const key4Listener = () => {
+            this.toggleCascadeSync();
+        };
+        this.input.keyboard.on('keydown-FOUR', key4Listener);
+        this.keyboardListeners.push({key: 'keydown-FOUR', callback: key4Listener});
+        
+        // 5 - Trigger sync recovery
+        const key5Listener = () => {
+            this.triggerSyncRecovery();
+        };
+        this.input.keyboard.on('keydown-FIVE', key5Listener);
+        this.keyboardListeners.push({key: 'keydown-FIVE', callback: key5Listener});
+        
+        // 6 - Show cascade debug info
+        const key6Listener = () => {
+            this.showCascadeDebugInfo();
+        };
+        this.input.keyboard.on('keydown-SIX', key6Listener);
+        this.keyboardListeners.push({key: 'keydown-SIX', callback: key6Listener});
+        
+        // 7 - Toggle cascade debug mode
+        const key7Listener = () => {
+            this.toggleCascadeDebugMode();
+        };
+        this.input.keyboard.on('keydown-SEVEN', key7Listener);
+        this.keyboardListeners.push({key: 'keydown-SEVEN', callback: key7Listener});
+        
+        // 8 - Toggle manual control panel
+        const key8Listener = () => {
+            this.toggleManualControlPanel();
+        };
+        this.input.keyboard.on('keydown-EIGHT', key8Listener);
+        this.keyboardListeners.push({key: 'keydown-EIGHT', callback: key8Listener});
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade debug controls added:');
+            console.log('🔄   1 - Manual step');
+            console.log('🔄   2 - Toggle pause');
+            console.log('🔄   3 - Reset sync');
+            console.log('🔄   4 - Toggle sync');
+            console.log('🔄   5 - Trigger recovery');
+            console.log('🔄   6 - Show debug info');
+            console.log('🔄   7 - Toggle debug mode');
+            console.log('🔄   8 - Toggle control panel');
+        }
     }
     
     updateDebugPanel(matches, totalWin, bet) {
@@ -947,7 +1182,41 @@ window.GameScene = class GameScene extends Phaser.Scene {
         let hasMatches = true;
         let cascadeCount = 0;
         
+        // Initialize cascade sync session if enabled
+        if (this.syncState && this.syncState.enabled && this.cascadeAPI) {
+            try {
+                this.currentCascadeSession = await this.cascadeAPI.startCascadeSession({
+                    initialGrid: this.gridManager ? this.gridManager.getCurrentGrid() : null,
+                    bet: this.stateManager.gameData.currentBet
+                });
+                this.syncState.sessionActive = true;
+                this.syncState.currentStep = 0;
+                this.updateSyncStatusDisplay();
+                
+                if (window.DEBUG) {
+                    console.log('🔄 Cascade sync session started:', this.currentCascadeSession);
+                }
+            } catch (error) {
+                console.warn('🔄 Failed to start cascade sync session:', error);
+                this.syncState.enabled = false;
+            }
+        }
+        
         while (hasMatches) {
+            // Check if in manual control mode and should pause
+            if (this.manualCascadeControl && this.cascadeStepPaused && cascadeCount > 0) {
+                // Add step to queue for manual execution
+                this.cascadeStepQueue.push({
+                    stepNumber: cascadeCount + 1,
+                    type: 'match_detection',
+                    gridState: this.gridManager ? this.gridManager.getCurrentGrid() : null
+                });
+                
+                this.updateSyncStatusDisplay();
+                this.showMessage(`Cascade paused at step ${cascadeCount + 1}. Use 1 to continue.`);
+                break;
+            }
+            
             // Find matches
             const matches = this.gridManager.findMatches();
             
@@ -1015,6 +1284,28 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Check for Cascading Random Multipliers after all cascades finish
         if (cascadeCount > 0) { // Only if there were cascades
             await this.bonusManager.checkCascadingRandomMultipliers();
+        }
+        
+        // Close cascade sync session if it was active
+        if (this.syncState && this.syncState.sessionActive && this.cascadeAPI) {
+            try {
+                await this.cascadeAPI.completeCascadeSession({
+                    sessionId: this.currentCascadeSession ? this.currentCascadeSession.sessionId : null,
+                    totalSteps: cascadeCount,
+                    finalGrid: this.gridManager ? this.gridManager.getCurrentGrid() : null,
+                    totalWin: this.totalWin
+                });
+                
+                this.syncState.sessionActive = false;
+                this.syncState.totalSteps = cascadeCount;
+                this.updateSyncStatusDisplay();
+                
+                if (window.DEBUG) {
+                    console.log('🔄 Cascade sync session completed');
+                }
+            } catch (error) {
+                console.warn('🔄 Failed to complete cascade sync session:', error);
+            }
         }
     }
 
@@ -1383,6 +1674,276 @@ window.GameScene = class GameScene extends Phaser.Scene {
             console.log(`Row ${row}: ${rowStr}`);
         }
         console.log('==================');
+    }
+    
+    // Cascade synchronization control methods
+    setSyncDisplayVisible(visible) {
+        if (this.syncStatusPanel) this.syncStatusPanel.setVisible(visible);
+        if (this.syncStatusTitle) this.syncStatusTitle.setVisible(visible);
+        if (this.syncStatusLines) {
+            this.syncStatusLines.forEach(line => line.setVisible(visible));
+        }
+    }
+    
+    setManualControlVisible(visible) {
+        if (this.manualControlPanel) this.manualControlPanel.setVisible(visible);
+        if (this.manualControlTitle) this.manualControlTitle.setVisible(visible);
+        if (this.stepButton) this.stepButton.setVisible(visible);
+        if (this.playPauseButton) this.playPauseButton.setVisible(visible);
+        if (this.resetButton) this.resetButton.setVisible(visible);
+        if (this.toggleSyncButton) this.toggleSyncButton.setVisible(visible);
+        if (this.recoveryButton) this.recoveryButton.setVisible(visible);
+        if (this.debugInfoButton) this.debugInfoButton.setVisible(visible);
+        if (this.manualStatusText) this.manualStatusText.setVisible(visible);
+    }
+    
+    updateSyncStatusDisplay() {
+        if (!this.syncStatusLines || !this.syncState) return;
+        
+        let lineIndex = 0;
+        this.syncStatusLines[lineIndex++].setText(`Sync: ${this.syncState.enabled ? 'ENABLED' : 'DISABLED'}`);
+        this.syncStatusLines[lineIndex++].setText(`Session: ${this.syncState.sessionActive ? 'ACTIVE' : 'INACTIVE'}`);
+        this.syncStatusLines[lineIndex++].setText(`Step: ${this.syncState.currentStep}/${this.syncState.totalSteps}`);
+        this.syncStatusLines[lineIndex++].setText(`Desync Count: ${this.syncState.desyncCount}`);
+        this.syncStatusLines[lineIndex++].setText(`Recovery Attempts: ${this.syncState.recoveryAttempts}`);
+        this.syncStatusLines[lineIndex++].setText(`Avg Step Time: ${this.syncState.performanceMetrics.averageStepTime.toFixed(1)}ms`);
+        this.syncStatusLines[lineIndex++].setText(`Success Rate: ${this.syncState.performanceMetrics.syncSuccessRate.toFixed(1)}%`);
+        this.syncStatusLines[lineIndex++].setText(`Queue: ${this.cascadeStepQueue ? this.cascadeStepQueue.length : 0} steps`);
+        
+        // Color coding based on sync health
+        const healthColor = this.syncState.performanceMetrics.syncSuccessRate > 95 ? '#00FF00' : 
+                           this.syncState.performanceMetrics.syncSuccessRate > 80 ? '#FFD700' : '#FF4500';
+        this.syncStatusLines[6].setColor(healthColor);
+    }
+    
+    // Manual cascade control methods
+    manualCascadeStep() {
+        if (!this.cascadeStepQueue || this.cascadeStepQueue.length === 0) {
+            this.showMessage('No cascade steps in queue');
+            return;
+        }
+        
+        const step = this.cascadeStepQueue.shift();
+        if (window.DEBUG) {
+            console.log('🔄 Manual cascade step:', step);
+        }
+        
+        this.executeCascadeStep(step);
+        this.updateSyncStatusDisplay();
+        this.showMessage(`Step ${step.stepNumber} executed`);
+    }
+    
+    toggleCascadePause() {
+        this.cascadeStepPaused = !this.cascadeStepPaused;
+        this.manualCascadeControl = this.cascadeStepPaused;
+        
+        if (this.playPauseButton) {
+            this.playPauseButton.setText(this.cascadeStepPaused ? '[2] PLAY' : '[2] PAUSE');
+        }
+        
+        if (this.manualStatusText) {
+            this.manualStatusText.setText(this.manualCascadeControl ? 'Manual Mode' : 'Auto Mode');
+            this.manualStatusText.setColor(this.manualCascadeControl ? '#FF9900' : '#00FF00');
+        }
+        
+        const mode = this.cascadeStepPaused ? 'PAUSED' : 'PLAYING';
+        this.showMessage(`Cascade mode: ${mode}`);
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade control toggled:', mode);
+        }
+    }
+    
+    resetCascadeSync() {
+        // Reset sync state
+        if (this.syncState) {
+            this.syncState.sessionActive = false;
+            this.syncState.currentStep = 0;
+            this.syncState.totalSteps = 0;
+            this.syncState.lastValidationHash = null;
+            this.syncState.recoveryAttempts = 0;
+        }
+        
+        // Clear step queue
+        this.cascadeStepQueue = [];
+        this.currentCascadeSession = null;
+        
+        // Reset manual control
+        this.manualCascadeControl = false;
+        this.cascadeStepPaused = false;
+        
+        if (this.playPauseButton) {
+            this.playPauseButton.setText('[2] PAUSE');
+        }
+        
+        if (this.manualStatusText) {
+            this.manualStatusText.setText('Auto Mode');
+            this.manualStatusText.setColor('#00FF00');
+        }
+        
+        this.updateSyncStatusDisplay();
+        this.showMessage('Cascade sync reset');
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade sync system reset');
+        }
+    }
+    
+    toggleCascadeSync() {
+        if (this.syncState) {
+            this.syncState.enabled = !this.syncState.enabled;
+        }
+        
+        if (this.toggleSyncButton) {
+            this.toggleSyncButton.setText(`[4] SYNC: ${this.syncState.enabled ? 'ON' : 'OFF'}`);
+        }
+        
+        this.updateSyncStatusDisplay();
+        this.showMessage(`Cascade sync: ${this.syncState.enabled ? 'ENABLED' : 'DISABLED'}`);
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade sync toggled:', this.syncState.enabled ? 'ON' : 'OFF');
+        }
+    }
+    
+    async triggerSyncRecovery() {
+        if (!this.cascadeAPI) {
+            this.showMessage('CascadeAPI not available');
+            return;
+        }
+        
+        try {
+            this.syncState.recoveryAttempts++;
+            this.showMessage('Triggering sync recovery...');
+            
+            // Attempt recovery using CascadeAPI
+            const recoveryResult = await this.cascadeAPI.requestRecovery({
+                currentStep: this.syncState.currentStep,
+                desyncReason: 'manual_trigger',
+                gridState: this.gridManager ? this.gridManager.getCurrentGrid() : null
+            });
+            
+            if (recoveryResult.success) {
+                this.showMessage('Sync recovery successful');
+                this.syncState.desyncCount = Math.max(0, this.syncState.desyncCount - 1);
+            } else {
+                this.showMessage('Sync recovery failed');
+            }
+            
+            this.updateSyncStatusDisplay();
+            
+            if (window.DEBUG) {
+                console.log('🔄 Sync recovery result:', recoveryResult);
+            }
+        } catch (error) {
+            console.error('🔄 Sync recovery error:', error);
+            this.showMessage('Recovery error');
+        }
+    }
+    
+    showCascadeDebugInfo() {
+        if (!window.DEBUG && !window.CASCADE_DEBUG) return;
+        
+        console.log('🔄 === CASCADE DEBUG INFO ===');
+        console.log('🔄 Sync State:', this.syncState);
+        console.log('🔄 Step Queue Length:', this.cascadeStepQueue ? this.cascadeStepQueue.length : 0);
+        console.log('🔄 Manual Control:', this.manualCascadeControl);
+        console.log('🔄 Step Paused:', this.cascadeStepPaused);
+        console.log('🔄 CascadeAPI Available:', !!this.cascadeAPI);
+        console.log('🔄 Current Session:', this.currentCascadeSession);
+        console.log('🔄 GridManager Available:', !!this.gridManager);
+        console.log('🔄 ==========================');
+        
+        this.showMessage('Debug info logged to console');
+    }
+    
+    toggleCascadeDebugMode() {
+        this.cascadeDebugMode = !this.cascadeDebugMode;
+        
+        // Show/hide debug displays based on mode
+        this.setSyncDisplayVisible(this.cascadeDebugMode);
+        this.setManualControlVisible(this.cascadeDebugMode);
+        
+        this.showMessage(`Debug mode: ${this.cascadeDebugMode ? 'ON' : 'OFF'}`);
+        
+        if (window.DEBUG) {
+            console.log('🔄 Cascade debug mode toggled:', this.cascadeDebugMode ? 'ON' : 'OFF');
+        }
+    }
+    
+    toggleManualControlPanel() {
+        const visible = this.manualControlPanel ? this.manualControlPanel.visible : false;
+        this.setManualControlVisible(!visible);
+        
+        this.showMessage(`Manual control: ${!visible ? 'SHOWN' : 'HIDDEN'}`);
+        
+        if (window.DEBUG) {
+            console.log('🔄 Manual control panel toggled:', !visible ? 'SHOWN' : 'HIDDEN');
+        }
+    }
+    
+    // Enhanced cascade step execution with sync integration
+    async executeCascadeStep(step) {
+        if (!step) return;
+        
+        const startTime = performance.now();
+        
+        try {
+            // Update sync state
+            this.syncState.currentStep = step.stepNumber;
+            
+            // Validate step with server if cascade sync enabled
+            if (this.syncState.enabled && this.cascadeAPI) {
+                const validationResult = await this.cascadeAPI.validateStep(step);
+                if (!validationResult.valid) {
+                    this.syncState.desyncCount++;
+                    if (window.DEBUG) {
+                        console.warn('🔄 Step validation failed:', validationResult);
+                    }
+                    return;
+                }
+                this.syncState.lastValidationHash = validationResult.hash;
+            }
+            
+            // Execute the actual cascade step
+            // This would integrate with the existing cascade processing
+            if (step.type === 'match_removal') {
+                // Remove matched symbols
+                if (step.matches && this.gridManager) {
+                    this.gridManager.removeMatches(step.matches);
+                }
+            } else if (step.type === 'symbol_drop') {
+                // Drop symbols
+                if (this.gridManager) {
+                    await this.gridManager.cascadeSymbols();
+                }
+            }
+            
+            // Record performance metrics
+            const stepTime = performance.now() - startTime;
+            this.syncState.performanceMetrics.stepValidationTime.push(stepTime);
+            
+            // Calculate average (keep last 10 measurements)
+            if (this.syncState.performanceMetrics.stepValidationTime.length > 10) {
+                this.syncState.performanceMetrics.stepValidationTime.shift();
+            }
+            
+            const avgTime = this.syncState.performanceMetrics.stepValidationTime.reduce((a, b) => a + b, 0) / 
+                           this.syncState.performanceMetrics.stepValidationTime.length;
+            this.syncState.performanceMetrics.averageStepTime = avgTime;
+            
+            // Update success rate
+            const successfulSteps = this.syncState.performanceMetrics.stepValidationTime.length;
+            const totalAttempts = successfulSteps + this.syncState.desyncCount;
+            this.syncState.performanceMetrics.syncSuccessRate = totalAttempts > 0 ? 
+                (successfulSteps / totalAttempts) * 100 : 100;
+                
+        } catch (error) {
+            console.error('🔄 Error executing cascade step:', error);
+            this.syncState.desyncCount++;
+        }
+        
+        this.updateSyncStatusDisplay();
     }
 
     update(time, delta) {
@@ -2425,6 +2986,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (this.gridManager && this.gridManager.destroy) {
             this.gridManager.destroy();
         }
+        
+        // Clear cascade sync references
+        this.cascadeAPI = null;
+        this.syncState = null;
+        this.cascadeStepQueue = null;
+        this.currentCascadeSession = null;
+        
+        // Clear debug UI references
+        this.syncStatusPanel = null;
+        this.syncStatusTitle = null;
+        this.syncStatusLines = null;
+        this.manualControlPanel = null;
+        this.manualControlTitle = null;
+        this.stepButton = null;
+        this.playPauseButton = null;
+        this.resetButton = null;
+        this.toggleSyncButton = null;
+        this.recoveryButton = null;
+        this.debugInfoButton = null;
+        this.manualStatusText = null;
         
         // Clear references to prevent memory leaks
         this.stateManager = null;

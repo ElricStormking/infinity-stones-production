@@ -31,10 +31,14 @@
             try {
                 var params = new URLSearchParams(window.location.search);
                 var debugParam = params.get('debug');
+                var cascadeDebugParam = params.get('cascade');
                 var fpsParam = params.get('fps');
                 var quickParam = params.get('quick');
                 // Default: disable noisy logs. Enable with ?debug=1
                 window.DEBUG = debugParam === '1' || debugParam === 'true';
+                // Enable cascade debug with ?cascade=1 (also enables DEBUG)
+                window.CASCADE_DEBUG = cascadeDebugParam === '1' || cascadeDebugParam === 'true';
+                if (window.CASCADE_DEBUG) window.DEBUG = true;
                 // FPS overlay only when requested via ?fps=1
                 window.SHOW_FPS = fpsParam === '1' || fpsParam === 'true';
                 // Quick spin optional toggle via ?quick=1

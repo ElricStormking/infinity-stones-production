@@ -69,7 +69,7 @@ The game uses a **global window object pattern** for Phaser compatibility (NOT E
 - **Phaser 3** game engine loaded globally via script tag
 - **Scene System**: LoadingScene → MenuScene → GameScene
 - **Managers**: GridManager (grid logic), WinCalculator (payout calculations), AnimationManager, UIManager, BurstModeManager, WinPresentationManager
-- **Services**: NetworkService (HTTP/WebSocket), GameAPI, WalletAPI, AuthAPI
+- **Services**: NetworkService (HTTP/WebSocket), GameAPI, WalletAPI, AuthAPI, CascadeAPI
 - **Config**: GameConfig.js contains all game rules, RTP settings, symbol definitions, and payout tables
 - **SafeSound**: Custom audio wrapper system that handles missing audio gracefully
 
@@ -78,20 +78,21 @@ Express + Socket.io server running on port 3000:
 - **Static File Serving**: Serves the complete WebGL game client from parent directory
 - **HTTP API**: RESTful endpoints (/api/spin, /api/health) with JSON responses
 - **WebSocket Support**: Real-time communication via Socket.io for game events
+- **Game Logic**: GridEngine.js implements server-side cascade generation and win calculation
 - **Security**: Crypto.randomBytes for server-side RNG, CORS protection
 - **Development Features**: Cache-Control disabled, nodemon support for hot-reload
 - **Dependencies**: express, socket.io, cors, dotenv, bcrypt, jsonwebtoken, pg (PostgreSQL ready)
 
 ### Key Game Mechanics
 - **Grid**: 6 columns × 5 rows of symbols
-- **Minimum Match**: 8 symbols of the same type (connected)
+- **Minimum Match**: 8 symbols of the same type (connected via flood-fill algorithm)
 - **Cascading**: Matched symbols are removed, new ones drop from above
 - **RTP**: 96.5% (configured in GameConfig.js)
 - **Volatility**: HIGH
 - **Max Win**: 5000x bet
 - **Special Features**:
   - Free Spins (triggered by 4+ scatter symbols)
-  - Random Multipliers (2x-500x)
+  - Random Multipliers (2x-500x, weighted table in RANDOM_MULTIPLIER.TABLE)
   - Burst Mode animations
   - Progressive accumulated multipliers during free spins
 
@@ -125,6 +126,7 @@ Must match exactly between GameConfig.js and asset filenames:
 - Uses flood-fill algorithm to find connected clusters
 - Minimum 8 symbols required for a win
 - Payouts based on symbol type and cluster size tier
+- Server-side validation in GridEngine.js
 
 #### Audio System
 - SafeSound wrapper handles missing audio gracefully
@@ -144,7 +146,7 @@ Must match exactly between GameConfig.js and asset filenames:
 - **WebSocket**: Socket.io for real-time events (spin_request/spin_result, test messages)
 - **Authentication**: JWT token support with localStorage persistence
 - **Error Handling**: 401 auth error handling, timeout configuration (10s)
-- **Development**: Simplified server spin logic using crypto.randomBytes
+- **Server Integration**: GridEngine generates complete spin results with cascade data
 
 ### File Organization
 ```
@@ -153,10 +155,12 @@ src/
 ├── core/          # Symbol.js, GameStateManager.js
 ├── systems/       # GridManager.js, WinCalculator.js
 ├── managers/      # UI, Animation, BurstMode, FreeSpins, WinPresentation
-├── services/      # NetworkService, GameAPI, WalletAPI, AuthAPI
+├── services/      # NetworkService, GameAPI, WalletAPI, AuthAPI, CascadeAPI
 ├── scenes/        # Phaser scenes (Loading, Menu, Game)
 ├── effects/       # Visual effects (FireEffect, ThanosPowerGrip)
 ├── shaders/       # WebGL shaders
+├── engine/        # Paytable, RNG, SymbolSource
+├── models/        # SpinResult model
 └── tools/         # MathSimulator for RTP validation
 
 assets/
@@ -166,6 +170,7 @@ assets/
 
 infinity-storm-server/
 ├── server.js      # Main Express + Socket.io server
+├── game-logic/    # GridEngine.js - server-side cascade generation
 ├── package.json   # Server dependencies (express, socket.io, cors, etc.)
 └── node_modules/  # Server-side dependencies
 
@@ -174,12 +179,14 @@ Root files:
 ├── start-server.js # Simple static file server (client-only)
 ├── run-game.ps1   # PowerShell launcher script
 ├── package.json   # Client dependencies (phaser, http-server)
-└── test-animations.html # Animation testing utility
+├── test-animations.html # Animation testing utility
+└── test-rng-security.html # RNG security testing
 ```
 
 ### Testing & Debugging
 - **Browser Console**: `window.game` provides access to Phaser game instance
 - **Animation Testing**: test-animations.html for sprite debugging
+- **RNG Security Testing**: test-rng-security.html for RNG validation
 - **Math Validation**: src/tools/MathSimulator.js for RTP testing
 - **Network Testing**: Server provides /api/health endpoint
 - **Global Objects**: All game classes attached to window (GridManager, NetworkService, etc.)
@@ -188,17 +195,9 @@ Root files:
 
 ### Current Development State
 - **Deployment**: Single server model (client and backend on same port 3000)
-- **Game Logic**: Simplified server spin logic using crypto.randomBytes
+- **Game Logic**: Server-side spin generation using GridEngine with crypto.randomBytes
 - **Communication**: HTTP API endpoints functional, WebSocket handlers implemented
-- **Features**: Free spins and multiplier mechanics implemented client-side
+- **Features**: Free spins and multiplier mechanics implemented both client and server-side
 - **Authentication**: JWT infrastructure in place but not fully activated
 - **Database**: PostgreSQL dependencies ready but models not implemented
 - **Development Mode**: Both client-only (npm run dev) and full-stack (server start) workflows
-
-### Planned Architecture (InfinityStormServer-ClientArch.txt)
-Future implementation includes:
-- Database models (Player, Wallet, Session, Transaction, SpinResult)
-- Service layer (game engine, RNG, wallet, anti-cheat)
-- JWT authentication with rate limiting
-- Server-side RNG with cryptographic security
-- Complete WebSocket integration for real-time events

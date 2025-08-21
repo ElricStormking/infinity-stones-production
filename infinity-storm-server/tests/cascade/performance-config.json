@@ -1,0 +1,186 @@
+{
+  "performanceTestConfig": {
+    "testSuite": "Enhanced Cascade Synchronization - Performance and Stress Tests",
+    "version": "1.0.0",
+    "description": "Performance testing configuration for Task 15.2 - Create performance testing suite",
+    
+    "testCategories": {
+      "highFrequencyHandling": {
+        "enabled": true,
+        "description": "Task 15.2.1: Test high-frequency cascade handling",
+        "tests": {
+          "rapidSpinRequests": {
+            "requestCount": 100,
+            "successRateThreshold": 0.95,
+            "averageResponseTimeThreshold": 1000,
+            "throughputThreshold": 20,
+            "timeout": 30000
+          },
+          "concurrentValidation": {
+            "concurrentRequests": 50,
+            "successRateThreshold": 0.90,
+            "averageResponseTimeThreshold": 2000,
+            "maxResponseTimeThreshold": 5000,
+            "timeout": 30000
+          },
+          "extendedCascadeSequences": {
+            "sequenceCount": 20,
+            "averageSequenceTimeThreshold": 1000,
+            "maxSequenceTimeThreshold": 3000,
+            "stepTimeThreshold": 500,
+            "timeout": 45000
+          }
+        }
+      },
+      
+      "memoryUsagePatterns": {
+        "enabled": true,
+        "description": "Task 15.2.2: Validate memory usage patterns",
+        "tests": {
+          "memoryLeakDetection": {
+            "iterations": 200,
+            "heapGrowthThreshold": 52428800,
+            "rssGrowthThreshold": 104857600,
+            "cleanupInterval": 50,
+            "timeout": 60000
+          },
+          "sessionMemoryManagement": {
+            "sessionCount": 100,
+            "memoryReductionThreshold": 10,
+            "checkInterval": 20,
+            "timeout": 45000
+          },
+          "longRunningValidation": {
+            "validationCount": 500,
+            "memoryRangeThreshold": 31457280,
+            "checkInterval": 50,
+            "timeout": 45000
+          }
+        }
+      },
+      
+      "concurrentPlayerHandling": {
+        "enabled": true,
+        "description": "Task 15.2.3: Test concurrent player handling",
+        "tests": {
+          "concurrentSessions": {
+            "playerCount": 50,
+            "spinsPerPlayer": 5,
+            "playerSuccessRateThreshold": 0.90,
+            "spinSuccessRateThreshold": 0.85,
+            "timeout": 60000
+          },
+          "webSocketStability": {
+            "clientCount": 30,
+            "messagesPerClient": 10,
+            "connectionSuccessRateThreshold": 0.80,
+            "messageSuccessRateThreshold": 0.70,
+            "connectionStaggerDelay": 100,
+            "timeout": 45000
+          },
+          "cascadeStateConflicts": {
+            "concurrentCascades": 20,
+            "successRateThreshold": 0.90,
+            "hashCollisionRateThreshold": 0.01,
+            "timeout": 45000
+          }
+        }
+      },
+      
+      "serverResourceUtilization": {
+        "enabled": true,
+        "description": "Task 15.2.4: Verify server resource utilization",
+        "tests": {
+          "cpuUsageMonitoring": {
+            "intensiveOperations": 100,
+            "validationsPerOperation": 5,
+            "cpuUtilizationThreshold": 200,
+            "sampleInterval": 20,
+            "timeout": 30000
+          },
+          "memoryGarbageCollection": {
+            "testCycles": 50,
+            "objectsPerCycle": 1000,
+            "objectSize": 100,
+            "memoryGrowthThreshold": 52428800,
+            "memoryEfficiencyThreshold": 10,
+            "gcInterval": 10,
+            "timeout": 45000
+          },
+          "extremeLoadTesting": {
+            "concurrentSessions": 100,
+            "spinsPerSession": 10,
+            "validationsPerSpin": 3,
+            "sessionSuccessRateThreshold": 0.70,
+            "memoryIncreaseThreshold": 200,
+            "systemMemoryUsageThreshold": 90,
+            "errorRateThreshold": 0.05,
+            "timeout": 60000
+          },
+          "resourceRecoveryMonitoring": {
+            "peakOperations": 200,
+            "recoverySteps": 10,
+            "recoveryStepDelay": 1000,
+            "memoryRecoveryThreshold": 5,
+            "timeout": 30000
+          }
+        }
+      }
+    },
+    
+    "globalSettings": {
+      "defaultTimeout": 30000,
+      "maxRetries": 3,
+      "retryDelay": 1000,
+      "enableGarbageCollection": true,
+      "verboseLogging": true,
+      "generateDetailedReport": true
+    },
+    
+    "environmentRequirements": {
+      "minimumNodeVersion": "14.0.0",
+      "minimumMemory": "2GB",
+      "recommendedCpuCores": 4,
+      "requiredDiskSpace": "100MB",
+      "networkLatencyThreshold": 100
+    },
+    
+    "benchmarks": {
+      "responseTime": {
+        "excellent": 500,
+        "good": 1000,
+        "acceptable": 2000,
+        "poor": 5000
+      },
+      "throughput": {
+        "excellent": 100,
+        "good": 50,
+        "acceptable": 20,
+        "poor": 10
+      },
+      "memoryUsage": {
+        "excellent": 10485760,
+        "good": 26214400,
+        "acceptable": 52428800,
+        "poor": 104857600
+      },
+      "successRate": {
+        "excellent": 0.99,
+        "good": 0.95,
+        "acceptable": 0.90,
+        "poor": 0.80
+      }
+    },
+    
+    "reportingSettings": {
+      "generateJsonReport": true,
+      "generateHtmlReport": false,
+      "includeSystemMetrics": true,
+      "includeEnvironmentInfo": true,
+      "includeRecommendations": true,
+      "outputDirectory": "./tests/cascade/",
+      "reportFileName": "performance-report.json",
+      "logFileName": "performance-test.log"
+    }
+  }
+}

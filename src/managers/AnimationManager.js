@@ -1,7 +1,64 @@
 // Animation Manager - handles all animation creation and testing for the game
+// Enhanced with cascade synchronization support
 window.AnimationManager = class AnimationManager {
     constructor(scene) {
         this.scene = scene;
+        
+        // Enhanced Cascade Synchronization state
+        this.syncState = {
+            enabled: false,
+            currentPhase: null,
+            stepIndex: 0,
+            phaseTimings: {},
+            animationQueue: [],
+            pendingAcknowledgments: new Map(),
+            recoveryMode: false,
+            syncErrors: []
+        };
+        
+        // Animation timing configuration
+        this.timingConfig = {
+            win_highlight: { normal: 1000, quick: 400 },
+            symbol_removal: { normal: 500, quick: 200 },
+            symbol_drop: { normal: 800, quick: 300 },
+            symbol_settle: { normal: 300, quick: 100 },
+            recovery_fade: { normal: 500, quick: 200 },
+            sync_indicator: { normal: 1000, quick: 500 }
+        };
+        
+        // Phase-based animation control
+        this.phaseAnimations = {
+            win_highlight: [],
+            symbol_removal: [],
+            symbol_drop: [],
+            symbol_settle: [],
+            recovery: []
+        };
+        
+        // Sync status visualization elements
+        this.syncVisualElements = {
+            indicator: null,
+            statusText: null,
+            progressBar: null,
+            errorOverlay: null
+        };
+        
+        // Performance tracking
+        this.animationMetrics = {
+            phaseStartTimes: {},
+            phaseEndTimes: {},
+            totalAnimationTime: 0,
+            syncAccuracy: 100
+        };
+        
+        // Recovery state
+        this.recoveryState = {
+            active: false,
+            type: null,
+            attemptCount: 0,
+            savedAnimations: [],
+            rollbackPoint: null
+        };
     }
     
     createAllAnimations() {
@@ -850,9 +907,914 @@ window.AnimationManager = class AnimationManager {
         }
     }
     
+    // ============== ENHANCED CASCADE SYNCHRONIZATION FEATURES ==============
+    
+    /**
+     * Task 3.4.1: Animation timing synchronization
+     * Synchronizes animation timings with server-provided cascade step data
+     */
+    synchronizeAnimationTiming(cascadeStep, quickSpinMode = false) {
+        if (!cascadeStep || !cascadeStep.timing) {
+            console.warn('Invalid cascade step timing data');
+            return false;
+        }
+        
+        const mode = quickSpinMode ? 'quick' : 'normal';
+        
+        // Update phase timings based on server data
+        Object.keys(cascadeStep.timing).forEach(phase => {
+            if (this.timingConfig[phase]) {
+                // Store server timing for this phase
+                this.phaseTimings[phase] = cascadeStep.timing[phase];
+                
+                // Calculate timing adjustment factor
+                const expectedTiming = this.timingConfig[phase][mode];
+                const serverTiming = cascadeStep.timing[phase];
+                const adjustmentFactor = serverTiming / expectedTiming;
+                
+                // Apply adjustment to maintain sync
+                if (Math.abs(adjustmentFactor - 1) > 0.1) {
+                    console.log(`Adjusting ${phase} timing: ${expectedTiming}ms -> ${serverTiming}ms`);
+                    this.adjustAnimationSpeed(phase, adjustmentFactor);
+                }
+            }
+        });
+        
+        // Track synchronization accuracy
+        this.updateSyncAccuracy(cascadeStep);
+        
+        return true;
+    }
+    
+    /**
+     * Adjust animation speed for a specific phase
+     */
+    adjustAnimationSpeed(phase, factor) {
+        const animations = this.phaseAnimations[phase];
+        if (!animations || animations.length === 0) return;
+        
+        animations.forEach(anim => {
+            if (anim && anim.timeline) {
+                // Adjust timeline speed
+                anim.timeline.timeScale = factor;
+            } else if (anim && anim.duration) {
+                // Adjust duration
+                anim.duration = anim.duration / factor;
+            }
+        });
+    }
+    
+    /**
+     * Task 3.4.2: Phase-based animation control
+     * Controls animations based on cascade phases
+     */
+    startPhaseAnimation(phase, gridData, callback) {
+        if (!this.syncState.enabled) {
+            // Run animations normally if sync is disabled
+            return this.runPhaseAnimationNormal(phase, gridData, callback);
+        }
+        
+        // Clear previous phase animations
+        this.clearPhaseAnimations(this.syncState.currentPhase);
+        
+        // Update current phase
+        this.syncState.currentPhase = phase;
+        const phaseStartTime = Date.now();
+        this.animationMetrics.phaseStartTimes[phase] = phaseStartTime;
+        
+        // Store animation data for potential recovery
+        if (this.recoveryState.active) {
+            this.recoveryState.savedAnimations.push({
+                phase,
+                gridData: JSON.parse(JSON.stringify(gridData)),
+                timestamp: phaseStartTime
+            });
+        }
+        
+        // Execute phase-specific animations
+        switch(phase) {
+            case 'win_highlight':
+                this.executeWinHighlightPhase(gridData, callback);
+                break;
+                
+            case 'symbol_removal':
+                this.executeSymbolRemovalPhase(gridData, callback);
+                break;
+                
+            case 'symbol_drop':
+                this.executeSymbolDropPhase(gridData, callback);
+                break;
+                
+            case 'symbol_settle':
+                this.executeSymbolSettlePhase(gridData, callback);
+                break;
+                
+            case 'recovery':
+                this.executeRecoveryPhase(gridData, callback);
+                break;
+                
+            default:
+                console.warn(`Unknown animation phase: ${phase}`);
+                if (callback) callback();
+        }
+        
+        // Update sync visualization
+        this.updateSyncVisualization(phase);
+    }
+    
+    /**
+     * Execute win highlight phase animations
+     */
+    executeWinHighlightPhase(gridData, callback) {
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const duration = this.timingConfig.win_highlight[mode];
+        const animations = [];
+        
+        // Highlight winning clusters
+        if (gridData.winningClusters) {
+            gridData.winningClusters.forEach(cluster => {
+                cluster.positions.forEach(pos => {
+                    const symbol = this.getSymbolAtPosition(pos.col, pos.row);
+                    if (symbol) {
+                        const highlightTween = this.scene.tweens.add({
+                            targets: symbol,
+                            scaleX: 1.2,
+                            scaleY: 1.2,
+                            alpha: 1,
+                            duration: duration / 2,
+                            yoyo: true,
+                            ease: 'Power2'
+                        });
+                        animations.push(highlightTween);
+                    }
+                });
+            });
+        }
+        
+        this.phaseAnimations.win_highlight = animations;
+        
+        // Complete phase after duration
+        this.scene.time.delayedCall(duration, () => {
+            this.completePhase('win_highlight', callback);
+        });
+    }
+    
+    /**
+     * Execute symbol removal phase animations
+     */
+    executeSymbolRemovalPhase(gridData, callback) {
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const duration = this.timingConfig.symbol_removal[mode];
+        const animations = [];
+        
+        // Remove matched symbols with animation
+        if (gridData.removedPositions) {
+            gridData.removedPositions.forEach(pos => {
+                const symbol = this.getSymbolAtPosition(pos.col, pos.row);
+                if (symbol) {
+                    const removeTween = this.scene.tweens.add({
+                        targets: symbol,
+                        scaleX: 0,
+                        scaleY: 0,
+                        alpha: 0,
+                        duration: duration,
+                        ease: 'Back.easeIn',
+                        onComplete: () => {
+                            if (symbol && symbol.destroy) {
+                                symbol.destroy();
+                            }
+                        }
+                    });
+                    animations.push(removeTween);
+                }
+            });
+        }
+        
+        this.phaseAnimations.symbol_removal = animations;
+        
+        // Complete phase after duration
+        this.scene.time.delayedCall(duration, () => {
+            this.completePhase('symbol_removal', callback);
+        });
+    }
+    
+    /**
+     * Execute symbol drop phase animations
+     */
+    executeSymbolDropPhase(gridData, callback) {
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const duration = this.timingConfig.symbol_drop[mode];
+        const animations = [];
+        
+        // Animate symbols dropping from above
+        if (gridData.dropPatterns) {
+            Object.keys(gridData.dropPatterns).forEach(col => {
+                const drops = gridData.dropPatterns[col];
+                drops.forEach(drop => {
+                    const symbol = this.getSymbolAtPosition(parseInt(col), drop.toRow);
+                    if (symbol) {
+                        const dropTween = this.scene.tweens.add({
+                            targets: symbol,
+                            y: this.calculateSymbolY(drop.toRow),
+                            duration: duration,
+                            ease: 'Bounce.easeOut'
+                        });
+                        animations.push(dropTween);
+                    }
+                });
+            });
+        }
+        
+        this.phaseAnimations.symbol_drop = animations;
+        
+        // Complete phase after duration
+        this.scene.time.delayedCall(duration, () => {
+            this.completePhase('symbol_drop', callback);
+        });
+    }
+    
+    /**
+     * Execute symbol settle phase animations
+     */
+    executeSymbolSettlePhase(gridData, callback) {
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const duration = this.timingConfig.symbol_settle[mode];
+        const animations = [];
+        
+        // Subtle bounce animation for settling
+        if (gridData.settledPositions) {
+            gridData.settledPositions.forEach(pos => {
+                const symbol = this.getSymbolAtPosition(pos.col, pos.row);
+                if (symbol) {
+                    const settleTween = this.scene.tweens.add({
+                        targets: symbol,
+                        y: symbol.y + 5,
+                        duration: duration / 2,
+                        yoyo: true,
+                        ease: 'Sine.easeInOut'
+                    });
+                    animations.push(settleTween);
+                }
+            });
+        }
+        
+        this.phaseAnimations.symbol_settle = animations;
+        
+        // Complete phase after duration
+        this.scene.time.delayedCall(duration, () => {
+            this.completePhase('symbol_settle', callback);
+        });
+    }
+    
+    /**
+     * Task 3.4.3: Recovery animation sequences
+     * Handles animation recovery when desync is detected
+     */
+    executeRecoveryPhase(recoveryData, callback) {
+        console.log('Executing recovery animations:', recoveryData.type);
+        
+        this.recoveryState.active = true;
+        this.recoveryState.type = recoveryData.type;
+        this.recoveryState.attemptCount++;
+        
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const fadeDuration = this.timingConfig.recovery_fade[mode];
+        
+        // Create recovery overlay
+        this.createRecoveryOverlay();
+        
+        // Stop all current animations
+        this.stopAllAnimations();
+        
+        switch(recoveryData.type) {
+            case 'state_resync':
+                this.performStateResync(recoveryData, callback);
+                break;
+                
+            case 'step_replay':
+                this.performStepReplay(recoveryData, callback);
+                break;
+                
+            case 'timing_adjustment':
+                this.performTimingAdjustment(recoveryData, callback);
+                break;
+                
+            case 'full_resync':
+                this.performFullResync(recoveryData, callback);
+                break;
+                
+            default:
+                console.warn('Unknown recovery type:', recoveryData.type);
+                this.recoveryState.active = false;
+                if (callback) callback();
+        }
+        
+        // Fade out recovery overlay after completion
+        this.scene.time.delayedCall(fadeDuration, () => {
+            this.removeRecoveryOverlay();
+        });
+    }
+    
+    /**
+     * Perform state resynchronization
+     */
+    performStateResync(recoveryData, callback) {
+        console.log('Performing state resync...');
+        
+        // Quick fade to hide inconsistencies
+        const fadeOut = this.scene.tweens.add({
+            targets: this.scene.gridContainer || this.scene,
+            alpha: 0.3,
+            duration: 200,
+            onComplete: () => {
+                // Update grid state from recovery data
+                if (recoveryData.gridState && window.GridManager) {
+                    window.GridManager.setGrid(recoveryData.gridState);
+                }
+                
+                // Fade back in
+                this.scene.tweens.add({
+                    targets: this.scene.gridContainer || this.scene,
+                    alpha: 1,
+                    duration: 300,
+                    onComplete: () => {
+                        this.recoveryState.active = false;
+                        if (callback) callback();
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Perform step replay recovery
+     */
+    performStepReplay(recoveryData, callback) {
+        console.log('Performing step replay...');
+        
+        // Replay the last N steps quickly
+        const stepsToReplay = recoveryData.steps || [];
+        let currentStep = 0;
+        
+        const replayNextStep = () => {
+            if (currentStep >= stepsToReplay.length) {
+                this.recoveryState.active = false;
+                if (callback) callback();
+                return;
+            }
+            
+            const step = stepsToReplay[currentStep];
+            currentStep++;
+            
+            // Play step animation at 2x speed
+            this.syncState.quickSpinMode = true;
+            this.startPhaseAnimation(step.phase, step.gridData, replayNextStep);
+        };
+        
+        replayNextStep();
+    }
+    
+    /**
+     * Perform timing adjustment recovery
+     */
+    performTimingAdjustment(recoveryData, callback) {
+        console.log('Performing timing adjustment...');
+        
+        // Adjust all animation timings
+        if (recoveryData.timingAdjustments) {
+            Object.keys(recoveryData.timingAdjustments).forEach(phase => {
+                const adjustment = recoveryData.timingAdjustments[phase];
+                this.timingConfig[phase].normal *= adjustment;
+                this.timingConfig[phase].quick *= adjustment;
+            });
+        }
+        
+        // Show adjustment indicator
+        this.showTimingAdjustmentIndicator();
+        
+        this.scene.time.delayedCall(500, () => {
+            this.recoveryState.active = false;
+            if (callback) callback();
+        });
+    }
+    
+    /**
+     * Perform full resynchronization
+     */
+    performFullResync(recoveryData, callback) {
+        console.log('Performing full resync...');
+        
+        // Complete grid reset with dramatic effect
+        const resetEffect = this.scene.tweens.add({
+            targets: this.scene.gridContainer || this.scene,
+            scaleX: 0,
+            scaleY: 0,
+            rotation: Math.PI,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                // Reset entire grid state
+                if (recoveryData.fullGridState && window.GridManager) {
+                    window.GridManager.resetGrid();
+                    window.GridManager.setGrid(recoveryData.fullGridState);
+                }
+                
+                // Reset animation state
+                this.resetAnimationState();
+                
+                // Restore grid with animation
+                this.scene.tweens.add({
+                    targets: this.scene.gridContainer || this.scene,
+                    scaleX: 1,
+                    scaleY: 1,
+                    rotation: 0,
+                    duration: 500,
+                    ease: 'Back.easeOut',
+                    onComplete: () => {
+                        this.recoveryState.active = false;
+                        if (callback) callback();
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Task 3.4.4: Sync status visualization
+     * Creates visual indicators for synchronization status
+     */
+    createSyncStatusIndicator() {
+        if (this.syncVisualElements.indicator) return;
+        
+        const x = 20;
+        const y = 20;
+        
+        // Create sync indicator container
+        const container = this.scene.add.container(x, y);
+        container.setDepth(1000);
+        
+        // Background panel
+        const bg = this.scene.add.rectangle(0, 0, 200, 60, 0x000000, 0.7);
+        bg.setOrigin(0, 0);
+        container.add(bg);
+        
+        // Sync status icon (animated circle)
+        const statusIcon = this.scene.add.circle(20, 30, 8, 0x00ff00);
+        container.add(statusIcon);
+        
+        // Pulse animation for status icon
+        this.scene.tweens.add({
+            targets: statusIcon,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 0.7,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Status text
+        const statusText = this.scene.add.text(40, 20, 'SYNC: OK', {
+            fontSize: '14px',
+            fontFamily: 'Arial',
+            color: '#00ff00'
+        });
+        container.add(statusText);
+        
+        // Progress bar
+        const progressBg = this.scene.add.rectangle(40, 40, 140, 8, 0x333333);
+        progressBg.setOrigin(0, 0.5);
+        container.add(progressBg);
+        
+        const progressBar = this.scene.add.rectangle(40, 40, 0, 8, 0x00ff00);
+        progressBar.setOrigin(0, 0.5);
+        container.add(progressBar);
+        
+        // Store references
+        this.syncVisualElements.indicator = container;
+        this.syncVisualElements.statusIcon = statusIcon;
+        this.syncVisualElements.statusText = statusText;
+        this.syncVisualElements.progressBar = progressBar;
+        
+        return container;
+    }
+    
+    /**
+     * Update sync status visualization
+     */
+    updateSyncVisualization(phase) {
+        if (!this.syncVisualElements.indicator) {
+            this.createSyncStatusIndicator();
+        }
+        
+        const statusIcon = this.syncVisualElements.statusIcon;
+        const statusText = this.syncVisualElements.statusText;
+        const progressBar = this.syncVisualElements.progressBar;
+        
+        // Update based on sync state
+        if (this.recoveryState.active) {
+            // Recovery mode - yellow
+            statusIcon.setFillStyle(0xffff00);
+            statusText.setText('SYNC: RECOVERING');
+            statusText.setColor('#ffff00');
+            progressBar.setFillStyle(0xffff00);
+        } else if (this.syncState.syncErrors.length > 0) {
+            // Error state - red
+            statusIcon.setFillStyle(0xff0000);
+            statusText.setText('SYNC: ERROR');
+            statusText.setColor('#ff0000');
+            progressBar.setFillStyle(0xff0000);
+        } else {
+            // Normal state - green
+            statusIcon.setFillStyle(0x00ff00);
+            statusText.setText(`SYNC: ${phase || 'OK'}`);
+            statusText.setColor('#00ff00');
+            progressBar.setFillStyle(0x00ff00);
+        }
+        
+        // Update progress bar based on phase
+        const phaseProgress = this.calculatePhaseProgress(phase);
+        this.scene.tweens.add({
+            targets: progressBar,
+            scaleX: phaseProgress,
+            duration: 200,
+            ease: 'Linear'
+        });
+    }
+    
+    /**
+     * Show desync warning overlay
+     */
+    showDesyncWarning(message) {
+        // Remove existing warning
+        if (this.syncVisualElements.errorOverlay) {
+            this.syncVisualElements.errorOverlay.destroy();
+        }
+        
+        const centerX = this.scene.cameras.main.width / 2;
+        const centerY = this.scene.cameras.main.height / 2;
+        
+        // Create warning container
+        const warningContainer = this.scene.add.container(centerX, centerY);
+        warningContainer.setDepth(2000);
+        
+        // Semi-transparent background
+        const bg = this.scene.add.rectangle(0, 0, 400, 150, 0x000000, 0.9);
+        bg.setStrokeStyle(2, 0xff0000);
+        warningContainer.add(bg);
+        
+        // Warning icon
+        const icon = this.scene.add.text(0, -40, '⚠', {
+            fontSize: '48px',
+            color: '#ff0000'
+        });
+        icon.setOrigin(0.5);
+        warningContainer.add(icon);
+        
+        // Warning message
+        const text = this.scene.add.text(0, 20, message || 'Synchronization Lost', {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: 350 }
+        });
+        text.setOrigin(0.5);
+        warningContainer.add(text);
+        
+        // Auto-hide after 3 seconds
+        this.scene.time.delayedCall(3000, () => {
+            this.scene.tweens.add({
+                targets: warningContainer,
+                alpha: 0,
+                duration: 500,
+                onComplete: () => {
+                    warningContainer.destroy();
+                }
+            });
+        });
+        
+        this.syncVisualElements.errorOverlay = warningContainer;
+    }
+    
+    /**
+     * Create recovery overlay
+     */
+    createRecoveryOverlay() {
+        const centerX = this.scene.cameras.main.width / 2;
+        const centerY = this.scene.cameras.main.height / 2;
+        
+        // Create overlay container
+        const overlay = this.scene.add.container(centerX, centerY);
+        overlay.setDepth(1500);
+        
+        // Semi-transparent background
+        const bg = this.scene.add.rectangle(0, 0, this.scene.cameras.main.width, this.scene.cameras.main.height, 0x000000, 0.5);
+        overlay.add(bg);
+        
+        // Recovery spinner
+        const spinner = this.scene.add.sprite(0, -30, 'ui_bn_magic-an_00');
+        if (this.scene.anims.exists('burst_magic_animation')) {
+            spinner.play('burst_magic_animation');
+        }
+        overlay.add(spinner);
+        
+        // Recovery text
+        const text = this.scene.add.text(0, 30, 'Synchronizing...', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            color: '#ffffff'
+        });
+        text.setOrigin(0.5);
+        overlay.add(text);
+        
+        // Fade in
+        overlay.setAlpha(0);
+        this.scene.tweens.add({
+            targets: overlay,
+            alpha: 1,
+            duration: 300
+        });
+        
+        this.syncVisualElements.recoveryOverlay = overlay;
+    }
+    
+    /**
+     * Remove recovery overlay
+     */
+    removeRecoveryOverlay() {
+        if (this.syncVisualElements.recoveryOverlay) {
+            this.scene.tweens.add({
+                targets: this.syncVisualElements.recoveryOverlay,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => {
+                    this.syncVisualElements.recoveryOverlay.destroy();
+                    this.syncVisualElements.recoveryOverlay = null;
+                }
+            });
+        }
+    }
+    
+    /**
+     * Show timing adjustment indicator
+     */
+    showTimingAdjustmentIndicator() {
+        const indicator = this.scene.add.text(
+            this.scene.cameras.main.width / 2,
+            100,
+            'Timing Adjusted',
+            {
+                fontSize: '20px',
+                fontFamily: 'Arial',
+                color: '#ffff00',
+                stroke: '#000000',
+                strokeThickness: 2
+            }
+        );
+        indicator.setOrigin(0.5);
+        indicator.setDepth(1000);
+        
+        // Fade in and out
+        indicator.setAlpha(0);
+        this.scene.tweens.add({
+            targets: indicator,
+            alpha: 1,
+            duration: 300,
+            yoyo: true,
+            hold: 1000,
+            onComplete: () => {
+                indicator.destroy();
+            }
+        });
+    }
+    
+    // ============== HELPER METHODS ==============
+    
+    /**
+     * Enable cascade synchronization
+     */
+    enableSync(quickSpinMode = false) {
+        this.syncState.enabled = true;
+        this.syncState.quickSpinMode = quickSpinMode;
+        this.createSyncStatusIndicator();
+        console.log('Animation synchronization enabled');
+    }
+    
+    /**
+     * Disable cascade synchronization
+     */
+    disableSync() {
+        this.syncState.enabled = false;
+        if (this.syncVisualElements.indicator) {
+            this.syncVisualElements.indicator.destroy();
+            this.syncVisualElements.indicator = null;
+        }
+        console.log('Animation synchronization disabled');
+    }
+    
+    /**
+     * Get symbol at grid position
+     */
+    getSymbolAtPosition(col, row) {
+        if (window.GridManager && window.GridManager.grid) {
+            return window.GridManager.grid[col] && window.GridManager.grid[col][row];
+        }
+        return null;
+    }
+    
+    /**
+     * Calculate symbol Y position
+     */
+    calculateSymbolY(row) {
+        // Use GridManager's calculation if available
+        if (window.GridManager && window.GridManager.calculateSymbolY) {
+            return window.GridManager.calculateSymbolY(row);
+        }
+        // Fallback calculation
+        return 200 + (row * 100);
+    }
+    
+    /**
+     * Run phase animation without sync
+     */
+    runPhaseAnimationNormal(phase, gridData, callback) {
+        // Default non-synchronized animation execution
+        console.log(`Running ${phase} animation (non-synchronized)`);
+        if (callback) {
+            this.scene.time.delayedCall(500, callback);
+        }
+    }
+    
+    /**
+     * Complete animation phase
+     */
+    completePhase(phase, callback) {
+        this.animationMetrics.phaseEndTimes[phase] = Date.now();
+        
+        // Send acknowledgment if sync is enabled
+        if (this.syncState.enabled && window.CascadeAPI) {
+            const acknowledgment = {
+                phase: phase,
+                stepIndex: this.syncState.stepIndex,
+                completedAt: Date.now(),
+                duration: this.animationMetrics.phaseEndTimes[phase] - this.animationMetrics.phaseStartTimes[phase]
+            };
+            
+            // Send acknowledgment via CascadeAPI
+            if (window.CascadeAPI.sendStepAcknowledgment) {
+                window.CascadeAPI.sendStepAcknowledgment(acknowledgment);
+            }
+        }
+        
+        // Clear phase animations
+        this.clearPhaseAnimations(phase);
+        
+        if (callback) callback();
+    }
+    
+    /**
+     * Clear animations for a specific phase
+     */
+    clearPhaseAnimations(phase) {
+        if (!phase || !this.phaseAnimations[phase]) return;
+        
+        this.phaseAnimations[phase].forEach(anim => {
+            if (anim && anim.stop) {
+                anim.stop();
+            } else if (anim && anim.remove) {
+                anim.remove();
+            }
+        });
+        
+        this.phaseAnimations[phase] = [];
+    }
+    
+    /**
+     * Stop all animations
+     */
+    stopAllAnimations() {
+        Object.keys(this.phaseAnimations).forEach(phase => {
+            this.clearPhaseAnimations(phase);
+        });
+        
+        // Stop all scene tweens
+        if (this.scene.tweens) {
+            this.scene.tweens.killAll();
+        }
+    }
+    
+    /**
+     * Reset animation state
+     */
+    resetAnimationState() {
+        this.syncState.currentPhase = null;
+        this.syncState.stepIndex = 0;
+        this.syncState.animationQueue = [];
+        this.syncState.pendingAcknowledgments.clear();
+        this.syncState.syncErrors = [];
+        this.animationMetrics = {
+            phaseStartTimes: {},
+            phaseEndTimes: {},
+            totalAnimationTime: 0,
+            syncAccuracy: 100
+        };
+        this.recoveryState = {
+            active: false,
+            type: null,
+            attemptCount: 0,
+            savedAnimations: [],
+            rollbackPoint: null
+        };
+    }
+    
+    /**
+     * Calculate phase progress (0-1)
+     */
+    calculatePhaseProgress(phase) {
+        if (!phase || !this.animationMetrics.phaseStartTimes[phase]) {
+            return 0;
+        }
+        
+        const startTime = this.animationMetrics.phaseStartTimes[phase];
+        const currentTime = Date.now();
+        const elapsed = currentTime - startTime;
+        
+        const mode = this.syncState.quickSpinMode ? 'quick' : 'normal';
+        const expectedDuration = this.timingConfig[phase] ? this.timingConfig[phase][mode] : 1000;
+        
+        return Math.min(1, elapsed / expectedDuration);
+    }
+    
+    /**
+     * Update synchronization accuracy metric
+     */
+    updateSyncAccuracy(cascadeStep) {
+        if (!cascadeStep || !cascadeStep.timing) return;
+        
+        // Calculate accuracy based on timing differences
+        let totalDiff = 0;
+        let count = 0;
+        
+        Object.keys(cascadeStep.timing).forEach(phase => {
+            if (this.animationMetrics.phaseEndTimes[phase] && this.animationMetrics.phaseStartTimes[phase]) {
+                const actualDuration = this.animationMetrics.phaseEndTimes[phase] - this.animationMetrics.phaseStartTimes[phase];
+                const expectedDuration = cascadeStep.timing[phase];
+                const diff = Math.abs(actualDuration - expectedDuration);
+                totalDiff += diff;
+                count++;
+            }
+        });
+        
+        if (count > 0) {
+            const avgDiff = totalDiff / count;
+            // Convert to accuracy percentage (0-100)
+            this.animationMetrics.syncAccuracy = Math.max(0, 100 - (avgDiff / 10));
+        }
+    }
+    
+    /**
+     * Log sync error
+     */
+    logSyncError(error) {
+        this.syncState.syncErrors.push({
+            timestamp: Date.now(),
+            phase: this.syncState.currentPhase,
+            stepIndex: this.syncState.stepIndex,
+            error: error
+        });
+        
+        // Keep only last 10 errors
+        if (this.syncState.syncErrors.length > 10) {
+            this.syncState.syncErrors.shift();
+        }
+        
+        console.error('Animation sync error:', error);
+    }
+    
     destroy() {
+        // Clean up sync visualization
+        if (this.syncVisualElements.indicator) {
+            this.syncVisualElements.indicator.destroy();
+        }
+        if (this.syncVisualElements.errorOverlay) {
+            this.syncVisualElements.errorOverlay.destroy();
+        }
+        if (this.syncVisualElements.recoveryOverlay) {
+            this.syncVisualElements.recoveryOverlay.destroy();
+        }
+        
+        // Stop all animations
+        this.stopAllAnimations();
+        
         // Clean up any references and timers
         this.scene = null;
+        this.syncState = null;
+        this.phaseAnimations = null;
+        this.syncVisualElements = null;
+        this.animationMetrics = null;
+        this.recoveryState = null;
     }
 
     // Play Thanos portrait SNAP animation once, then return to idle (no SFX here)

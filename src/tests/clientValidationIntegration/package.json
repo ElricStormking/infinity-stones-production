@@ -1,0 +1,51 @@
+{
+  "name": "client-validation-integration-tests",
+  "version": "1.0.0",
+  "description": "Client-side validation integration tests for Enhanced Cascade Synchronization",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "test:single": "jest --testNamePattern",
+    "test:cascade-api": "jest CascadeAPI.test.js",
+    "test:grid-manager": "jest GridManager.test.js", 
+    "test:win-calculator": "jest WinCalculator.test.js",
+    "test:animation-manager": "jest AnimationManager.test.js",
+    "test:game-scene": "jest GameScene.test.js",
+    "test:integration": "jest IntegrationTest.test.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "babel-jest": "^29.5.0",
+    "jest": "^29.5.0",
+    "jest-environment-jsdom": "^29.5.0"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "node": "16"
+          }
+        }
+      ]
+    ]
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/setup.js"],
+    "collectCoverageFrom": [
+      "../../services/CascadeAPI.js",
+      "../../systems/GridManager.js", 
+      "../../systems/WinCalculator.js",
+      "../../managers/AnimationManager.js",
+      "../../scenes/GameScene.js"
+    ],
+    "coverageDirectory": "./coverage",
+    "testTimeout": 10000,
+    "verbose": true
+  }
+}

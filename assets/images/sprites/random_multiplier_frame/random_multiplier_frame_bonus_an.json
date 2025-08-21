@@ -1,53 +1,53 @@
 {
     "anims": [
         {
-            "key": "ui_gem_bonus",
+            "key": "random_multiplier_frame_bonus",
             "type": "frame",
             "frames": [
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 0,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 1,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 2,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 3,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 4,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 5,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 6,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "ui_gem_bonus_sprite",
+                    "key": "random_multiplier_frame_bonus_sprite",
                     "frame": 7,
                     "duration": 0,
                     "keyframe": false
