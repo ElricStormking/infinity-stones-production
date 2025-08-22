@@ -2,7 +2,7 @@
     "section1": {
         "files": [
             {
-                "url": "assets/button_light/button_light_sprite.png",
+                "url": "assets/images/sprites/spin_button_light/button_light_sprite.png",
                 "frameConfig": {
                     "frameWidth": 525,
                     "frameHeight": 502,

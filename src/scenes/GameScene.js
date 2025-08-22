@@ -90,8 +90,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this._fpsText.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
         }
 
-        // Create debug panel
-        this.createDebugPanel();
+        // Debug panel disabled to avoid obstructing artwork
+        // this.createDebugPanel();
         
         // Create cascade sync status display
         this.createCascadeSyncDisplay();
@@ -342,38 +342,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     createDebugPanel() {
-        const width = this.cameras.main.width;
-        
-        // Debug panel background - top right
-        this.debugPanel = this.add.rectangle(width - 200, 120, 380, 200, 0x000000, 0.8);
-        this.debugPanel.setStrokeStyle(2, 0xFFFFFF);
-        this.debugPanel.setDepth(window.GameConfig.UI_DEPTHS.OVERLAY_HIGH || 5000);
-        
-        // Debug title
-        this.debugTitle = this.add.text(width - 200, 50, 'WIN CALCULATION DEBUG', {
-            fontSize: '14px',
-            fontFamily: 'Arial Bold',
-            color: '#FFD700'
-        });
-        this.debugTitle.setOrigin(0.5);
-        
-        // Debug text lines
-        this.debugLines = [];
-        for (let i = 0; i < 8; i++) {
-            const line = this.add.text(width - 380, 80 + (i * 18), '', {
-                fontSize: '11px',
-                fontFamily: 'Arial',
-                color: '#FFFFFF'
-            });
-            line.setOrigin(0, 0);
-            this.debugLines.push(line);
-        }
-        
-        // Initially hide debug panel
-        this.setDebugPanelVisible(false);
+        // Disabled: no debug UI constructed
+        this.debugPanel = null;
+        this.debugTitle = null;
+        this.debugLines = null;
     }
     
     setDebugPanelVisible(visible) {
+        if (!this.debugPanel || !this.debugTitle || !this.debugLines) return;
         this.debugPanel.setVisible(visible);
         this.debugTitle.setVisible(visible);
         this.debugLines.forEach(line => line.setVisible(visible));
@@ -599,55 +575,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     updateDebugPanel(matches, totalWin, bet) {
-        this.setDebugPanelVisible(true);
-        
-        let lineIndex = 0;
-        this.debugLines[lineIndex++].setText(`Total Win: $${totalWin.toFixed(2)} (${(totalWin/bet).toFixed(1)}x)`);
-        this.debugLines[lineIndex++].setText(`Bet: $${bet.toFixed(2)} | Matches: ${matches.length}`);
-        this.debugLines[lineIndex++].setText('');
-        
-        matches.forEach((match, index) => {
-            if (lineIndex >= this.debugLines.length) return;
-            
-            const symbolType = match[0].symbol.symbolType;
-            const symbolInfo = window.GameConfig.SYMBOLS[symbolType.toUpperCase()];
-            const matchSize = match.length;
-            
-            // Get highest multiplier in this match
-            let highestMultiplier = 1;
-            match.forEach(({ symbol }) => {
-                if (symbol && symbol.multiplier > highestMultiplier) {
-                    highestMultiplier = symbol.multiplier;
-                }
-            });
-            
-            // Get the appropriate payout multiplier based on match size
-            let payoutMultiplier = 0;
-            if (symbolInfo.type === 'scatter') {
-                payoutMultiplier = symbolInfo.payouts[matchSize] || 0;
-            } else {
-                if (matchSize >= 12) {
-                    payoutMultiplier = symbolInfo.payouts[12];
-                } else if (matchSize >= 10) {
-                    payoutMultiplier = symbolInfo.payouts[10];
-                } else if (matchSize >= 8) {
-                    payoutMultiplier = symbolInfo.payouts[8];
-                }
-            }
-            
-            const baseWin = (bet / 20) * payoutMultiplier;
-            const finalWin = baseWin * highestMultiplier;
-            
-            this.debugLines[lineIndex++].setText(`${symbolType}: ${matchSize} symbols`);
-            if (lineIndex < this.debugLines.length) {
-                this.debugLines[lineIndex++].setText(`  (${bet}/20)*${payoutMultiplier}*${highestMultiplier} = $${finalWin.toFixed(2)}`);
-            }
-        });
-        
-        // Clear remaining lines
-        for (let i = lineIndex; i < this.debugLines.length; i++) {
-            this.debugLines[i].setText('');
-        }
+        // Disabled: do not render any on-screen win calculation details
+        return;
     }
     
     adjustBet(direction) {
@@ -858,8 +787,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 this.uiManager.ui_spin_light.applyScaleFromSpin();
             }
             this.uiManager.ui_spin_light.setVisible(true);
+            // Guarantee the animation exists or create a quick fallback
+            if (!this.anims.exists('light_button_light') && this.textures.exists('button_light_sprite')) {
+                try {
+                    this.anims.create({
+                        key: 'light_button_light',
+                        frames: this.anims.generateFrameNumbers('button_light_sprite', { start: 0, end: 19 }),
+                        frameRate: 24,
+                        repeat: -1
+                    });
+                } catch (_) {}
+            }
+            // Play with zero offset and no random start to keep centered
             if (this.anims.exists('light_button_light')) {
-                // Play with zero offset and no random start to keep centered
                 this.uiManager.ui_spin_light.play({ key: 'light_button_light', startFrame: 0, delay: 0, repeat: -1 });
             }
         }
@@ -2331,6 +2271,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         if (this.uiManager && this.uiManager.ui_spin_light) {
             this.uiManager.ui_spin_light.setVisible(true);
+            if (!this.anims.exists('light_button_light') && this.textures.exists('button_light_sprite')) {
+                try {
+                    this.anims.create({
+                        key: 'light_button_light',
+                        frames: this.anims.generateFrameNumbers('button_light_sprite', { start: 0, end: 19 }),
+                        frameRate: 24,
+                        repeat: -1
+                    });
+                } catch (_) {}
+            }
             if (this.anims.exists('light_button_light')) {
                 this.uiManager.ui_spin_light.play('light_button_light');
             }
@@ -2395,6 +2345,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     }
                     if (this.uiManager && this.uiManager.ui_spin_light) {
                         this.uiManager.ui_spin_light.setVisible(true);
+                        if (!this.anims.exists('light_button_light') && this.textures.exists('button_light_sprite')) {
+                            try {
+                                this.anims.create({
+                                    key: 'light_button_light',
+                                    frames: this.anims.generateFrameNumbers('button_light_sprite', { start: 0, end: 19 }),
+                                    frameRate: 24,
+                                    repeat: -1
+                                });
+                            } catch (_) {}
+                        }
                         if (this.anims.exists('light_button_light')) {
                             this.uiManager.ui_spin_light.play('light_button_light');
                         }

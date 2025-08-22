@@ -288,8 +288,22 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_freegame', 'assets/images/ui_freegame.png', 0x666666);
         // New Free Game Purchase button
         this.loadImageWithFallback('ui_freegame_purchase', 'assets/images/ui_freegame_purchase.png', 0x2E86C1);
-        // Background art for Free Spins Purchase UI (needs to exist early)
+        // Background art for Free Spins Purchase UI (prefer sprite, fallback to static PNG)
         this.loadImageWithFallback('free_spins_purchase_check', 'assets/images/free_spins_purchase_check.png', 0xDC143C);
+        try {
+            // Load individual frames for the animated variant (fg-redwitch_00..39)
+            for (let i = 0; i <= 39; i++) {
+                const num = i.toString().padStart(2, '0');
+                const key = `fg-redwitch_${num}`;
+                const path = `assets/images/sprites/free_spins_purchase_check/fg-redwitch_${num}.png`;
+                this.load.image(key, path);
+            }
+            // Load its animation JSON (references keys above)
+            this.load.json('free_spins_purchase_check_animations', 'assets/images/sprites/free_spins_purchase_check/fg_redwitch_an.json');
+        } catch (e) {
+            // Non-fatal: keep static fallback
+            console.warn('Failed to queue fg_redwitch animated assets:', e);
+        }
         // Settings UI assets (moved to sidemenu_UI)
         this.loadImageWithFallback('settings_ui_bg', 'assets/images/sidemenu_UI/sidemenu_bg.png', 0x111111);
         this.loadImageWithFallback('settings_ui_panel', 'assets/images/sidemenu_UI/settings.png', 0x222222);
@@ -310,6 +324,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_formula_plaque', 'assets/images/ui_formula_plaque.png', 0x888888);
         // ui_top currently unused
         
+        // Free Spins Purchase UI assets (buttons and decorations)
+        this.loadImageWithFallback('fg_button01', 'assets/images/fg_button01.png', 0x27AE60);
+        this.loadImageWithFallback('fg_button02', 'assets/images/fg_button02.png', 0xE74C3C);
+        this.loadImageWithFallback('fg_confirm_deco', 'assets/images/fg_confirm_deco.png', 0xFFD700);
+        this.loadImageWithFallback('fg_confirm_UI', 'assets/images/fg_confirm_UI.png', 0x2C3E50);
+
         // Load spritesheets
         try {
             // Money animation spritesheet (use exact frame size to avoid edge clipping)
@@ -324,10 +344,10 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 frameHeight: 512
             });
             
-            // Button light animation spritesheet (new art uses 512x512 tiles)
+            // Button light animation spritesheet (new art uses 525x502 tiles)
             this.load.spritesheet('button_light_sprite', 'assets/images/sprites/spin_button_light/button_light_sprite.png', {
-                frameWidth: 512,
-                frameHeight: 512
+                frameWidth: 525,
+                frameHeight: 502
             });
             // Button light animation JSON (new naming: button_light_an.json)
             this.load.json('button_light_animations', 'assets/images/sprites/spin_button_light/button_light_an.json');

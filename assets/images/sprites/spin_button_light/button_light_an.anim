@@ -1,125 +1,125 @@
 {
     "anims": [
         {
-            "key": "button_light",
+            "key": "button_light2",
             "type": "frame",
             "frames": [
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 0,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 1,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 2,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 3,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 4,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 5,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 6,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 7,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 8,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 9,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 10,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 11,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 12,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 13,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 14,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 15,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 16,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 17,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 18,
                     "duration": 0,
                     "keyframe": false
                 },
                 {
-                    "key": "button_light_sprite",
+                    "key": "button_light2_sprite",
                     "frame": 19,
                     "duration": 0,
                     "keyframe": false

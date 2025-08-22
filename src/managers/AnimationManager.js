@@ -244,6 +244,48 @@ window.AnimationManager = class AnimationManager {
                     });
                 }
             }
+
+            // Free Spins Purchase Check background animations
+            try {
+                const fspcJson = this.scene.cache.json.get('free_spins_purchase_check_animations');
+                if (fspcJson && fspcJson.anims && this.scene.textures.exists('free_spins_purchase_check_sprite')) {
+                    fspcJson.anims.forEach(animConfig => {
+                        const key = `fspc_${animConfig.key || 'loop'}`;
+                        if (!this.scene.anims.exists(key)) {
+                            const frames = (animConfig.frames || []).map(frame => {
+                                if (frame.key && (frame.frame !== undefined)) {
+                                    return { key: frame.key, frame: frame.frame };
+                                }
+                                if (frame.key && (frame.duration !== undefined)) {
+                                    return { key: frame.key, frame: frame.frame || 0 };
+                                }
+                                return { key: 'free_spins_purchase_check_sprite', frame: 0 };
+                            });
+                            this.scene.anims.create({
+                                key,
+                                frames,
+                                frameRate: animConfig.frameRate || 18,
+                                repeat: (animConfig.repeat !== undefined) ? animConfig.repeat : -1,
+                                skipMissedFrames: true
+                            });
+                        }
+                    });
+                } else if (this.scene.textures.exists('free_spins_purchase_check_sprite')) {
+                    const fallback = 'fspc_loop';
+                    if (!this.scene.anims.exists(fallback)) {
+                        const tex = this.scene.textures.get('free_spins_purchase_check_sprite');
+                        const end = (tex && tex.frameTotal) ? Math.max(0, tex.frameTotal - 1) : 19;
+                        this.scene.anims.create({
+                            key: fallback,
+                            frames: this.scene.anims.generateFrameNumbers('free_spins_purchase_check_sprite', { start: 0, end }),
+                            frameRate: 18,
+                            repeat: -1
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to create free_spins_purchase_check animations:', e);
+            }
         } catch (error) {
             console.warn('Failed to create spin button animations:', error);
         }

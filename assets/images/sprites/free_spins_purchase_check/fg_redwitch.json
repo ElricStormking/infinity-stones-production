@@ -1,0 +1,214 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/freegame/fg-redwitch_00.png",
+                "type": "image",
+                "key": "fg-redwitch_00"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_01.png",
+                "type": "image",
+                "key": "fg-redwitch_01"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_02.png",
+                "type": "image",
+                "key": "fg-redwitch_02"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_03.png",
+                "type": "image",
+                "key": "fg-redwitch_03"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_04.png",
+                "type": "image",
+                "key": "fg-redwitch_04"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_05.png",
+                "type": "image",
+                "key": "fg-redwitch_05"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_06.png",
+                "type": "image",
+                "key": "fg-redwitch_06"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_07.png",
+                "type": "image",
+                "key": "fg-redwitch_07"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_08.png",
+                "type": "image",
+                "key": "fg-redwitch_08"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_09.png",
+                "type": "image",
+                "key": "fg-redwitch_09"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_10.png",
+                "type": "image",
+                "key": "fg-redwitch_10"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_11.png",
+                "type": "image",
+                "key": "fg-redwitch_11"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_12.png",
+                "type": "image",
+                "key": "fg-redwitch_12"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_13.png",
+                "type": "image",
+                "key": "fg-redwitch_13"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_14.png",
+                "type": "image",
+                "key": "fg-redwitch_14"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_15.png",
+                "type": "image",
+                "key": "fg-redwitch_15"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_16.png",
+                "type": "image",
+                "key": "fg-redwitch_16"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_17.png",
+                "type": "image",
+                "key": "fg-redwitch_17"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_18.png",
+                "type": "image",
+                "key": "fg-redwitch_18"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_19.png",
+                "type": "image",
+                "key": "fg-redwitch_19"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_20.png",
+                "type": "image",
+                "key": "fg-redwitch_20"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_21.png",
+                "type": "image",
+                "key": "fg-redwitch_21"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_22.png",
+                "type": "image",
+                "key": "fg-redwitch_22"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_23.png",
+                "type": "image",
+                "key": "fg-redwitch_23"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_24.png",
+                "type": "image",
+                "key": "fg-redwitch_24"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_25.png",
+                "type": "image",
+                "key": "fg-redwitch_25"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_26.png",
+                "type": "image",
+                "key": "fg-redwitch_26"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_27.png",
+                "type": "image",
+                "key": "fg-redwitch_27"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_28.png",
+                "type": "image",
+                "key": "fg-redwitch_28"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_29.png",
+                "type": "image",
+                "key": "fg-redwitch_29"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_30.png",
+                "type": "image",
+                "key": "fg-redwitch_30"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_31.png",
+                "type": "image",
+                "key": "fg-redwitch_31"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_32.png",
+                "type": "image",
+                "key": "fg-redwitch_32"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_33.png",
+                "type": "image",
+                "key": "fg-redwitch_33"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_34.png",
+                "type": "image",
+                "key": "fg-redwitch_34"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_35.png",
+                "type": "image",
+                "key": "fg-redwitch_35"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_36.png",
+                "type": "image",
+                "key": "fg-redwitch_36"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_37.png",
+                "type": "image",
+                "key": "fg-redwitch_37"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_38.png",
+                "type": "image",
+                "key": "fg-redwitch_38"
+            },
+            {
+                "url": "assets/freegame/fg-redwitch_39.png",
+                "type": "image",
+                "key": "fg-redwitch_39"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

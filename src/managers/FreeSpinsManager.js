@@ -290,31 +290,88 @@ window.FreeSpinsManager = class FreeSpinsManager {
         overlay.setDepth(1500);
         overlay.setInteractive(); // Block clicks behind it
         
-        // Backdrop character art
-        let bgImage;
-        if (this.scene.textures.exists('free_spins_purchase_check')) {
-            bgImage = this.scene.add.image(width / 2, height / 2, 'free_spins_purchase_check');
-            // Make character prominent: scale to ~95% of viewport height so she towers over the dialog
-            const desiredHeight = height * 0.9;
-            const scale = desiredHeight / bgImage.height;
-            bgImage.setScale(scale);
-            // Absolute position for easy future tweaks (canvas coordinates)
-            // Adjust these numbers to fine-tune the hand alignment with the dialog
+        // Backdrop character art (prefer animated sprite if available)
+        let bgLayer;
+        if (this.scene.textures.exists('fg-redwitch_00')) {
+            // Use frame-based animated foreground (fg-redwitch_00..)
+            bgLayer = this.scene.add.sprite(width / 2, height / 2, 'fg-redwitch_00');
+            // Create a loop animation dynamically if missing
+            const jsonPreferred = this.scene.anims.exists('fspc_fg_redwitch') ? 'fspc_fg_redwitch' : null;
+            const animKey = jsonPreferred || 'fspc_loop';
+            if (!this.scene.anims.exists(animKey)) {
+                try {
+                    const frames = [];
+                    for (let i = 0; i <= 39; i++) {
+                        const num = i.toString().padStart(2, '0');
+                        const key = `fg-redwitch_${num}`;
+                        if (this.scene.textures.exists(key)) {
+                            frames.push({ key });
+                        }
+                    }
+                    if (frames.length > 0) {
+                        this.scene.anims.create({
+                            key: animKey,
+                            frames,
+                            frameRate: 24,
+                            repeat: -1
+                        });
+                    }
+                } catch (e) {
+                    // Non-fatal; fall back to first frame
+                }
+            }
+            if (this.scene.anims.exists(animKey)) {
+                bgLayer.play(animKey);
+            }
+            // Scale larger than viewport height for more impact
+            const desiredHeight = height * 1.25;
+            const sourceH = bgLayer.height || 720;
+            const scale = desiredHeight / sourceH;
+            bgLayer.setScale(scale);
+            const CHARACTER_X = 720;
+            const CHARACTER_Y = 620;
+            bgLayer.setPosition(CHARACTER_X, CHARACTER_Y);
+            bgLayer.setAlpha(0.95);
+            bgLayer.setDepth(1501);
+        } else if (this.scene.textures.exists('free_spins_purchase_check')) {
+            bgLayer = this.scene.add.image(width / 2, height / 2, 'free_spins_purchase_check');
+            const desiredHeight = height * 1.2;
+            const scale = desiredHeight / bgLayer.height;
+            bgLayer.setScale(scale);
             const CHARACTER_X = 720; // px
             const CHARACTER_Y = 620; // px
-            bgImage.setPosition(CHARACTER_X, CHARACTER_Y);
-            bgImage.setAlpha(0.95);
-            bgImage.setDepth(1501);
+            bgLayer.setPosition(CHARACTER_X, CHARACTER_Y);
+            bgLayer.setAlpha(0.95);
+            bgLayer.setDepth(1501);
         }
         
         // Purchase dialog background card over character art
         const dialogCenterY = height / 1.5;
-        const dialogBg = this.scene.add.rectangle(width / 2, dialogCenterY, 350, 210, 0x2C3E50, 0.92);
-        dialogBg.setStrokeStyle(4, 0xFFD700);
+        // Use textured background if provided, else colored rectangle
+        let dialogBg;
+        if (this.scene.textures.exists('fg_confirm_UI')) {
+            dialogBg = this.scene.add.image(width / 2, dialogCenterY, 'fg_confirm_UI');
+            // Scale UI to fit nicely on various resolutions
+            const maxWidth = Math.min(520, width * 0.5);
+            const scale = maxWidth / dialogBg.width;
+            dialogBg.setScale(scale);
+        } else {
+            dialogBg = this.scene.add.rectangle(width / 2, dialogCenterY, 520, 250, 0x2C3E50, 0.92);
+            dialogBg.setStrokeStyle(4, 0xFFD700);
+        }
         dialogBg.setDepth(1502);
         
         // Title
-        const title = this.scene.add.text(width / 2, dialogCenterY - 70, 'PURCHASE FREE SPINS', {
+        // Optional deco bar above title
+        let titleY = dialogCenterY - 70;
+        if (this.scene.textures.exists('fg_confirm_deco')) {
+            const deco = this.scene.add.image(width / 2, dialogCenterY - 94, 'fg_confirm_deco');
+            const decoScale = Math.min(1, (dialogBg.displayWidth || dialogBg.width) * 0.9 / deco.width);
+            deco.setScale(decoScale);
+            deco.setDepth(1503);
+            titleY = dialogCenterY - 70;
+        }
+        const title = this.scene.add.text(width / 2, titleY, 'PURCHASE FREE SPINS', {
             fontSize: '28px',
             fontFamily: 'Arial Black',
             color: '#FFD700'
@@ -340,39 +397,50 @@ window.FreeSpinsManager = class FreeSpinsManager {
         balanceInfo.setOrigin(0.5);
         balanceInfo.setDepth(1503);
         
-        // Purchase button
+        // Purchase button (image based)
         const purchaseBtn = this.scene.add.container(width / 2 - 80, dialogCenterY + 45);
-        const purchaseBg = this.scene.add.rectangle(0, 0, 120, 40, 0x27AE60);
-        purchaseBg.setStrokeStyle(2, 0xFFFFFF);
-        purchaseBg.setInteractive({ useHandCursor: true });
-        const purchaseLabel = this.scene.add.text(0, 0, 'PURCHASE', {
-            fontSize: '16px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF'
-        });
-        purchaseLabel.setOrigin(0.5);
-        purchaseBtn.add([purchaseBg, purchaseLabel]);
-        purchaseBtn.setDepth(1503);
+        let purchaseHit;
+        if (this.scene.textures.exists('fg_button01')) {
+            const img = this.scene.add.image(0, 0, 'fg_button01');
+            // Scale button to a consistent visual size relative to dialog
+            const targetWidth = (dialogBg.displayWidth || 520) * 0.35;
+            const btnScale = targetWidth / img.width;
+            img.setScale(btnScale);
+            purchaseBtn.add(img);
+            purchaseHit = img;
+        } else {
+            const rect = this.scene.add.rectangle(0, 0, 160, 54, 0x27AE60);
+            rect.setStrokeStyle(2, 0xFFFFFF);
+            purchaseBtn.add(rect);
+            purchaseHit = rect;
+        }
+        purchaseHit.setInteractive({ useHandCursor: true });
+        purchaseBtn.setDepth(1504);
         
-        // Cancel button
+        // Cancel button (image based)
         const cancelBtn = this.scene.add.container(width / 2 + 80, dialogCenterY + 45);
-        const cancelBg = this.scene.add.rectangle(0, 0, 120, 40, 0xE74C3C);
-        cancelBg.setStrokeStyle(2, 0xFFFFFF);
-        cancelBg.setInteractive({ useHandCursor: true });
-        const cancelLabel = this.scene.add.text(0, 0, 'CANCEL', {
-            fontSize: '16px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF'
-        });
-        cancelLabel.setOrigin(0.5);
-        cancelBtn.add([cancelBg, cancelLabel]);
-        cancelBtn.setDepth(1503);
+        let cancelHit;
+        if (this.scene.textures.exists('fg_button02')) {
+            const img = this.scene.add.image(0, 0, 'fg_button02');
+            const targetWidth = (dialogBg.displayWidth || 520) * 0.35;
+            const btnScale = targetWidth / img.width;
+            img.setScale(btnScale);
+            cancelBtn.add(img);
+            cancelHit = img;
+        } else {
+            const rect = this.scene.add.rectangle(0, 0, 160, 54, 0xE74C3C);
+            rect.setStrokeStyle(2, 0xFFFFFF);
+            cancelBtn.add(rect);
+            cancelHit = rect;
+        }
+        cancelHit.setInteractive({ useHandCursor: true });
+        cancelBtn.setDepth(1504);
         
         // Store references for cleanup
-        const purchaseElements = [overlay, bgImage, dialogBg, title, description, balanceInfo, purchaseBtn, cancelBtn];
+        const purchaseElements = [overlay, bgLayer, dialogBg, title, description, balanceInfo, purchaseBtn, cancelBtn];
         
         // Purchase button handler
-        purchaseBg.on('pointerup', () => {
+        purchaseHit.on('pointerup', () => {
             // Double-check balance
             if (this.scene.stateManager.gameData.balance >= freeSpinsCost) {
                 // Deduct cost
@@ -392,16 +460,26 @@ window.FreeSpinsManager = class FreeSpinsManager {
         });
         
         // Cancel button handler
-        cancelBg.on('pointerup', () => {
+        cancelHit.on('pointerup', () => {
             purchaseElements.forEach(element => element.destroy());
             window.SafeSound.play(this.scene, 'click');
         });
         
-        // Button hover effects
-        purchaseBg.on('pointerover', () => purchaseBg.setFillStyle(0x2ECC71));
-        purchaseBg.on('pointerout', () => purchaseBg.setFillStyle(0x27AE60));
-        cancelBg.on('pointerover', () => cancelBg.setFillStyle(0xC0392B));
-        cancelBg.on('pointerout', () => cancelBg.setFillStyle(0xE74C3C));
+        // Button hover effects (handle image or rectangle)
+        if (purchaseHit.setTint) {
+            purchaseHit.on('pointerover', () => purchaseHit.setTint(0xB6FFC8));
+            purchaseHit.on('pointerout', () => purchaseHit.clearTint());
+        } else if (purchaseHit.setFillStyle) {
+            purchaseHit.on('pointerover', () => purchaseHit.setFillStyle(0x2ECC71));
+            purchaseHit.on('pointerout', () => purchaseHit.setFillStyle(0x27AE60));
+        }
+        if (cancelHit.setTint) {
+            cancelHit.on('pointerover', () => cancelHit.setTint(0xFFB6C1));
+            cancelHit.on('pointerout', () => cancelHit.clearTint());
+        } else if (cancelHit.setFillStyle) {
+            cancelHit.on('pointerover', () => cancelHit.setFillStyle(0xC0392B));
+            cancelHit.on('pointerout', () => cancelHit.setFillStyle(0xE74C3C));
+        }
         
         window.SafeSound.play(this.scene, 'click');
     }

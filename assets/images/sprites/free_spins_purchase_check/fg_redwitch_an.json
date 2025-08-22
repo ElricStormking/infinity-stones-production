@@ -1,0 +1,224 @@
+{
+    "anims": [
+        {
+            "key": "fg_redwitch",
+            "type": "frame",
+            "frames": [
+                {
+                    "key": "fg-redwitch_00",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_01",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_02",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_03",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_04",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_05",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_06",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_07",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_08",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_09",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_10",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_11",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_12",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_13",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_14",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_15",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_16",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_17",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_18",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_19",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_20",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_21",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_22",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_23",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_24",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_25",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_26",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_27",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_28",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_29",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_30",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_31",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_32",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_33",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_34",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_35",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_36",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_37",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_38",
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "fg-redwitch_39",
+                    "duration": 0,
+                    "keyframe": false
+                }
+            ],
+            "frameRate": 24,
+            "skipMissedFrames": true,
+            "repeat": -1,
+            "randomFrame": false
+        }
+    ],
+    "globalTimeScale": 1,
+    "meta": {
+        "app": "Phaser Editor 2D v3",
+        "contentType": "Phaser v3 Animations"
+    },
+    "settings": {
+        "sourceLang": "JAVA_SCRIPT",
+        "esModule": false,
+        "generateCode": false
+    }
+}

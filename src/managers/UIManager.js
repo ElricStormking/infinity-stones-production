@@ -267,9 +267,13 @@ window.UIManager = class UIManager {
             const lightKey = this.scene.textures.exists('button_light_sprite') ? 'button_light_sprite' : null;
             if (lightKey) {
                 this.ui_spin_light = this.scene.add.sprite(this.ui_spin.x, this.ui_spin.y, lightKey);
-                // Correct for differing spritesheet frame sizes (ui_buttonloop: 244px, light: 512px).
-                // Slightly larger to surround the button cleanly.
-                this.ui_spin_light._scaleMultiplier = (244 / 512) * 1.38; // slightly larger than button so ring surrounds it
+                // Correct for differing spritesheet frame sizes (ui_buttonloop ~244px, light uses actual frame size)
+                // Compute dynamically from the loaded texture frames to avoid hard-coded assumptions
+                const lightTex = this.scene.textures.get('button_light_sprite');
+                const firstFrame = lightTex && lightTex.frames && lightTex.frames.__BASE ? lightTex.frames.__BASE : null;
+                const lightW = (firstFrame && firstFrame.width) ? firstFrame.width : 512;
+                // Scale so the light ring is much larger (requested 7x over previous)
+                this.ui_spin_light._scaleMultiplier = (244 / lightW) * 1.38 * 7;
                 const applyLightScale = () => {
                     this.ui_spin_light.setScale(
                         this.ui_spin.scaleX * this.ui_spin_light._scaleMultiplier,
@@ -283,6 +287,21 @@ window.UIManager = class UIManager {
                 this.ui_spin_light.setDepth(window.GameConfig.UI_DEPTHS.BUTTON + 1);
                 this.ui_spin_light.setBlendMode(Phaser.BlendModes.ADD);
                 this.ui_spin_light.setVisible(false);
+
+                // Ensure animation exists even if JSON parsing failed; create a fallback
+                const ensureLightAnim = () => {
+                    if (!this.scene.anims.exists('light_button_light') && this.scene.textures.exists('button_light_sprite')) {
+                        try {
+                            this.scene.anims.create({
+                                key: 'light_button_light',
+                                frames: this.scene.anims.generateFrameNumbers('button_light_sprite', { start: 0, end: 19 }),
+                                frameRate: 24,
+                                repeat: -1
+                            });
+                        } catch (_) {}
+                    }
+                };
+                ensureLightAnim();
 
                 // Keep the light locked to the spin button center each frame to prevent drift
                 const syncSpinLight = () => {
