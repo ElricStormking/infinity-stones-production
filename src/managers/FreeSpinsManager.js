@@ -364,8 +364,9 @@ window.FreeSpinsManager = class FreeSpinsManager {
         // Title
         // Optional deco bar above title
         let titleY = dialogCenterY - 70;
+        let deco = null;
         if (this.scene.textures.exists('fg_confirm_deco')) {
-            const deco = this.scene.add.image(width / 2, dialogCenterY - 94, 'fg_confirm_deco');
+            deco = this.scene.add.image(width / 2, dialogCenterY - 94, 'fg_confirm_deco');
             const decoScale = Math.min(1, (dialogBg.displayWidth || dialogBg.width) * 0.9 / deco.width);
             deco.setScale(decoScale);
             deco.setDepth(1503);
@@ -438,6 +439,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         
         // Store references for cleanup
         const purchaseElements = [overlay, bgLayer, dialogBg, title, description, balanceInfo, purchaseBtn, cancelBtn];
+        if (deco) purchaseElements.push(deco);
         
         // Purchase button handler
         purchaseHit.on('pointerup', () => {
