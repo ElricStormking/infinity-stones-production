@@ -1,0 +1,10 @@
+# Middleware directory
+This directory contains Express middleware functions.
+
+Structure:
+- auth.js - JWT authentication middleware
+- rateLimiting.js - Rate limiting configuration
+- validation.js - Input validation middleware
+- errorHandler.js - Global error handling
+- security.js - Security headers and CORS
+- logging.js - Request logging middleware

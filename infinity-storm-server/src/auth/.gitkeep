@@ -1,0 +1,8 @@
+# Authentication directory
+This directory contains authentication and authorization logic.
+
+Structure:
+- jwt.js - JWT token management
+- session.js - Session management
+- strategies.js - Authentication strategies
+- permissions.js - Authorization and permissions

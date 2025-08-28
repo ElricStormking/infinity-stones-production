@@ -1,0 +1,9 @@
+# Scripts directory
+This directory contains utility scripts and tools.
+
+Structure:
+- seed.js - Database seeding script
+- reset.js - Database reset script
+- deploy.js - Deployment script
+- backup.js - Database backup script
+- migration/ - Migration utilities

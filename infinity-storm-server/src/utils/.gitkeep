@@ -1,0 +1,9 @@
+# Utilities directory
+This directory contains utility functions and helpers.
+
+Structure:
+- logger.js - Winston logging configuration
+- constants.js - Application constants
+- helpers.js - General helper functions
+- validation.js - Data validation utilities
+- crypto.js - Cryptographic utilities

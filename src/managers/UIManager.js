@@ -3,6 +3,13 @@ window.UIManager = class UIManager {
     constructor(scene) {
         this.scene = scene;
         this.uiElements = {};
+        
+        // Initialize wallet integration
+        this.initializeWalletIntegration();
+        
+        // Transaction history state
+        this.transactionHistoryContainer = null;
+        this.isTransactionHistoryVisible = false;
     }
     
     createUI() {
@@ -120,6 +127,9 @@ window.UIManager = class UIManager {
                 autoSpinCounter: this.autoSpinCounterText
             }
         };
+        
+        // Initialize server balance after UI creation
+        this.initializeServerBalance();
         
         // Add hover effects to interactive elements
         this.addButtonHoverEffects();
@@ -524,7 +534,8 @@ window.UIManager = class UIManager {
         }
         if (historyBtn) {
             historyBtn.on('pointerup', () => {
-                if (this.scene.showMessage) this.scene.showMessage('History coming soon');
+                window.SafeSound.play(this.scene, 'click');
+                this.openTransactionHistory();
             });
         }
 
@@ -635,8 +646,9 @@ window.UIManager = class UIManager {
     }
     
     createTextOverlays(scaleX, scaleY) {
-        // Text overlays for values
-        this.balanceText = this.scene.add.text(250 * scaleX, 675 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, {
+        // Text overlays for values - initialize with server balance if available
+        const initialBalance = window.WalletAPI ? window.WalletAPI.getCurrentBalance() : this.scene.stateManager.gameData.balance;
+        this.balanceText = this.scene.add.text(250 * scaleX, 675 * scaleY, `$${initialBalance.toFixed(2)}`, {
             fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial Bold',
             color: '#FFD700',
@@ -839,10 +851,52 @@ window.UIManager = class UIManager {
         }
     }
     
+    // Initialize wallet integration
+    initializeWalletIntegration() {
+        // Setup wallet event listeners
+        if (this.scene && this.scene.events) {
+            // Listen for wallet balance updates
+            this.scene.events.on('wallet_balance_update', this.handleWalletBalanceUpdate, this);
+            this.scene.events.on('wallet_transaction_created', this.handleWalletTransactionCreated, this);
+            this.scene.events.on('wallet_error', this.handleWalletError, this);
+        }
+    }
+    
+    // Initialize server balance on UI creation
+    async initializeServerBalance() {
+        if (window.WalletAPI) {
+            try {
+                await window.WalletAPI.getBalance();
+                this.updateBalanceFromServer();
+                console.log('✅ Wallet UI initialized with server balance');
+            } catch (error) {
+                console.warn('⚠️ Failed to initialize wallet balance from server:', error);
+                this.handleWalletError({ error: 'Failed to connect to wallet service' });
+            }
+        }
+    }
+    
     // Update methods
     updateBalanceDisplay() {
+        // Use server balance if available, otherwise fallback to local state
+        const balance = window.WalletAPI ? window.WalletAPI.getCurrentBalance() : this.scene.stateManager.gameData.balance;
         if (this.balanceText) {
-            this.balanceText.setText(`$${this.scene.stateManager.gameData.balance.toFixed(2)}`);
+            this.balanceText.setText(`$${balance.toFixed(2)}`);
+        }
+    }
+    
+    // Update balance from server (server-authoritative)
+    updateBalanceFromServer() {
+        if (window.WalletAPI && this.balanceText) {
+            const serverBalance = window.WalletAPI.getCurrentBalance();
+            this.balanceText.setText(`$${serverBalance.toFixed(2)}`);
+            
+            // Also update local state manager for consistency
+            if (this.scene.stateManager) {
+                this.scene.stateManager.setBalanceFromServer(serverBalance);
+            }
+            
+            console.log(`💰 Balance display updated from server: $${serverBalance.toFixed(2)}`);
         }
     }
     
@@ -1145,15 +1199,372 @@ window.UIManager = class UIManager {
                 ? window.GameConfig.FREE_SPINS.BUY_FEATURE_COST
                 : 100;
             const cost = bet * costMult;
+            
+            // Check if player can afford the purchase using server balance
+            const canAfford = window.WalletAPI ? window.WalletAPI.canAffordBet(cost) : true;
+            
             if (this.ui_freegame_purchase_text) {
                 this.ui_freegame_purchase_text.setText(`$${cost.toFixed(2)}`);
                 this.ui_freegame_purchase_text.setVisible(true);
                 // Keep overlay centered on the button in case of layout shifts
-                this.ui_freegame_purchase_text.setPosition(this.ui_freegame_purchase.x, this.ui_freegame_purchase.y + 27 + (this.ui_freegame_purchase_text.style.fontSize ? 12 : 12));
+                const width = this.scene.cameras.main.width;
+                const height = this.scene.cameras.main.height;
+                const scaleX = width / 1280;
+                const scaleY = height / 720;
+                this.ui_freegame_purchase_text.setPosition(this.ui_freegame_purchase.x, this.ui_freegame_purchase.y + (12 * Math.min(scaleX, scaleY)));
+            }
+            
+            // Update button appearance based on affordability
+            if (this.ui_freegame_purchase) {
+                this.ui_freegame_purchase.setAlpha(canAfford ? 1.0 : 0.6);
+                this.ui_freegame_purchase.setTint(canAfford ? 0xffffff : 0x999999);
             }
         } catch (e) {
             // fail-safe: hide text if something is wrong
             if (this.ui_freegame_purchase_text) this.ui_freegame_purchase_text.setVisible(false);
+        }
+    }
+    
+    // Wallet Event Handlers
+    handleWalletBalanceUpdate(data) {
+        console.log('💰 Wallet balance update received in UI:', data);
+        
+        // Update balance display with animation
+        if (this.balanceText) {
+            const oldBalance = parseFloat(this.balanceText.text.replace('$', ''));
+            const newBalance = data.newBalance;
+            
+            // Update text
+            this.balanceText.setText(`$${newBalance.toFixed(2)}`);
+            
+            // Add visual feedback for balance change
+            if (Math.abs(oldBalance - newBalance) > 0.01) {
+                this.animateBalanceChange(oldBalance, newBalance);
+            }
+        }
+        
+        // Update purchase button affordability
+        this.updatePurchaseButtonCost();
+    }
+    
+    handleWalletTransactionCreated(data) {
+        console.log('📝 Wallet transaction created in UI:', data);
+        
+        // Show transaction notification
+        this.showTransactionNotification(data.transaction);
+        
+        // Refresh balance display
+        this.updateBalanceFromServer();
+    }
+    
+    handleWalletError(data) {
+        console.error('❌ Wallet error in UI:', data);
+        
+        // Show error message to user
+        if (this.scene.showMessage) {
+            this.scene.showMessage(`Wallet Error: ${data.error}`);
+        }
+        
+        // Update UI to show disconnected state
+        if (this.balanceText) {
+            this.balanceText.setTint(0xff6666); // Red tint for error
+            this.scene.time.delayedCall(2000, () => {
+                if (this.balanceText) this.balanceText.clearTint();
+            });
+        }
+    }
+    
+    // Animate balance change
+    animateBalanceChange(oldBalance, newBalance) {
+        if (!this.balanceText) return;
+        
+        const change = newBalance - oldBalance;
+        const isIncrease = change > 0;
+        
+        // Color animation
+        this.balanceText.setTint(isIncrease ? 0x00ff00 : 0xff0000);
+        
+        // Scale animation
+        this.scene.tweens.add({
+            targets: this.balanceText,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 200,
+            yoyo: true,
+            ease: 'Power2',
+            onComplete: () => {
+                this.balanceText.clearTint();
+            }
+        });
+        
+        // Optional: Show change amount
+        this.showBalanceChangeText(change, isIncrease);
+    }
+    
+    // Show floating text for balance change
+    showBalanceChangeText(change, isIncrease) {
+        if (!this.balanceText) return;
+        
+        const changeText = this.scene.add.text(
+            this.balanceText.x, 
+            this.balanceText.y - 30, 
+            `${isIncrease ? '+' : ''}$${change.toFixed(2)}`,
+            {
+                fontSize: '16px',
+                fontFamily: 'Arial Bold',
+                color: isIncrease ? '#00ff00' : '#ff0000'
+            }
+        );
+        changeText.setOrigin(0.5);
+        changeText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY + 1);
+        
+        // Animate floating text
+        this.scene.tweens.add({
+            targets: changeText,
+            y: changeText.y - 40,
+            alpha: 0,
+            duration: 1500,
+            ease: 'Power2',
+            onComplete: () => {
+                changeText.destroy();
+            }
+        });
+    }
+    
+    // Show transaction notification
+    showTransactionNotification(transaction) {
+        const formatted = window.WalletAPI.formatTransaction(transaction);
+        const message = `${transaction.type.toUpperCase()}: ${formatted.formattedAmount}`;
+        
+        if (this.scene.showMessage) {
+            this.scene.showMessage(message, 2000);
+        }
+    }
+    
+    // Transaction History UI
+    openTransactionHistory() {
+        if (this.transactionHistoryContainer) {
+            this.transactionHistoryContainer.setVisible(true);
+            this.isTransactionHistoryVisible = true;
+            return;
+        }
+        
+        this.createTransactionHistoryUI();
+    }
+    
+    async createTransactionHistoryUI() {
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const scaleX = width / 1280;
+        const scaleY = height / 720;
+        const depth = 2500;
+        
+        this.transactionHistoryContainer = this.scene.add.container(0, 0);
+        this.transactionHistoryContainer.setDepth(depth);
+        this.isTransactionHistoryVisible = true;
+        
+        // Background
+        const bg = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        bg.setInteractive();
+        this.transactionHistoryContainer.add(bg);
+        
+        // Panel
+        const panelWidth = 600 * scaleX;
+        const panelHeight = 500 * scaleY;
+        const panel = this.scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x1F2937, 0.95);
+        panel.setStrokeStyle(4, 0xFFD700);
+        this.transactionHistoryContainer.add(panel);
+        
+        // Title
+        const title = this.scene.add.text(width / 2, (height / 2) - (panelHeight / 2) + 40 * scaleY, 'TRANSACTION HISTORY', {
+            fontSize: Math.floor(24 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700'
+        });
+        title.setOrigin(0.5);
+        this.transactionHistoryContainer.add(title);
+        
+        // Loading text
+        const loadingText = this.scene.add.text(width / 2, height / 2, 'Loading transactions...', {
+            fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF'
+        });
+        loadingText.setOrigin(0.5);
+        this.transactionHistoryContainer.add(loadingText);
+        
+        // Load transactions
+        try {
+            if (window.WalletAPI) {
+                const result = await window.WalletAPI.getTransactions(20);
+                loadingText.destroy();
+                
+                if (result.success) {
+                    this.displayTransactionList(result.data.data.transactions, panelWidth, panelHeight, scaleX, scaleY);
+                } else {
+                    this.showTransactionError('Failed to load transactions');
+                }
+            } else {
+                loadingText.setText('Wallet service not available');
+            }
+        } catch (error) {
+            console.error('Failed to load transactions:', error);
+            loadingText.setText('Error loading transactions');
+        }
+        
+        // Close button
+        const closeBtn = this.scene.add.text(width / 2, (height / 2) + (panelHeight / 2) - 30 * scaleY, 'CLOSE', {
+            fontSize: Math.floor(20 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#000000',
+            backgroundColor: '#FFD700',
+            padding: { x: 16, y: 8 }
+        });
+        closeBtn.setOrigin(0.5);
+        closeBtn.setInteractive({ useHandCursor: true });
+        closeBtn.on('pointerup', () => {
+            this.closeTransactionHistory();
+        });
+        this.transactionHistoryContainer.add(closeBtn);
+        
+        // Close on background click
+        bg.on('pointerup', () => {
+            this.closeTransactionHistory();
+        });
+    }
+    
+    displayTransactionList(transactions, panelWidth, panelHeight, scaleX, scaleY) {
+        if (!transactions || transactions.length === 0) {
+            this.showTransactionError('No transactions found');
+            return;
+        }
+        
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const startY = (height / 2) - (panelHeight / 2) + 80 * scaleY;
+        const itemHeight = 30 * scaleY;
+        const maxItems = Math.floor((panelHeight - 120 * scaleY) / itemHeight);
+        
+        // Display up to maxItems transactions
+        const displayTransactions = transactions.slice(0, maxItems);
+        
+        displayTransactions.forEach((transaction, index) => {
+            const formatted = window.WalletAPI.formatTransaction(transaction);
+            const y = startY + (index * itemHeight);
+            
+            // Transaction type
+            const typeText = this.scene.add.text((width / 2) - (panelWidth / 2) + 20 * scaleX, y, transaction.type.toUpperCase(), {
+                fontSize: Math.floor(14 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial Bold',
+                color: '#FFFFFF'
+            });
+            typeText.setOrigin(0, 0.5);
+            this.transactionHistoryContainer.add(typeText);
+            
+            // Amount
+            const amountText = this.scene.add.text(width / 2, y, formatted.formattedAmount, {
+                fontSize: Math.floor(14 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial Bold',
+                color: formatted.color === 'green' ? '#00ff00' : '#ff6666'
+            });
+            amountText.setOrigin(0.5, 0.5);
+            this.transactionHistoryContainer.add(amountText);
+            
+            // Date
+            const dateText = this.scene.add.text((width / 2) + (panelWidth / 2) - 20 * scaleX, y, formatted.formattedDate.split(' ')[0], {
+                fontSize: Math.floor(12 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial',
+                color: '#CCCCCC'
+            });
+            dateText.setOrigin(1, 0.5);
+            this.transactionHistoryContainer.add(dateText);
+            
+            // Separator line
+            if (index < displayTransactions.length - 1) {
+                const line = this.scene.add.rectangle(width / 2, y + (itemHeight / 2), panelWidth - 40 * scaleX, 1, 0x444444);
+                this.transactionHistoryContainer.add(line);
+            }
+        });
+        
+        // Summary
+        if (window.WalletAPI) {
+            const summary = window.WalletAPI.getTransactionSummary();
+            const summaryY = startY + (maxItems * itemHeight) + 20 * scaleY;
+            
+            const summaryText = this.scene.add.text(width / 2, summaryY, `Net Result (30d): ${summary.netResult >= 0 ? '+' : ''}$${summary.netResult.toFixed(2)}`, {
+                fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px',
+                fontFamily: 'Arial Bold',
+                color: summary.netResult >= 0 ? '#00ff00' : '#ff6666'
+            });
+            summaryText.setOrigin(0.5);
+            this.transactionHistoryContainer.add(summaryText);
+        }
+    }
+    
+    showTransactionError(message) {
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        
+        const errorText = this.scene.add.text(width / 2, height / 2, message, {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            color: '#ff6666'
+        });
+        errorText.setOrigin(0.5);
+        this.transactionHistoryContainer.add(errorText);
+    }
+    
+    closeTransactionHistory() {
+        if (this.transactionHistoryContainer) {
+            this.transactionHistoryContainer.setVisible(false);
+            this.isTransactionHistoryVisible = false;
+        }
+    }
+    
+    // Wallet validation for bets
+    canAffordBet(amount) {
+        if (window.WalletAPI) {
+            const validation = window.WalletAPI.validateBetAmount(amount);
+            return validation.valid;
+        }
+        return this.scene.stateManager.canAffordBet();
+    }
+    
+    // Get validation error message
+    getBetValidationError(amount) {
+        if (window.WalletAPI) {
+            const validation = window.WalletAPI.validateBetAmount(amount);
+            return validation.error || null;
+        }
+        return null;
+    }
+    
+    // Refresh wallet data
+    async refreshWalletData() {
+        if (window.WalletAPI) {
+            try {
+                await window.WalletAPI.refreshBalance();
+                console.log('✅ Wallet data refreshed');
+            } catch (error) {
+                console.error('❌ Failed to refresh wallet data:', error);
+                this.handleWalletError({ error: 'Failed to refresh wallet data' });
+            }
+        }
+    }
+    
+    // Clean up wallet integration
+    destroy() {
+        // Remove event listeners
+        if (this.scene && this.scene.events) {
+            this.scene.events.off('wallet_balance_update', this.handleWalletBalanceUpdate, this);
+            this.scene.events.off('wallet_transaction_created', this.handleWalletTransactionCreated, this);
+            this.scene.events.off('wallet_error', this.handleWalletError, this);
+        }
+        
+        // Clean up transaction history
+        if (this.transactionHistoryContainer) {
+            this.transactionHistoryContainer.destroy();
+            this.transactionHistoryContainer = null;
         }
     }
 } 

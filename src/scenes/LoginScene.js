@@ -16,36 +16,60 @@ class LoginScene extends Phaser.Scene {
     }
     
     create() {
+        console.log('🔐 LoginScene accessed - Portal-first architecture active');
+        console.log('🔐 This scene is deprecated in portal-first mode');
+        
         // Background
         this.add.image(960, 540, 'loginBg').setDisplaySize(1920, 1080);
         
-        // Title
-        this.add.text(960, 200, 'INFINITY STORM', {
-            fontSize: '64px',
+        // Show deprecation message
+        const shade = this.add.rectangle(960, 540, 1920, 1080, 0x000000, 0.8);
+        
+        const title = this.add.text(960, 400, 'PORTAL AUTHENTICATION REQUIRED', {
+            fontSize: '48px',
             fontFamily: 'Arial Black',
-            color: '#FFD700',
-            stroke: '#8B4513',
+            color: '#FF6B6B',
+            stroke: '#8B0000',
             strokeThickness: 4
         }).setOrigin(0.5);
         
-        this.add.text(960, 280, 'Client-Server Edition', {
+        const message = this.add.text(960, 500, 'This game uses portal-first authentication.\nYou will be redirected to the authentication portal.', {
             fontSize: '24px',
             fontFamily: 'Arial',
             color: '#FFFFFF',
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            align: 'center'
         }).setOrigin(0.5);
         
-        // Create UI
-        this.createLoginUI();
-        this.createRegisterUI();
-        this.createConnectionStatus();
+        const redirectingText = this.add.text(960, 600, 'Redirecting in 3 seconds...', {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            color: '#FFD700'
+        }).setOrigin(0.5);
         
-        // Show login form by default
-        this.showLoginForm();
+        // Countdown and redirect
+        let countdown = 3;
+        const timer = this.time.addEvent({
+            delay: 1000,
+            repeat: 2,
+            callback: () => {
+                countdown--;
+                if (countdown > 0) {
+                    redirectingText.setText(`Redirecting in ${countdown} second${countdown > 1 ? 's' : ''}...`);
+                } else {
+                    redirectingText.setText('Redirecting now...');
+                    // Redirect to portal
+                    window.SessionService.redirectToPortal('login_scene_deprecated');
+                }
+            }
+        });
         
-        // Check existing authentication
-        this.checkExistingAuth();
+        // Immediate redirect button
+        this.createButton('REDIRECT NOW', 960, 700, 0x4CAF50, () => {
+            timer.destroy();
+            window.SessionService.redirectToPortal('manual_redirect');
+        });
     }
     
     createLoginUI() {

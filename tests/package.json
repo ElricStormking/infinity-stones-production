@@ -1,0 +1,45 @@
+{
+  "name": "infinity-storm-rtp-validation",
+  "version": "1.0.0",
+  "description": "Casino-grade RTP validation and mathematical testing suite for Infinity Storm",
+  "main": "rtp-validation.js",
+  "scripts": {
+    "test": "jest",
+    "test:rtp": "node run-rtp-validation.js",
+    "test:rtp:full": "node run-rtp-validation.js --full",
+    "test:rtp:quick": "node run-rtp-validation.js --quick",
+    "test:basic": "node test-basic-rtp.js",
+    "test:math": "cd ../infinity-storm-server && npm test -- --testPathPattern=game-math.test.js",
+    "validate": "node run-rtp-validation.js --full --verbose",
+    "compliance": "node run-rtp-validation.js --full"
+  },
+  "keywords": [
+    "rtp",
+    "validation",
+    "casino",
+    "mathematical",
+    "compliance",
+    "slot-game",
+    "testing"
+  ],
+  "author": "Infinity Storm Development Team",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "jsdom": "^22.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 120000,
+    "verbose": true,
+    "collectCoverage": false,
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

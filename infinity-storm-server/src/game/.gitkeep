@@ -1,0 +1,11 @@
+# Game Engine directory
+This directory contains the server-side game logic.
+
+Structure:
+- engine.js - Main game engine
+- rng.js - Random number generator
+- gridGenerator.js - Grid generation logic
+- winCalculator.js - Win calculation logic
+- stateManager.js - Game state management
+- antiCheat.js - Anti-cheat validation
+- config.js - Game configuration and rules

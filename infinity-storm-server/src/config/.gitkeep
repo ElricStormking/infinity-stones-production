@@ -1,0 +1,9 @@
+# Configuration directory
+This directory contains application configuration files.
+
+Structure:
+- database.js - Database configuration
+- redis.js - Redis configuration
+- environment.js - Environment-specific settings
+- server.js - Server configuration
+- logging.js - Logging configuration

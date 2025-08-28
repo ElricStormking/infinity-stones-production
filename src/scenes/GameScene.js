@@ -102,6 +102,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.manualCascadeControl = false; // Manual step-through mode
         this.cascadeStepPaused = false; // Pause between cascade steps
         
+        // Initialize server integration
+        this.initializeServerIntegration();
+        
         // Fill initial grid (after LoadingScene ensured assets are ready)
         this.gridManager.fillGrid();
         // Ensure all grid symbols that have animations start idling on first enter
@@ -383,6 +386,40 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (window.DEBUG) {
             console.log('🔄 Cascade synchronization system initialized');
             console.log('🔄 CascadeAPI available:', !!this.cascadeAPI);
+        }
+    }
+    
+    // Task 6.2: Initialize server integration system
+    initializeServerIntegration() {
+        // Initialize server mode and demo mode fallback
+        this.serverMode = window.GameConfig.SERVER_MODE !== false; // Default to true for server integration
+        this.demoMode = false; // Will switch to true if server connection fails
+        this.isServerSpinning = false; // Track server spin state separately from UI spinning
+        this.serverSpinResult = null; // Store server spin result for processing
+        
+        // Setup GameAPI reference and event listeners
+        if (window.GameAPI && this.serverMode) {
+            this.gameAPI = window.GameAPI;
+            
+            // Setup server event listeners
+            this.events.on('spin_result', this.handleServerSpinResult, this);
+            this.events.on('balance_update', this.handleServerBalanceUpdate, this);
+            this.events.on('game_state_change', this.handleServerGameStateChange, this);
+            this.events.on('auth_error', this.handleServerAuthError, this);
+            
+            if (window.DEBUG) {
+                console.log('🔌 Server integration initialized');
+                console.log('🔌 GameAPI available:', !!this.gameAPI);
+                console.log('🔌 Server mode:', this.serverMode);
+            }
+        } else {
+            // Fallback to demo mode if GameAPI not available
+            this.serverMode = false;
+            this.demoMode = true;
+            
+            if (window.DEBUG) {
+                console.log('🔌 Server integration disabled - running in demo mode');
+            }
         }
     }
     
@@ -815,38 +852,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.stateManager.placeBet();
         }
         
-        // Update balance
+        // Update balance display
         this.updateBalanceDisplay();
         
-        // Clear current grid with animation
-        await this.clearGridWithAnimation();
-        
-        // Fill new grid with cascading animation
-        await this.fillGridWithCascade();
-        
-        // Play spin sound
-        window.SafeSound.play(this, 'spin');
-        
-        // Debug: Show grid state before cascades
-        if (window.DEBUG) this.debugGridState();
-        
-        // Start cascade process
-        await this.processCascades();
-        
-        // Check for other bonus features
-        this.freeSpinsManager.checkOtherBonusFeatures();
-        
-        // Capture base win before any Random Multipliers (used for top plaque formula)
-        this.baseWinForFormula = this.totalWin;
-        this.spinAppliedMultiplier = 1;
-        this.spinAccumulatedRM = 0;
-
-        // Check for Random Multiplier after spin results are decided
-        // Run twice with a small delay to avoid race with end-of-cascade settlement
-        await this.bonusManager.checkRandomMultiplier();
-        await this.delay(50);
-        // If something cleared/replaced the grid cell between animations, try again
-        await this.bonusManager.checkRandomMultiplier();
+        // Task 6.2: Server integration - request spin from server or fallback to demo mode
+        if (this.serverMode && this.gameAPI) {
+            await this.processServerSpin();
+        } else {
+            await this.processDemoSpin();
+        }
         
         // End spin
         this.endSpin();
@@ -965,6 +979,132 @@ window.GameScene = class GameScene extends Phaser.Scene {
             });
         } catch (e) {
             console.warn('Shooting star FX failed:', e);
+        }
+    }
+    
+    // Task 6.2: Server spin processing with loading states and error handling
+    async processServerSpin() {
+        try {
+            // Show loading state
+            this.showMessage('Processing spin...', 500);
+            this.isServerSpinning = true;
+            
+            // Request spin from server
+            const betAmount = this.stateManager.gameData.currentBet;
+            const spinResult = await this.gameAPI.requestSpin(betAmount);
+            
+            if (spinResult.success && spinResult.data) {
+                // Server spin successful - process result through animation system
+                if (window.DEBUG) {
+                    console.log('🎰 Server spin successful:', spinResult.data);
+                }
+                
+                // Clear current grid with animation
+                await this.clearGridWithAnimation();
+                
+                // Play spin sound
+                window.SafeSound.play(this, 'spin');
+                
+                // Process server result through animation system
+                await this.processServerSpinResult(spinResult.data);
+                
+                // Check for other bonus features based on server result
+                if (spinResult.data.freeSpinsAwarded) {
+                    this.freeSpinsManager.checkOtherBonusFeatures();
+                }
+                
+                // Update balance from server
+                if (spinResult.data.balance !== undefined) {
+                    this.stateManager.setBalanceFromServer(spinResult.data.balance);
+                    this.updateBalanceDisplay();
+                }
+                
+            } else {
+                // Server spin failed - switch to demo mode
+                console.warn('❌ Server spin failed:', spinResult.error || 'Unknown error');
+                this.switchToDemoMode();
+                
+                // Fall back to demo spin
+                await this.processDemoSpin();
+            }
+            
+        } catch (error) {
+            console.error('❌ Server spin error:', error);
+            this.switchToDemoMode();
+            
+            // Fall back to demo spin  
+            await this.processDemoSpin();
+        } finally {
+            this.isServerSpinning = false;
+        }
+    }
+    
+    // Task 6.2: Demo mode spin processing (original client-only logic)
+    async processDemoSpin() {
+        try {
+            // Record demo spin to database for tracking (best effort, non-blocking)
+            this.recordDemoSpinToDatabase();
+            
+            // Clear current grid with animation
+            await this.clearGridWithAnimation();
+            
+            // Fill new grid with cascading animation
+            await this.fillGridWithCascade();
+            
+            // Play spin sound
+            window.SafeSound.play(this, 'spin');
+            
+            // Debug: Show grid state before cascades
+            if (window.DEBUG) this.debugGridState();
+            
+            // Start cascade process (original client logic)
+            await this.processCascades();
+            
+            // Check for other bonus features
+            this.freeSpinsManager.checkOtherBonusFeatures();
+            
+            // Capture base win before any Random Multipliers (used for top plaque formula)
+            this.baseWinForFormula = this.totalWin;
+            this.spinAppliedMultiplier = 1;
+            this.spinAccumulatedRM = 0;
+
+            // Check for Random Multiplier after spin results are decided
+            // Run twice with a small delay to avoid race with end-of-cascade settlement
+            await this.bonusManager.checkRandomMultiplier();
+            await this.delay(50);
+            // If something cleared/replaced the grid cell between animations, try again
+            await this.bonusManager.checkRandomMultiplier();
+            
+        } catch (error) {
+            console.error('❌ Demo spin error:', error);
+            this.showMessage('Spin error - please try again');
+        }
+    }
+    
+    // Record demo spin to server database (non-blocking)
+    async recordDemoSpinToDatabase() {
+        try {
+            const betAmount = this.stateManager.gameData.currentBet;
+            
+            // Make async call to demo-spin endpoint (don't await to avoid blocking gameplay)
+            fetch('http://localhost:3000/api/demo-spin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ betAmount })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('✅ Demo spin recorded to database');
+                } else {
+                    console.warn('⚠️ Failed to record demo spin to database');
+                }
+            }).catch(error => {
+                console.warn('⚠️ Demo spin database recording failed:', error.message);
+            });
+        } catch (error) {
+            // Silently fail - database recording is optional for demo mode
+            console.warn('⚠️ Demo spin recording error:', error.message);
         }
     }
     
@@ -1884,6 +2024,246 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         
         this.updateSyncStatusDisplay();
+    }
+
+    // Task 6.2: Server event handlers for game integration
+    handleServerSpinResult(data) {
+        if (window.DEBUG) {
+            console.log('🎰 Server spin result received:', data);
+        }
+        
+        // Store server result for processing
+        this.serverSpinResult = data;
+        this.isServerSpinning = false;
+        
+        // Process server result through existing animation system
+        this.processServerSpinResult(data);
+    }
+    
+    handleServerBalanceUpdate(data) {
+        if (window.DEBUG) {
+            console.log('💰 Server balance update received:', data);
+        }
+        
+        // Update local balance from server using GameStateManager
+        if (data.balance !== undefined) {
+            this.stateManager.setBalanceFromServer(data.balance);
+            this.updateBalanceDisplay();
+        }
+    }
+    
+    handleServerGameStateChange(data) {
+        if (window.DEBUG) {
+            console.log('🔄 Server game state change:', data);
+        }
+        
+        // Sync game state changes from server
+        if (data.data) {
+            // Update free spins state if provided
+            if (data.data.freeSpinsActive !== undefined) {
+                this.stateManager.freeSpinsData.active = data.data.freeSpinsActive;
+                if (data.data.freeSpinsCount !== undefined) {
+                    this.stateManager.freeSpinsData.count = data.data.freeSpinsCount;
+                }
+                this.uiManager.updateFreeSpinsDisplay();
+            }
+            
+            // Update other game state as needed
+            if (data.data.balance !== undefined) {
+                this.stateManager.setBalanceFromServer(data.data.balance);
+                this.updateBalanceDisplay();
+            }
+        }
+    }
+    
+    handleServerAuthError() {
+        if (window.DEBUG) {
+            console.warn('🔐 Server authentication error - switching to demo mode');
+        }
+        
+        // Switch to demo mode on authentication error
+        this.serverMode = false;
+        this.demoMode = true;
+        this.isServerSpinning = false;
+        
+        this.showMessage('Connection lost - switching to demo mode');
+    }
+    
+    async processServerSpinResult(serverResult) {
+        try {
+            // Server result contains complete cascade and win data
+            // We need to animate through it while showing the server-determined results
+            
+            if (window.DEBUG) {
+                console.log('🎰 Processing server spin result:', serverResult);
+            }
+            
+            // Update balance from server result
+            if (serverResult.balance !== undefined) {
+                this.stateManager.setBalanceFromServer(serverResult.balance);
+            }
+            
+            // Process server-generated grid and cascades
+            if (serverResult.cascades && serverResult.cascades.length > 0) {
+                await this.animateServerCascades(serverResult.cascades);
+            } else {
+                // No cascades - just update grid to final state
+                if (serverResult.finalGrid) {
+                    this.displayServerGrid(serverResult.finalGrid);
+                }
+            }
+            
+            // Update total win from server
+            this.totalWin = serverResult.totalWin || 0;
+            this.updateWinDisplay();
+            
+            // Handle free spins from server result
+            if (serverResult.freeSpinsAwarded) {
+                this.freeSpinsManager.processFreeSpinsTrigger(serverResult.freeSpinsAwarded);
+            }
+            
+            // Handle multipliers from server result
+            if (serverResult.multiplierAwarded) {
+                // Display multiplier animation using existing system
+                await this.bonusManager.showRandomMultiplierResult(serverResult.multiplierAwarded);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error processing server spin result:', error);
+            
+            // Fallback to demo mode if processing fails
+            this.switchToDemoMode();
+        }
+    }
+    
+    async animateServerCascades(cascades) {
+        // Animate through each cascade step provided by the server
+        for (let i = 0; i < cascades.length; i++) {
+            const cascadeStep = cascades[i];
+            
+            if (window.DEBUG) {
+                console.log(`🎰 Animating cascade ${i + 1}/${cascades.length}:`, cascadeStep);
+            }
+            
+            // Display the grid state for this cascade
+            if (cascadeStep.gridBefore) {
+                this.displayServerGrid(cascadeStep.gridBefore);
+            }
+            
+            // Animate matches if provided
+            if (cascadeStep.matches && cascadeStep.matches.length > 0) {
+                // Convert server matches to client format for animation
+                const clientMatches = this.convertServerMatchesToClient(cascadeStep.matches);
+                
+                // Add win amount for this cascade
+                if (cascadeStep.win > 0) {
+                    this.totalWin += cascadeStep.win;
+                    this.updateWinDisplay();
+                }
+                
+                // Animate the matches using existing system
+                await this.shakeMatches(clientMatches, 320);
+                this.createShatterEffect(clientMatches);
+                
+                // Remove matched symbols
+                this.removeServerMatches(cascadeStep.matches);
+                
+                // Wait for removal animation
+                await this.delay(window.GameConfig.ANIMATIONS.SYMBOL_DESTROY_TIME);
+            }
+            
+            // Display the grid state after this cascade
+            if (cascadeStep.gridAfter) {
+                this.displayServerGrid(cascadeStep.gridAfter);
+                await this.animateSymbolDrop();
+            }
+            
+            // Play cascade sound
+            if (i > 0) { // Don't play on first cascade (initial spin)
+                window.SafeSound.play(this, 'cascade');
+            }
+        }
+    }
+    
+    displayServerGrid(serverGrid) {
+        // Update the client grid to match the server grid
+        if (!serverGrid || !Array.isArray(serverGrid)) {
+            console.warn('Invalid server grid:', serverGrid);
+            return;
+        }
+        
+        for (let col = 0; col < 6; col++) {
+            for (let row = 0; row < 5; row++) {
+                if (serverGrid[col] && serverGrid[col][row]) {
+                    const symbolType = serverGrid[col][row];
+                    
+                    // Remove existing symbol if present
+                    if (this.gridManager.grid[col][row]) {
+                        this.gridManager.grid[col][row].destroy();
+                        this.gridManager.grid[col][row] = null;
+                    }
+                    
+                    // Create new symbol at this position
+                    const symbol = this.gridManager.createSymbol(symbolType, col, row);
+                    this.gridManager.grid[col][row] = symbol;
+                }
+            }
+        }
+    }
+    
+    convertServerMatchesToClient(serverMatches) {
+        // Convert server match format to client GridManager format
+        const clientMatches = [];
+        
+        serverMatches.forEach(match => {
+            const clientMatch = [];
+            match.positions.forEach(pos => {
+                const symbol = this.gridManager.grid[pos.col] && this.gridManager.grid[pos.col][pos.row];
+                if (symbol) {
+                    clientMatch.push({
+                        col: pos.col,
+                        row: pos.row,
+                        symbol: symbol
+                    });
+                }
+            });
+            
+            if (clientMatch.length > 0) {
+                clientMatches.push(clientMatch);
+            }
+        });
+        
+        return clientMatches;
+    }
+    
+    removeServerMatches(serverMatches) {
+        // Remove matched symbols based on server data
+        serverMatches.forEach(match => {
+            match.positions.forEach(pos => {
+                const symbol = this.gridManager.grid[pos.col] && this.gridManager.grid[pos.col][pos.row];
+                if (symbol) {
+                    symbol.destroy();
+                    this.gridManager.grid[pos.col][pos.row] = null;
+                }
+            });
+        });
+    }
+    
+    async animateSymbolDrop() {
+        // Animate symbols dropping down using existing cascade logic
+        return this.gridManager.cascadeSymbols();
+    }
+    
+    switchToDemoMode() {
+        this.serverMode = false;
+        this.demoMode = true;
+        this.isServerSpinning = false;
+        
+        this.showMessage('Server error - switched to demo mode');
+        
+        if (window.DEBUG) {
+            console.log('🔌 Switched to demo mode due to server error');
+        }
     }
 
     update(time, delta) {

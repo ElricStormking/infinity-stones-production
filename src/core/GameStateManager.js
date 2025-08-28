@@ -114,6 +114,13 @@ window.GameStateManager = class GameStateManager {
         this.gameData.currentBet = amount;
     }
     
+    // Task 6.2: Server balance synchronization
+    setBalanceFromServer(serverBalance) {
+        // Set balance directly from server without local calculations
+        this.gameData.balance = Math.max(0, serverBalance);
+        return this.gameData.balance;
+    }
+    
     canAffordBet() {
         return this.gameData.balance >= this.gameData.currentBet;
     }

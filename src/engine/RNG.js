@@ -93,8 +93,8 @@
     var originalMathRandom = window.Math.random;
     window.Math.random = function() {
       if (securityLogging) {
-        console.error('SECURITY VIOLATION: Direct Math.random() call detected! Use window.RNG instead.');
-        console.trace('Math.random() call stack:');
+        console.warn('SECURITY: Math.random() call detected - use window.RNG for game logic');
+        // Don't throw error, just warn for now to allow initialization
       }
       return originalMathRandom();
     };

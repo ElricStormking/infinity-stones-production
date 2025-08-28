@@ -189,7 +189,7 @@ const config = {
             height: 1080
         }
     },
-    scene: [window.LoadingScene, window.MenuScene, window.GameScene],
+    scene: [window.LoadingScene, window.LoginScene, window.MenuScene, window.GameScene],
     physics: {
         default: 'arcade',
         arcade: {
@@ -221,43 +221,95 @@ const config = {
     }
 };
 
-// Initialize the game
-window.addEventListener('load', () => {
+// Initialize the game with session validation
+window.addEventListener('load', async () => {
     try {
-        console.log('Initializing Infinity Storm game...');
+        console.log('Initializing Infinity Storm game with session validation...');
+        
+        // Initialize session service first
+        let sessionAuthenticated = false;
+        if (window.SessionService) {
+            console.log('🔐 Initializing session...');
+            try {
+                const sessionResult = await window.SessionService.initializeSession();
+                sessionAuthenticated = sessionResult.authenticated;
+                
+                if (sessionAuthenticated) {
+                    console.log('🔐 ✅ Session validated, starting game');
+                } else {
+                    console.log('🔐 No valid session, starting game in authentication mode');
+                    // Don't return - let the game start so it can handle auth
+                }
+            } catch (error) {
+                console.warn('🔐 Session initialization error:', error);
+                console.log('🔐 Starting game without session');
+            }
+        } else {
+            console.warn('🔐 SessionService not available, starting in demo mode');
+        }
+        
+        console.log('🎮 Starting Phaser game...');
+        
+        // Verify all scene classes are loaded
+        const sceneClasses = [window.LoadingScene, window.LoginScene, window.MenuScene, window.GameScene];
+        const sceneNames = ['LoadingScene', 'LoginScene', 'MenuScene', 'GameScene'];
+        
+        sceneClasses.forEach((sceneClass, index) => {
+            if (sceneClass) {
+                console.log(`✅ ${sceneNames[index]} loaded`);
+            } else {
+                console.error(`❌ ${sceneNames[index]} not loaded!`);
+            }
+        });
+        
+        // Check if Phaser is available
+        if (typeof Phaser === 'undefined') {
+            throw new Error('Phaser is not loaded!');
+        } else {
+            console.log(`✅ Phaser version ${Phaser.VERSION} loaded`);
+        }
+        
+        console.log('🎮 Creating Phaser game instance...');
         const game = new Phaser.Game(config);
         
         // Make game instance globally available for debugging
         window.game = game;
         console.log('Game initialized successfully!');
+        
+        // Handle resize events
+        window.addEventListener('resize', () => {
+            if (window.game) {
+                window.game.scale.refresh();
+            }
+        });
+        
+        // Handle orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (window.game) {
+                    window.game.scale.refresh();
+                }
+            }, 100);
+        });
+        
+        // Prevent context menu on right click
+        window.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (window.game) {
+                if (document.hidden) {
+                    window.game.sound.pauseAll();
+                } else {
+                    window.game.sound.resumeAll();
+                }
+            }
+        });
+        
     } catch (error) {
         console.error('Failed to initialize game:', error);
         document.body.innerHTML = '<h1>Game Failed to Load</h1><p>Error: ' + error.message + '</p>';
     }
-    
-    // Handle resize events
-    window.addEventListener('resize', () => {
-        game.scale.refresh();
-    });
-    
-    // Handle orientation change
-    window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-            game.scale.refresh();
-        }, 100);
-    });
-    
-    // Prevent context menu on right click
-    window.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-    });
-    
-    // Handle visibility change
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            game.sound.pauseAll();
-        } else {
-            game.sound.resumeAll();
-        }
-    });
 }); 

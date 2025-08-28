@@ -1,6 +1,5 @@
-import NetworkService from './NetworkService.js';
-
-class WalletAPI {
+// WalletAPI - Server-side wallet integration
+window.WalletAPI = new (class WalletAPI {
     constructor() {
         this.currentBalance = 0;
         this.currency = 'USD';
@@ -12,12 +11,12 @@ class WalletAPI {
     
     setupWebSocketListeners() {
         // Listen for balance updates
-        NetworkService.on('balance_update', (data) => {
+        window.NetworkService.on('balance_update', (data) => {
             this.handleBalanceUpdate(data);
         });
         
         // Listen for transaction notifications
-        NetworkService.on('transaction_created', (data) => {
+        window.NetworkService.on('transaction_created', (data) => {
             this.handleTransactionCreated(data);
         });
     }
@@ -25,10 +24,10 @@ class WalletAPI {
     // Balance Management
     async getBalance() {
         try {
-            const result = await NetworkService.get('/api/wallet/balance');
+            const result = await window.NetworkService.get('/api/wallet/balance');
             if (result.success) {
-                this.currentBalance = result.data.data.balance;
-                this.currency = result.data.data.currency || 'USD';
+                this.currentBalance = result.data.balance;
+                this.currency = result.data.currency || 'USD';
                 console.log('💰 Current balance:', this.formatBalance(this.currentBalance));
             }
             return result;
@@ -40,8 +39,8 @@ class WalletAPI {
     
     async refreshBalance() {
         // Request balance via WebSocket if connected, otherwise HTTP
-        if (NetworkService.isSocketConnected()) {
-            NetworkService.emit('balance_request');
+        if (window.NetworkService.isSocketConnected()) {
+            window.NetworkService.emit('balance_request');
         } else {
             return await this.getBalance();
         }
@@ -50,9 +49,9 @@ class WalletAPI {
     // Transaction Management
     async getTransactions(limit = 50, offset = 0) {
         try {
-            const result = await NetworkService.get(`/api/wallet/transactions?limit=${limit}&offset=${offset}`);
+            const result = await window.NetworkService.get(`/api/wallet/transactions?limit=${limit}&offset=${offset}`);
             if (result.success) {
-                this.transactions = result.data.data.transactions || [];
+                this.transactions = result.data.transactions || [];
                 console.log(`📋 Loaded ${this.transactions.length} transactions`);
             }
             return result;
@@ -64,7 +63,7 @@ class WalletAPI {
     
     async getTransaction(transactionId) {
         try {
-            const result = await NetworkService.get(`/api/wallet/transactions/${transactionId}`);
+            const result = await window.NetworkService.get(`/api/wallet/transactions/${transactionId}`);
             return result;
         } catch (error) {
             console.error('❌ Failed to get transaction:', error);
@@ -75,7 +74,7 @@ class WalletAPI {
     // Wallet Operations (if supported)
     async deposit(amount, method = 'demo') {
         try {
-            const result = await NetworkService.post('/api/wallet/deposit', {
+            const result = await window.NetworkService.post('/api/wallet/deposit', {
                 amount: amount,
                 method: method
             });
@@ -94,7 +93,7 @@ class WalletAPI {
     
     async withdraw(amount, method = 'demo') {
         try {
-            const result = await NetworkService.post('/api/wallet/withdraw', {
+            const result = await window.NetworkService.post('/api/wallet/withdraw', {
                 amount: amount,
                 method: method
             });
@@ -263,7 +262,7 @@ class WalletAPI {
     async resetDemoBalance(amount = 10000) {
         try {
             // This would need to be implemented on the server
-            const result = await NetworkService.post('/api/wallet/reset-demo', {
+            const result = await window.NetworkService.post('/api/wallet/reset-demo', {
                 amount: amount
             });
             
@@ -278,6 +277,4 @@ class WalletAPI {
             return { success: false, error: error.message };
         }
     }
-}
-
-export default new WalletAPI(); 
+})(); 

@@ -1,0 +1,812 @@
+<% 
+// Set active navigation
+locals.activeNav = 'dashboard';
+%>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+    :root {
+        --primary-color: #6f42c1;
+        --secondary-color: #e83e8c;
+        --success-color: #198754;
+        --danger-color: #dc3545;
+        --warning-color: #fd7e14;
+        --info-color: #0dcaf0;
+        --dark-color: #212529;
+        --light-color: #f8f9fa;
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(111, 66, 193, 0.3);
+        color: white;
+    }
+
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid #e3e6f0;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .metric-change {
+        font-size: 0.8rem;
+        margin-top: 10px;
+    }
+
+    .metric-change.positive {
+        color: var(--success-color);
+    }
+
+    .metric-change.negative {
+        color: var(--danger-color);
+    }
+
+    .chart-container {
+        background: #ffffff;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+
+    .status-healthy { background-color: var(--success-color); }
+    .status-warning { background-color: var(--warning-color); }
+    .status-critical { background-color: var(--danger-color); }
+
+    .realtime-badge {
+        background: linear-gradient(45deg, #00ff41, #00d4aa);
+        color: #000;
+        padding: 4px 8px;
+        border-radius: 15px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+
+    .alert-panel {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .nav-pills .nav-link {
+        color: #6c757d;
+        transition: all 0.3s ease;
+        border-radius: 10px;
+    }
+
+    .nav-pills .nav-link:hover, 
+    .nav-pills .nav-link.active {
+        color: #ffffff;
+        background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+    }
+
+    .compliance-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .compliance-compliant {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .compliance-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .compliance-critical {
+        background: var(--danger-color);
+        color: white;
+    }
+</style>
+
+<!-- Header -->
+<div class="dashboard-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="mb-2">
+                <i class="fas fa-chart-area me-3"></i>
+                Admin Dashboard
+            </h1>
+            <p class="mb-0 opacity-75">Real-time monitoring and analytics for Infinity Storm Casino</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="realtime-badge">
+                <i class="fas fa-broadcast-tower me-2"></i>
+                LIVE
+            </div>
+            <div class="mt-2 text-sm">
+                Last updated: <span id="lastUpdated">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Panel -->
+<div id="alertPanel" class="alert-panel d-none">
+    <h6><i class="fas fa-exclamation-triangle me-2"></i>Active Alerts</h6>
+    <div id="alertList"></div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="mb-4">
+    <ul class="nav nav-pills" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#overview" type="button" role="tab">
+                <i class="fas fa-tachometer-alt me-2"></i> Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#financial" type="button" role="tab">
+                <i class="fas fa-dollar-sign me-2"></i> Financial
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#game-analytics" type="button" role="tab">
+                <i class="fas fa-gamepad me-2"></i> Game Analytics
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#players" type="button" role="tab">
+                <i class="fas fa-users me-2"></i> Players
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#system" type="button" role="tab">
+                <i class="fas fa-server me-2"></i> System
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#rtp" type="button" role="tab">
+                <i class="fas fa-chart-line me-2"></i> RTP
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#compliance" type="button" role="tab">
+                <i class="fas fa-shield-alt me-2"></i> Compliance
+            </button>
+        </li>
+    </ul>
+</div>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Overview Section -->
+    <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        <h3 class="mb-4">Executive Summary</h3>
+        
+        <!-- Key Metrics Row -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="status-indicator status-healthy"></div>
+                    <div class="metric-value text-success" id="activePlayers">0</div>
+                    <div class="metric-label">Active Players</div>
+                    <div class="metric-change positive" id="playersChange">+0% vs last hour</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary" id="totalRevenue">$0</div>
+                    <div class="metric-label">Revenue (24h)</div>
+                    <div class="metric-change positive" id="revenueChange">+0% vs yesterday</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-info" id="totalSpins">0</div>
+                    <div class="metric-label">Spins (24h)</div>
+                    <div class="metric-change positive" id="spinsChange">+0% vs yesterday</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-warning" id="currentRTP">0%</div>
+                    <div class="metric-label">Current RTP</div>
+                    <div class="metric-change" id="rtpStatus">Target: 96.5%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Trend Chart -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h5 class="mb-3">Revenue Trend (24h)</h5>
+                    <canvas id="revenueTrendChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Section -->
+    <div class="tab-pane fade" id="financial" role="tabpanel">
+        <h3 class="mb-4">Financial Overview</h3>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="metric-card">
+                    <h6 class="text-muted mb-3">Revenue Breakdown</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-value h4 text-success" id="totalWagered">$0</div>
+                            <div class="metric-label">Total Wagered</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-value h4 text-danger" id="totalWon">$0</div>
+                            <div class="metric-label">Total Won</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-value h5" id="avgBetSize">$0</div>
+                            <div class="metric-label">Avg Bet Size</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-value h5" id="profitMargin">0%</div>
+                            <div class="metric-label">Profit Margin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="metric-card">
+                    <h6 class="text-muted mb-3">Credit Flow</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-value h4 text-info" id="creditsAdded">$0</div>
+                            <div class="metric-label">Credits Added</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-value h4 text-warning" id="creditsWithdrawn">$0</div>
+                            <div class="metric-label">Credits Withdrawn</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <div class="metric-value h5" id="netCreditFlow">$0</div>
+                        <div class="metric-label">Net Credit Flow</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Analytics Section -->
+    <div class="tab-pane fade" id="game-analytics" role="tabpanel">
+        <h3 class="mb-4">Game Analytics</h3>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="chart-container">
+                    <h6>Feature Usage Analysis</h6>
+                    <canvas id="featureUsageChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card">
+                    <h6 class="text-muted mb-3">Game Statistics</h6>
+                    <div class="mb-3">
+                        <div class="metric-label">Free Spins Triggered</div>
+                        <div class="metric-value h5" id="freeSpinsTriggered">0</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="metric-label">Burst Mode Activations</div>
+                        <div class="metric-value h5" id="burstModeActivations">0</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="metric-label">Big Wins</div>
+                        <div class="metric-value h5" id="bigWins">0</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="metric-label">Avg Session Duration</div>
+                        <div class="metric-value h5" id="avgSessionDuration">0 min</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Analytics Section -->
+    <div class="tab-pane fade" id="players" role="tabpanel">
+        <h3 class="mb-4">Player Analytics</h3>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary" id="totalPlayers">0</div>
+                    <div class="metric-label">Total Players</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-success" id="activeUsers">0</div>
+                    <div class="metric-label">Active (24h)</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-info" id="newUsers">0</div>
+                    <div class="metric-label">New Users</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-warning" id="avgSessionsPerUser">0</div>
+                    <div class="metric-label">Avg Sessions/User</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Health Section -->
+    <div class="tab-pane fade" id="system" role="tabpanel">
+        <h3 class="mb-4">System Health Monitoring</h3>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-info" id="avgResponseTime">0ms</div>
+                    <div class="metric-label">Avg Response Time</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-success" id="errorRate">0%</div>
+                    <div class="metric-label">Error Rate</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary" id="totalRequests">0</div>
+                    <div class="metric-label">Total Requests</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-warning" id="systemUptime">0h</div>
+                    <div class="metric-label">System Uptime</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RTP Monitoring Section -->
+    <div class="tab-pane fade" id="rtp" role="tabpanel">
+        <h3 class="mb-4">RTP Monitoring & Compliance</h3>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary" id="rtpCurrent">0%</div>
+                    <div class="metric-label">Current RTP</div>
+                    <div class="metric-change" id="rtpDeviation">Target: 96.5%</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <div id="rtpStatusIndicator" class="status-indicator status-healthy"></div>
+                    <div class="metric-value" id="rtpStatusText">Healthy</div>
+                    <div class="metric-label">RTP Status</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-success" id="complianceScore">100</div>
+                    <div class="metric-label">Compliance Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RTP Alerts -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="metric-card">
+                    <h6 class="mb-3">RTP Monitoring Alerts</h6>
+                    <div id="rtpAlerts">
+                        <!-- Dynamic alerts -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Section -->
+    <div class="tab-pane fade" id="compliance" role="tabpanel">
+        <h3 class="mb-4">Compliance & Audit Dashboard</h3>
+        
+        <!-- Compliance Status -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="metric-card">
+                    <h6 class="text-muted mb-3">Compliance Status</h6>
+                    <div id="complianceChecks">
+                        <!-- Dynamic compliance checks -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="metric-card">
+                    <h6 class="text-muted mb-3">Audit Summary</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-value h5" id="totalAuditEvents">0</div>
+                            <div class="metric-label">Total Events</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-value h5" id="adminActions">0</div>
+                            <div class="metric-label">Admin Actions</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="metric-value h5" id="systemEvents">0</div>
+                            <div class="metric-label">System Events</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-value h5" id="suspiciousTransactions">0</div>
+                            <div class="metric-label">Flagged Transactions</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regulatory Information -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="metric-card">
+                    <h6 class="mb-3">Regulatory Status</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="compliance-badge compliance-compliant">COMPLIANT</div>
+                                <div class="metric-label mt-2">Overall Status</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="metric-value h6" id="lastAuditDate">--</div>
+                                <div class="metric-label">Last Audit</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="metric-value h6" id="nextAuditDate">--</div>
+                                <div class="metric-label">Next Audit</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <button class="btn btn-primary btn-sm" onclick="generateComplianceReport()">
+                                    <i class="fas fa-download me-2"></i>Generate Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let socket = null;
+let charts = {};
+let metricsData = {};
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSocket();
+    loadDashboardData();
+    
+    // Refresh data every 30 seconds
+    setInterval(loadDashboardData, 30000);
+});
+
+// Socket.IO connection for real-time updates
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('connect', function() {
+        console.log('Connected to real-time dashboard');
+    });
+
+    socket.on('metrics_update', function(data) {
+        updateRealtimeMetrics(data);
+    });
+
+    socket.on('rtp_alert', function(alert) {
+        showAlert(alert);
+    });
+
+    socket.on('system_alert', function(alert) {
+        showAlert(alert);
+    });
+}
+
+// Load dashboard data from API
+async function loadDashboardData() {
+    try {
+        const response = await fetch('/admin/api/metrics');
+        const data = await response.json();
+        
+        if (data.success) {
+            metricsData = data.metrics;
+            updateDashboard(data.metrics);
+            updateLastUpdated();
+        }
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+    }
+}
+
+// Update dashboard with new data
+function updateDashboard(data) {
+    updateOverviewSection(data);
+    updateFinancialSection(data.financial);
+    updateGameAnalyticsSection(data.game);
+    updatePlayerSection(data.player);
+    updateSystemSection(data.system);
+    updateRTPSection(data.rtp);
+    updateComplianceSection(data.compliance);
+    updateRealtimeMetrics(data.realtime);
+    
+    // Update alerts
+    if (data.rtp && data.rtp.alerts) {
+        updateAlerts(data.rtp.alerts);
+    }
+}
+
+// Update overview section
+function updateOverviewSection(data) {
+    if (data.realtime) {
+        document.getElementById('activePlayers').textContent = data.realtime.activePlayers || 0;
+    }
+    if (data.financial) {
+        document.getElementById('totalRevenue').textContent = formatCurrency(data.financial.revenue);
+        document.getElementById('totalSpins').textContent = formatNumber(data.financial.totalSpins);
+    }
+    if (data.rtp) {
+        document.getElementById('currentRTP').textContent = data.rtp.currentRTP + '%';
+    }
+}
+
+// Update financial section
+function updateFinancialSection(data) {
+    if (!data) return;
+    
+    document.getElementById('totalWagered').textContent = formatCurrency(data.totalWagered);
+    document.getElementById('totalWon').textContent = formatCurrency(data.totalWon);
+    document.getElementById('avgBetSize').textContent = formatCurrency(data.avgBetSize);
+    document.getElementById('profitMargin').textContent = (data.profitMargin || 0).toFixed(1) + '%';
+    document.getElementById('creditsAdded').textContent = formatCurrency(data.creditsAdded);
+    document.getElementById('creditsWithdrawn').textContent = formatCurrency(data.creditsWithdrawn);
+    document.getElementById('netCreditFlow').textContent = formatCurrency(data.netCreditFlow);
+}
+
+// Update game analytics section
+function updateGameAnalyticsSection(data) {
+    if (!data) return;
+    
+    if (data.featureUsage) {
+        document.getElementById('freeSpinsTriggered').textContent = data.featureUsage.freeSpinsTriggered || 0;
+        document.getElementById('burstModeActivations').textContent = data.featureUsage.burstModeActivations || 0;
+        document.getElementById('bigWins').textContent = data.featureUsage.bigWins || 0;
+    }
+    document.getElementById('avgSessionDuration').textContent = Math.round(data.avgSessionDuration || 0) + ' min';
+}
+
+// Update player section
+function updatePlayerSection(data) {
+    if (!data) return;
+    
+    document.getElementById('totalPlayers').textContent = data.totalPlayers || 0;
+    document.getElementById('activeUsers').textContent = data.activeUsers || 0;
+    document.getElementById('newUsers').textContent = data.newUsers || 0;
+    document.getElementById('avgSessionsPerUser').textContent = data.avgSessionsPerUser || 0;
+}
+
+// Update system section
+function updateSystemSection(data) {
+    if (!data) return;
+    
+    document.getElementById('avgResponseTime').textContent = data.avgResponseTime + 'ms';
+    document.getElementById('errorRate').textContent = data.errorRate.toFixed(1) + '%';
+    document.getElementById('totalRequests').textContent = formatNumber(data.totalRequests);
+    if (data.systemHealth) {
+        document.getElementById('systemUptime').textContent = Math.round(data.systemHealth.uptime_hours || 0) + 'h';
+    }
+}
+
+// Update RTP section
+function updateRTPSection(data) {
+    if (!data) return;
+    
+    document.getElementById('rtpCurrent').textContent = data.currentRTP + '%';
+    document.getElementById('complianceScore').textContent = Math.round(data.complianceScore);
+    
+    // Update RTP status
+    const statusElement = document.getElementById('rtpStatusIndicator');
+    const statusText = document.getElementById('rtpStatusText');
+    
+    if (statusElement && statusText) {
+        statusElement.className = `status-indicator status-${data.status}`;
+        statusText.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        statusText.className = `metric-value text-${data.status === 'healthy' ? 'success' : data.status === 'warning' ? 'warning' : 'danger'}`;
+    }
+    
+    // Update RTP alerts
+    updateRTPAlerts(data.alerts);
+}
+
+// Update compliance section
+function updateComplianceSection(data) {
+    if (!data) return;
+    
+    if (data.auditSummary) {
+        document.getElementById('totalAuditEvents').textContent = data.auditSummary.total_events || 0;
+        document.getElementById('adminActions').textContent = data.auditSummary.admin_actions || 0;
+        document.getElementById('systemEvents').textContent = data.auditSummary.system_events || 0;
+    }
+    document.getElementById('suspiciousTransactions').textContent = data.suspiciousTransactions || 0;
+    
+    // Update dates
+    if (data.lastAuditDate) {
+        document.getElementById('lastAuditDate').textContent = new Date(data.lastAuditDate).toLocaleDateString();
+    }
+    if (data.nextAuditDate) {
+        document.getElementById('nextAuditDate').textContent = new Date(data.nextAuditDate).toLocaleDateString();
+    }
+    
+    // Update compliance checks
+    updateComplianceChecks(data.complianceChecks);
+}
+
+// Update realtime metrics
+function updateRealtimeMetrics(data) {
+    if (data && data.activePlayers !== undefined) {
+        document.getElementById('activePlayers').textContent = data.activePlayers;
+    }
+}
+
+// Update alerts
+function updateAlerts(alerts) {
+    const alertPanel = document.getElementById('alertPanel');
+    const alertList = document.getElementById('alertList');
+    
+    if (!alerts || alerts.length === 0) {
+        alertPanel.classList.add('d-none');
+        return;
+    }
+    
+    alertPanel.classList.remove('d-none');
+    alertList.innerHTML = alerts.map(alert => `
+        <div class="alert alert-${alert.type === 'critical' ? 'danger' : 'warning'} alert-dismissible fade show mb-2">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${alert.message}
+            <small class="d-block mt-1">${new Date(alert.timestamp).toLocaleString()}</small>
+        </div>
+    `).join('');
+}
+
+// Update RTP alerts
+function updateRTPAlerts(alerts) { 
+    const container = document.getElementById('rtpAlerts');
+    if (!container) return;
+    
+    if (!alerts || alerts.length === 0) {
+        container.innerHTML = '<div class="text-success"><i class="fas fa-check-circle me-2"></i>No RTP alerts - system operating within normal parameters</div>';
+        return;
+    }
+    
+    container.innerHTML = alerts.map(alert => `
+        <div class="alert alert-${alert.type === 'critical' ? 'danger' : 'warning'} mb-2">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${alert.message}
+            <small class="d-block mt-1">${new Date(alert.timestamp).toLocaleString()}</small>
+        </div>
+    `).join('');
+}
+
+// Update compliance checks
+function updateComplianceChecks(checks) {
+    const container = document.getElementById('complianceChecks');
+    if (!container || !checks) return;
+    
+    const checkLabels = {
+        rtp_compliance: 'RTP Compliance',
+        transaction_integrity: 'Transaction Integrity',
+        audit_trail_complete: 'Audit Trail Complete',
+        player_protection: 'Player Protection',
+        responsible_gaming: 'Responsible Gaming'
+    };
+    
+    container.innerHTML = Object.entries(checks).map(([key, value]) => `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>${checkLabels[key] || key}</span>
+            <span class="text-${value ? 'success' : 'danger'}">
+                <i class="fas fa-${value ? 'check-circle' : 'times-circle'}"></i>
+                ${value ? 'PASS' : 'FAIL'}
+            </span>
+        </div>
+    `).join('');
+}
+
+// Utility functions
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount || 0);
+}
+
+function formatNumber(num) {
+    return new Intl.NumberFormat('en-US').format(num || 0);
+}
+
+function updateLastUpdated() {
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+function showAlert(alert) {
+    console.log('Alert:', alert);
+}
+
+function generateComplianceReport() {
+    window.open('/admin/api/compliance-report', '_blank');
+}
+</script>

@@ -1,0 +1,9 @@
+# Controllers directory
+This directory contains all the Express route controllers for handling API endpoints.
+
+Structure:
+- auth.js - Authentication and session management
+- game.js - Game logic API endpoints
+- admin.js - Admin panel API endpoints
+- wallet.js - Wallet and transaction management
+- profile.js - Player profile management

@@ -1,0 +1,924 @@
+<% 
+// Set active navigation
+locals.activeNav = 'players';
+%>
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <div class="d-flex align-items-center mb-2">
+            <a href="/admin/players" class="btn btn-outline-secondary btn-sm me-3">
+                <i class="bi bi-arrow-left"></i> Back to Players
+            </a>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-person-circle text-primary"></i>
+                <%= player.username %>
+                <% if (player.is_admin) { %>
+                    <span class="badge bg-warning text-dark ms-2">
+                        <i class="bi bi-shield"></i> Administrator
+                    </span>
+                <% } %>
+                <% if (player.is_demo) { %>
+                    <span class="badge bg-info ms-2">Demo Account</span>
+                <% } %>
+            </h1>
+        </div>
+        <div class="d-flex align-items-center">
+            <!-- Status Badge -->
+            <% if (player.status === 'active') { %>
+                <span class="badge bg-success me-3">
+                    <i class="bi bi-check-circle"></i> Active
+                </span>
+            <% } else if (player.status === 'suspended') { %>
+                <span class="badge bg-warning text-dark me-3">
+                    <i class="bi bi-pause-circle"></i> Suspended
+                </span>
+            <% } else if (player.status === 'banned') { %>
+                <span class="badge bg-danger me-3">
+                    <i class="bi bi-x-circle"></i> Banned
+                </span>
+            <% } %>
+            
+            <!-- Last Activity -->
+            <small class="text-muted">
+                <i class="bi bi-clock"></i>
+                Last login: 
+                <% if (player.last_login_at) { %>
+                    <%= new Date(player.last_login_at).toLocaleString() %>
+                <% } else { %>
+                    Never
+                <% } %>
+            </small>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="btn-group" role="group">
+        <% if (player.status === 'active' && player.id !== admin.id) { %>
+            <button type="button" class="btn btn-warning" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#suspendModal">
+                <i class="bi bi-pause"></i> Suspend
+            </button>
+        <% } else if (player.status !== 'active' && player.id !== admin.id) { %>
+            <form method="POST" action="/admin/players/<%= player.id %>/activate" class="d-inline">
+                <button type="submit" class="btn btn-success"
+                        data-confirm="Are you sure you want to activate <%= player.username %>?">
+                    <i class="bi bi-play"></i> Activate
+                </button>
+            </form>
+        <% } %>
+        
+        <% if (player.status !== 'banned' && player.id !== admin.id) { %>
+            <button type="button" class="btn btn-danger" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#banModal">
+                <i class="bi bi-x-circle"></i> Ban
+            </button>
+        <% } %>
+        
+        <button type="button" class="btn btn-primary" 
+                data-bs-toggle="modal" 
+                data-bs-target="#creditAdjustmentModal">
+            <i class="bi bi-cash-coin"></i> Adjust Credits
+        </button>
+        
+        <button type="button" class="btn btn-info" 
+                data-bs-toggle="modal" 
+                data-bs-target="#sendNotificationModal">
+            <i class="bi bi-bell"></i> Send Notification
+        </button>
+    </div>
+</div>
+
+<!-- Alert Messages -->
+<% if (typeof message !== 'undefined' && message) { %>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <%= message %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<% } %>
+<% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<% } %>
+
+<!-- Player Overview Cards -->
+<div class="row mb-4">
+    <!-- Account Information -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person-vcard text-primary"></i>
+                    Account Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Username:</dt>
+                    <dd class="col-sm-7"><%= player.username %></dd>
+                    
+                    <dt class="col-sm-5">Email:</dt>
+                    <dd class="col-sm-7">
+                        <small><%= player.email %></small>
+                    </dd>
+                    
+                    <dt class="col-sm-5">Player ID:</dt>
+                    <dd class="col-sm-7">
+                        <small class="font-monospace text-muted"><%= player.id %></small>
+                    </dd>
+                    
+                    <dt class="col-sm-5">Account Type:</dt>
+                    <dd class="col-sm-7">
+                        <% if (player.is_admin) { %>
+                            <span class="badge bg-warning text-dark">Administrator</span>
+                        <% } else if (player.is_demo) { %>
+                            <span class="badge bg-info">Demo Player</span>
+                        <% } else { %>
+                            <span class="badge bg-secondary">Regular Player</span>
+                        <% } %>
+                    </dd>
+                    
+                    <dt class="col-sm-5">Joined:</dt>
+                    <dd class="col-sm-7">
+                        <%= new Date(player.created_at).toLocaleDateString() %>
+                    </dd>
+                    
+                    <dt class="col-sm-5">Updated:</dt>
+                    <dd class="col-sm-7">
+                        <%= new Date(player.updated_at).toLocaleDateString() %>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wallet Information -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-wallet2 text-success"></i>
+                    Wallet Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-3">
+                    <dt class="col-sm-6">Current Balance:</dt>
+                    <dd class="col-sm-6">
+                        <span class="h5 text-success">
+                            $<%= parseFloat(player.credits).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %>
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Lifetime Deposits:</dt>
+                    <dd class="col-sm-6">
+                        <span class="text-info">
+                            $<%= player.total_deposits ? parseFloat(player.total_deposits).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00' %>
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Lifetime Withdrawals:</dt>
+                    <dd class="col-sm-6">
+                        <span class="text-warning">
+                            $<%= player.total_withdrawals ? parseFloat(player.total_withdrawals).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00' %>
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Net Position:</dt>
+                    <dd class="col-sm-6">
+                        <% 
+                        const deposits = player.total_deposits || 0;
+                        const withdrawals = player.total_withdrawals || 0;
+                        const net = deposits - withdrawals;
+                        %>
+                        <span class="<%= net >= 0 ? 'text-success' : 'text-danger' %>">
+                            <%= net >= 0 ? '+' : '' %>$<%= net.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %>
+                        </span>
+                    </dd>
+                </dl>
+                
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#transactionHistoryModal">
+                        <i class="bi bi-clock-history"></i> View Transaction History
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Statistics -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-graph-up text-info"></i>
+                    Game Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-3">
+                    <dt class="col-sm-6">Total Spins:</dt>
+                    <dd class="col-sm-6">
+                        <%= player.spinResults?.length || 0 %>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Total Wagered:</dt>
+                    <dd class="col-sm-6">
+                        <% 
+                        const totalWagered = player.spinResults?.reduce((sum, spin) => sum + parseFloat(spin.bet_amount || 0), 0) || 0;
+                        %>
+                        $<%= totalWagered.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Total Won:</dt>
+                    <dd class="col-sm-6">
+                        <% 
+                        const totalWon = player.spinResults?.reduce((sum, spin) => sum + parseFloat(spin.payout_amount || 0), 0) || 0;
+                        %>
+                        $<%= totalWon.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %>
+                    </dd>
+                    
+                    <dt class="col-sm-6">RTP:</dt>
+                    <dd class="col-sm-6">
+                        <% 
+                        const rtp = totalWagered > 0 ? (totalWon / totalWagered) * 100 : 0;
+                        %>
+                        <span class="<%= rtp >= 95 ? 'text-success' : rtp >= 90 ? 'text-warning' : 'text-danger' %>">
+                            <%= rtp.toFixed(2) %>%
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Last Played:</dt>
+                    <dd class="col-sm-6">
+                        <% if (player.spinResults?.length > 0) { %>
+                            <%= new Date(player.spinResults[0].created_at).toLocaleDateString() %>
+                        <% } else { %>
+                            Never
+                        <% } %>
+                    </dd>
+                </dl>
+                
+                <div class="d-grid">
+                    <button type="button" class="btn btn-outline-info btn-sm" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#gameHistoryModal">
+                        <i class="bi bi-controller"></i> View Game History
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Tabs -->
+<div class="card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="transactions-tab" data-bs-toggle="tab" data-bs-target="#transactions" type="button" role="tab">
+                    <i class="bi bi-credit-card"></i> Recent Transactions (10)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="game-history-tab" data-bs-toggle="tab" data-bs-target="#game-history" type="button" role="tab">
+                    <i class="bi bi-controller"></i> Recent Spins (10)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="admin-logs-tab" data-bs-toggle="tab" data-bs-target="#admin-logs" type="button" role="tab">
+                    <i class="bi bi-shield-check"></i> Admin Actions
+                </button>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="tab-content">
+            <!-- Recent Transactions -->
+            <div class="tab-pane fade show active" id="transactions" role="tabpanel">
+                <% if (player.transactions?.length > 0) { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Amount</th>
+                                    <th>Status</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% player.transactions.forEach(function(transaction) { %>
+                                <tr>
+                                    <td>
+                                        <small><%= new Date(transaction.created_at).toLocaleString() %></small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<%= transaction.transaction_type === 'deposit' ? 'success' : transaction.transaction_type === 'withdrawal' ? 'warning' : 'info' %>">
+                                            <%= transaction.transaction_type %>
+                                        </span>
+                                    </td>
+                                    <td class="text-end font-monospace">
+                                        <span class="<%= transaction.transaction_type === 'deposit' ? 'text-success' : 'text-danger' %>">
+                                            <%= transaction.transaction_type === 'deposit' ? '+' : '-' %>$<%= parseFloat(transaction.amount).toFixed(2) %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<%= transaction.status === 'completed' ? 'success' : transaction.status === 'pending' ? 'warning' : 'danger' %>">
+                                            <%= transaction.status %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <%= transaction.description || 'No description' %>
+                                        </small>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="text-center py-4">
+                        <i class="bi bi-credit-card display-6 text-muted mb-3"></i>
+                        <p class="text-muted mb-0">No transactions found</p>
+                    </div>
+                <% } %>
+            </div>
+            
+            <!-- Recent Game History -->
+            <div class="tab-pane fade" id="game-history" role="tabpanel">
+                <% if (player.spinResults?.length > 0) { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-end">Bet</th>
+                                    <th class="text-end">Win</th>
+                                    <th class="text-end">Multiplier</th>
+                                    <th>Features</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% player.spinResults.forEach(function(spin) { %>
+                                <tr>
+                                    <td>
+                                        <small><%= new Date(spin.created_at).toLocaleString() %></small>
+                                    </td>
+                                    <td class="text-end font-monospace">
+                                        $<%= parseFloat(spin.bet_amount).toFixed(2) %>
+                                    </td>
+                                    <td class="text-end font-monospace">
+                                        <% if (parseFloat(spin.payout_amount) > 0) { %>
+                                            <span class="text-success">$<%= parseFloat(spin.payout_amount).toFixed(2) %></span>
+                                        <% } else { %>
+                                            <span class="text-muted">$0.00</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="text-end">
+                                        <% 
+                                        const multiplier = parseFloat(spin.bet_amount) > 0 ? parseFloat(spin.payout_amount) / parseFloat(spin.bet_amount) : 0;
+                                        %>
+                                        <span class="<%= multiplier >= 1 ? 'text-success fw-bold' : 'text-muted' %>">
+                                            <%= multiplier.toFixed(2) %>x
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <% if (spin.is_free_spin) { %>
+                                            <span class="badge bg-warning text-dark">Free Spin</span>
+                                        <% } %>
+                                        <% if (spin.has_bonus) { %>
+                                            <span class="badge bg-info">Bonus</span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<%= spin.is_complete ? 'success' : 'warning' %>">
+                                            <%= spin.is_complete ? 'Complete' : 'Pending' %>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="text-center py-4">
+                        <i class="bi bi-controller display-6 text-muted mb-3"></i>
+                        <p class="text-muted mb-0">No game history found</p>
+                    </div>
+                <% } %>
+            </div>
+            
+            <!-- Admin Action Logs -->
+            <div class="tab-pane fade" id="admin-logs" role="tabpanel">
+                <% if (adminLogs?.length > 0) { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Admin</th>
+                                    <th>Action</th>
+                                    <th>Result</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% adminLogs.forEach(function(log) { %>
+                                <tr>
+                                    <td>
+                                        <small><%= new Date(log.created_at).toLocaleString() %></small>
+                                    </td>
+                                    <td>
+                                        <small><%= log.admin?.username || 'System' %></small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            <%= log.action_type.replace('_', ' ').toUpperCase() %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<%= log.result === 'success' ? 'success' : log.result === 'failure' ? 'danger' : 'warning' %>">
+                                            <%= log.result %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <% if (log.details) { %>
+                                            <small class="text-muted">
+                                                <%= typeof log.details === 'string' ? log.details : JSON.stringify(log.details).substring(0, 100) %>
+                                            </small>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } else { %>
+                    <div class="text-center py-4">
+                        <i class="bi bi-shield-check display-6 text-muted mb-3"></i>
+                        <p class="text-muted mb-0">No admin actions found</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Suspend Player Modal -->
+<div class="modal fade" id="suspendModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pause-circle text-warning"></i>
+                    Suspend Player
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/players/<%= player.id %>/suspend">
+                <div class="modal-body">
+                    <p>Are you sure you want to suspend <strong><%= player.username %></strong>?</p>
+                    <p class="text-muted small mb-3">
+                        This will prevent the player from accessing the game until reactivated by an administrator.
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label for="suspendReason" class="form-label">Reason (Optional)</label>
+                        <textarea class="form-control" id="suspendReason" name="reason" rows="3" 
+                                  placeholder="Enter reason for suspension..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-pause-circle"></i> Suspend Player
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Ban Player Modal -->
+<div class="modal fade" id="banModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-x-circle text-danger"></i>
+                    Ban Player
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/players/<%= player.id %>/ban">
+                <div class="modal-body">
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Warning:</strong> This action will permanently ban the player from accessing the platform.
+                    </div>
+                    
+                    <p>Are you sure you want to ban <strong><%= player.username %></strong>?</p>
+                    
+                    <div class="mb-3">
+                        <label for="banReason" class="form-label">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="banReason" name="reason" rows="3" 
+                                  placeholder="Enter reason for ban..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Ban Player
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Credit Adjustment Modal -->
+<div class="modal fade" id="creditAdjustmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-coin text-primary"></i>
+                    Adjust Player Credits
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/players/<%= player.id %>/credits">
+                <div class="modal-body">
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle"></i>
+                        Current balance: <strong>$<%= parseFloat(player.credits).toFixed(2) %></strong>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="adjustmentType" class="form-label">Adjustment Type</label>
+                            <select class="form-select" id="adjustmentType" name="type" required>
+                                <option value="">Select type...</option>
+                                <option value="add">Add Credits</option>
+                                <option value="subtract">Subtract Credits</option>
+                                <option value="set">Set Balance</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="adjustmentAmount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="adjustmentAmount" name="amount" 
+                                       min="0.01" max="1000000" step="0.01" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label for="adjustmentReason" class="form-label">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="adjustmentReason" name="reason" rows="3" 
+                                  placeholder="Enter reason for credit adjustment..." required></textarea>
+                    </div>
+                    
+                    <div id="balancePreview" class="mt-3" style="display: none;">
+                        <div class="alert alert-secondary">
+                            <strong>New balance will be:</strong> <span id="newBalanceAmount">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cash-coin"></i> Apply Adjustment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Send Notification Modal -->
+<div class="modal fade" id="sendNotificationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-bell text-info"></i>
+                    Send Notification
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/players/<%= player.id %>/notify">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="notificationType" class="form-label">Notification Type</label>
+                        <select class="form-select" id="notificationType" name="type" required>
+                            <option value="">Select type...</option>
+                            <option value="info">Information</option>
+                            <option value="warning">Warning</option>
+                            <option value="promotion">Promotion</option>
+                            <option value="system">System Announcement</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notificationTitle" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="notificationTitle" name="title" 
+                               maxlength="100" placeholder="Notification title..." required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notificationMessage" class="form-label">Message</label>
+                        <textarea class="form-control" id="notificationMessage" name="message" rows="4" 
+                                  maxlength="500" placeholder="Notification message..." required></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="urgentNotification" name="urgent" value="true">
+                        <label class="form-check-label" for="urgentNotification">
+                            Mark as urgent (requires immediate attention)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="bi bi-send"></i> Send Notification
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History Modal -->
+<div class="modal fade" id="transactionHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clock-history"></i>
+                    Transaction History - <%= player.username %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionHistoryContent">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading transaction history...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="exportTransactions">
+                    <i class="bi bi-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Game History Modal -->
+<div class="modal fade" id="gameHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-controller"></i>
+                    Game History - <%= player.username %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="gameHistoryContent">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading game history...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-info" id="exportGameHistory">
+                    <i class="bi bi-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Credit adjustment preview
+    const adjustmentType = document.getElementById('adjustmentType');
+    const adjustmentAmount = document.getElementById('adjustmentAmount');
+    const balancePreview = document.getElementById('balancePreview');
+    const newBalanceAmount = document.getElementById('newBalanceAmount');
+    const currentBalance = <%= player.credits %>;
+    
+    function updateBalancePreview() {
+        const type = adjustmentType.value;
+        const amount = parseFloat(adjustmentAmount.value) || 0;
+        
+        if (type && amount > 0) {
+            let newBalance;
+            switch (type) {
+                case 'add':
+                    newBalance = currentBalance + amount;
+                    break;
+                case 'subtract':
+                    newBalance = Math.max(0, currentBalance - amount);
+                    break;
+                case 'set':
+                    newBalance = amount;
+                    break;
+                default:
+                    newBalance = currentBalance;
+            }
+            
+            newBalanceAmount.textContent = '$' + newBalance.toFixed(2);
+            balancePreview.style.display = 'block';
+        } else {
+            balancePreview.style.display = 'none';
+        }
+    }
+    
+    adjustmentType.addEventListener('change', updateBalancePreview);
+    adjustmentAmount.addEventListener('input', updateBalancePreview);
+    
+    // Load transaction history
+    document.getElementById('transactionHistoryModal').addEventListener('shown.bs.modal', function() {
+        loadTransactionHistory();
+    });
+    
+    // Load game history
+    document.getElementById('gameHistoryModal').addEventListener('shown.bs.modal', function() {
+        loadGameHistory();
+    });
+    
+    function loadTransactionHistory() {
+        fetch(`/admin/players/<%= player.id %>/transactions`)
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('transactionHistoryContent');
+                if (data.transactions && data.transactions.length > 0) {
+                    content.innerHTML = generateTransactionHistoryTable(data.transactions);
+                } else {
+                    content.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-credit-card display-6 text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No transaction history found</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading transaction history:', error);
+                document.getElementById('transactionHistoryContent').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Failed to load transaction history. Please try again.
+                    </div>
+                `;
+            });
+    }
+    
+    function loadGameHistory() {
+        fetch(`/admin/players/<%= player.id %>/game-history`)
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('gameHistoryContent');
+                if (data.spins && data.spins.length > 0) {
+                    content.innerHTML = generateGameHistoryTable(data.spins);
+                } else {
+                    content.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-controller display-6 text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No game history found</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading game history:', error);
+                document.getElementById('gameHistoryContent').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Failed to load game history. Please try again.
+                    </div>
+                `;
+            });
+    }
+    
+    function generateTransactionHistoryTable(transactions) {
+        return `
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th class="text-end">Amount</th>
+                            <th>Status</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${transactions.map(t => `
+                            <tr>
+                                <td><small>${new Date(t.created_at).toLocaleString()}</small></td>
+                                <td><span class="badge bg-${t.transaction_type === 'deposit' ? 'success' : t.transaction_type === 'withdrawal' ? 'warning' : 'info'}">${t.transaction_type}</span></td>
+                                <td class="text-end font-monospace">
+                                    <span class="${t.transaction_type === 'deposit' ? 'text-success' : 'text-danger'}">
+                                        ${t.transaction_type === 'deposit' ? '+' : '-'}$${parseFloat(t.amount).toFixed(2)}
+                                    </span>
+                                </td>
+                                <td><span class="badge bg-${t.status === 'completed' ? 'success' : t.status === 'pending' ? 'warning' : 'danger'}">${t.status}</span></td>
+                                <td><small class="font-monospace">${t.reference_id || 'N/A'}</small></td>
+                                <td><small class="text-muted">${t.description || 'No description'}</small></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    function generateGameHistoryTable(spins) {
+        return `
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th class="text-end">Bet</th>
+                            <th class="text-end">Win</th>
+                            <th class="text-end">Multiplier</th>
+                            <th>Session</th>
+                            <th>Features</th>
+                            <th>Grid State</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${spins.map(s => {
+                            const multiplier = parseFloat(s.bet_amount) > 0 ? parseFloat(s.payout_amount) / parseFloat(s.bet_amount) : 0;
+                            return `
+                                <tr>
+                                    <td><small>${new Date(s.created_at).toLocaleString()}</small></td>
+                                    <td class="text-end font-monospace">$${parseFloat(s.bet_amount).toFixed(2)}</td>
+                                    <td class="text-end font-monospace">
+                                        ${parseFloat(s.payout_amount) > 0 ? 
+                                            `<span class="text-success">$${parseFloat(s.payout_amount).toFixed(2)}</span>` : 
+                                            `<span class="text-muted">$0.00</span>`}
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="${multiplier >= 1 ? 'text-success fw-bold' : 'text-muted'}">${multiplier.toFixed(2)}x</span>
+                                    </td>
+                                    <td><small class="font-monospace">${s.session_id ? s.session_id.substring(0, 8) + '...' : 'N/A'}</small></td>
+                                    <td>
+                                        ${s.is_free_spin ? '<span class="badge bg-warning text-dark">Free</span> ' : ''}
+                                        ${s.has_bonus ? '<span class="badge bg-info">Bonus</span>' : ''}
+                                    </td>
+                                    <td><button class="btn btn-outline-secondary btn-sm" onclick="viewGridState('${s.id}')">View</button></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    // Export functions
+    document.getElementById('exportTransactions').addEventListener('click', function() {
+        window.location.href = `/admin/players/<%= player.id %>/transactions/export`;
+    });
+    
+    document.getElementById('exportGameHistory').addEventListener('click', function() {
+        window.location.href = `/admin/players/<%= player.id %>/game-history/export`;
+    });
+});
+
+function viewGridState(spinId) {
+    // Implementation for viewing spin grid state
+    alert('Grid state view would show the game grid for spin ID: ' + spinId);
+}
+</script>

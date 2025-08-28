@@ -1,0 +1,63 @@
+{
+  "name": "infinity-storm-integration-tests",
+  "version": "1.0.0",
+  "description": "End-to-End Integration Tests for Phase 5 Casino System",
+  "main": "runIntegrationTests.js",
+  "scripts": {
+    "test": "jest --config=jest.config.js",
+    "test:watch": "jest --config=jest.config.js --watch",
+    "test:coverage": "jest --config=jest.config.js --coverage",
+    "test:run": "node runIntegrationTests.js",
+    "test:client": "jest EndToEndIntegration.test.js --config=jest.config.js",
+    "test:server": "jest ../infinity-storm-server/tests/integration/ServerIntegration.test.js --config=jest.config.js",
+    "test:cascade": "jest ../infinity-storm-server/tests/cascade/EndToEndCascade.test.js --config=jest.config.js",
+    "test:websocket": "jest ../infinity-storm-server/tests/websocket/WebSocketIntegration.test.js --config=jest.config.js",
+    "test:performance": "jest ../infinity-storm-server/tests/cascade/PerformanceStress.test.js --config=jest.config.js",
+    "report": "node -e \"console.log('Opening integration test report...'); require('open')('./coverage/integration/integration-test-report.html')\"",
+    "clean": "rimraf coverage/integration tests/tmp tests/logs"
+  },
+  "devDependencies": {
+    "jest": "^30.0.5",
+    "jest-html-reporters": "^3.1.7",
+    "jest-junit": "^16.0.0",
+    "supertest": "^7.1.4",
+    "socket.io-client": "^4.8.1",
+    "babel-jest": "^30.0.5",
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "rimraf": "^6.0.1",
+    "open": "^10.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "integration",
+    "testing",
+    "casino",
+    "game",
+    "jest",
+    "e2e"
+  ],
+  "author": "Infinity Storm Development Team",
+  "license": "ISC",
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "node": "18"
+          }
+        }
+      ]
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "verbose": true,
+    "collectCoverage": true,
+    "coverageDirectory": "./coverage/integration",
+    "testTimeout": 30000
+  }
+}

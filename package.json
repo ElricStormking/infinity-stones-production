@@ -5,15 +5,34 @@
   "main": "src/main.js",
   "scripts": {
     "start": "http-server -c-1 -p 3000 -o",
-    "dev": "http-server -c-1 -p 3000 -o"
+    "dev": "http-server -c-1 -p 3000 -o",
+    "test:integration": "node tests/integration/runIntegrationTests.js",
+    "test:integration:client": "cd tests/integration && npm run test:client",
+    "test:integration:server": "cd tests/integration && npm run test:server",
+    "test:integration:cascade": "cd tests/integration && npm run test:cascade",
+    "test:integration:websocket": "cd tests/integration && npm run test:websocket",
+    "test:integration:performance": "cd tests/integration && npm run test:performance",
+    "test:integration:coverage": "cd tests/integration && npm run test:coverage",
+    "test:integration:watch": "cd tests/integration && npm run test:watch",
+    "test:integration:report": "cd tests/integration && npm run report",
+    "test:integration:clean": "cd tests/integration && npm run clean",
+    "test:integration:setup": "cd tests/integration && npm install"
   },
-  "keywords": ["phaser", "game", "slot", "casino", "marvel"],
+  "keywords": [
+    "phaser",
+    "game",
+    "slot",
+    "casino",
+    "marvel"
+  ],
   "author": "Infinity Storm Development Team",
   "license": "Proprietary",
   "dependencies": {
-    "phaser": "^3.70.0"
+    "axios": "^1.11.0",
+    "phaser": "^3.70.0",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "http-server": "^14.1.1"
   }
-} 
+}

@@ -193,5 +193,9 @@ window.GameConfig = {
         SYMBOL_DESTROY_TIME: 300,
         WIN_CELEBRATION_TIME: 2000,
         MULTIPLIER_APPEAR_TIME: 500
-    }
+    },
+    
+    // Task 6.2: Server Integration Configuration
+    SERVER_MODE: true, // Enable server-side spin processing (set to false for demo mode)
+    DEMO_MODE: false   // Will be set to true automatically if server connection fails
 }; 

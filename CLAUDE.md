@@ -36,6 +36,10 @@ npm run dev
 # or
 npm start
 
+# Development mode with nodemon (auto-restart on changes)
+cd infinity-storm-server
+npm run dev
+
 # Test animations
 # Open test-animations.html in browser
 
@@ -43,20 +47,54 @@ npm start
 node src/tools/MathSimulator.js
 ```
 
-### Server Development
+### Testing
 ```bash
-# Install server dependencies
+# Run all server tests
 cd infinity-storm-server
-npm install
+npm test
 
-# Start full-stack development
-cd infinity-storm-server
-npm start
-# Server runs on http://localhost:3000 with client served as static files
+# Run specific test suites
+npm run test:cascade   # Cascade logic tests
+npm run test:smoke     # Basic functionality tests
+npm run test:watch     # Watch mode for TDD
+npm run test:coverage  # Generate coverage report
 
-# Development mode with nodemon (auto-restart on changes)
+# Integration tests from root
+npm run test:integration          # All integration tests
+npm run test:integration:client   # Client-specific tests
+npm run test:integration:server   # Server-specific tests
+```
+
+### Database Operations
+```bash
+# Docker services management
 cd infinity-storm-server
-npx nodemon server.js
+docker compose up -d      # Start all services (PostgreSQL, Redis, etc.)
+docker compose down       # Stop all services
+docker compose logs -f    # View service logs
+
+# Supabase local database
+npm run sb:start          # Start local Supabase instance
+npm run sb:stop           # Stop Supabase
+npm run sb:status:json    # Check status with JSON output
+npm run sb:reset          # Reset database to initial state
+npm run sb:verify         # Verify connection and setup
+
+# Database management
+npm run migrate           # Run database migrations
+npm run seed             # Seed database with test data
+npm run db:reset         # Reset database (drop and recreate)
+npm run db:tables        # List all tables
+npm run db:sql           # Execute SQL queries interactively
+```
+
+### Linting and Formatting
+```bash
+cd infinity-storm-server
+npm run lint             # Run ESLint checks
+npm run lint:fix         # Auto-fix ESLint issues
+npm run format           # Format code with Prettier
+npm run format:check     # Check formatting without fixing
 ```
 
 ## High-Level Architecture
@@ -74,14 +112,16 @@ The game uses a **global window object pattern** for Phaser compatibility (NOT E
 - **SafeSound**: Custom audio wrapper system that handles missing audio gracefully
 
 ### Server Architecture (infinity-storm-server/)
-Express + Socket.io server running on port 3000:
+Production-ready Express + Socket.io server with casino-grade security:
+- **Portal-First Authentication**: Secure web portal handles all authentication before game access
 - **Static File Serving**: Serves the complete WebGL game client from parent directory
-- **HTTP API**: RESTful endpoints (/api/spin, /api/health) with JSON responses
-- **WebSocket Support**: Real-time communication via Socket.io for game events
-- **Game Logic**: GridEngine.js implements server-side cascade generation and win calculation
-- **Security**: Crypto.randomBytes for server-side RNG, CORS protection
-- **Development Features**: Cache-Control disabled, nodemon support for hot-reload
-- **Dependencies**: express, socket.io, cors, dotenv, bcrypt, jsonwebtoken, pg (PostgreSQL ready)
+- **HTTP API**: RESTful endpoints (/api/spin, /api/game-state, /api/wallet) with comprehensive validation
+- **WebSocket Support**: Real-time communication via Socket.io for game events and state updates
+- **Game Engine**: Complete server-side implementation with GridEngine, WinCalculator, CascadeProcessor
+- **Security**: Cryptographic RNG, JWT authentication, anti-cheat detection, audit logging
+- **State Management**: Redis-backed session management with recovery and persistence
+- **Database**: PostgreSQL with Sequelize ORM, complete model layer with relationships
+- **Docker Support**: Full containerization with docker-compose for all services
 
 ### Key Game Mechanics
 - **Grid**: 6 columns × 5 rows of symbols
@@ -140,13 +180,16 @@ Must match exactly between GameConfig.js and asset filenames:
 - **Config-Driven**: GameConfig.js contains all gameplay parameters and tuning
 - **Phaser Lifecycle**: Follows create() → update() → destroy() scene patterns
 - **Async Pattern**: NetworkService uses axios with Promise-based API calls
+- **Server Authority**: All game logic validation happens server-side
+- **Session-First**: Game requires valid session from portal before starting
 
 #### Network Architecture
 - **HTTP API**: axios-based client with interceptors for auth and error handling
-- **WebSocket**: Socket.io for real-time events (spin_request/spin_result, test messages)
-- **Authentication**: JWT token support with localStorage persistence
-- **Error Handling**: 401 auth error handling, timeout configuration (10s)
-- **Server Integration**: GridEngine generates complete spin results with cascade data
+- **WebSocket**: Socket.io for real-time events (spin_request/spin_result, balance_update)
+- **Authentication**: JWT token validation via SessionService with automatic refresh
+- **Error Handling**: 401 auth error handling, timeout configuration (10s), graceful fallbacks
+- **Server Integration**: Complete game state synchronization with audit trail
+- **Dual Mode**: Supports both server-connected mode and demo mode fallback
 
 ### File Organization
 ```
@@ -169,18 +212,36 @@ assets/
 └── audio/         # Background music and sound effects
 
 infinity-storm-server/
-├── server.js      # Main Express + Socket.io server
-├── game-logic/    # GridEngine.js - server-side cascade generation
-├── package.json   # Server dependencies (express, socket.io, cors, etc.)
-└── node_modules/  # Server-side dependencies
+├── server.js         # Main Express + Socket.io server
+├── game-logic/       # GridEngine.js - server-side cascade generation
+├── src/
+│   ├── auth/         # Authentication & JWT management
+│   ├── config/       # Application configuration
+│   ├── controllers/  # Express route controllers
+│   ├── db/           # Database pool, migrations, CLI tools
+│   ├── game/         # Game engine, RNG, state management
+│   ├── middleware/   # Express middleware (auth, validation, rate limiting)
+│   ├── models/       # Sequelize models (Player, Session, SpinResult, etc.)
+│   ├── routes/       # Express route definitions
+│   ├── services/     # Business logic services
+│   ├── utils/        # Utility functions
+│   └── websocket/    # WebSocket event handlers
+├── tests/            # Jest test suites (cascade, smoke, websocket, integration)
+├── docker/           # Docker configurations (Dockerfiles, nginx.conf)
+├── supabase/         # Local Supabase configuration
+├── scripts/          # Database and deployment scripts
+├── docker-compose.yml # Complete service orchestration
+└── package.json      # Server dependencies
 
 Root files:
-├── index.html     # Game entry point
-├── start-server.js # Simple static file server (client-only)
-├── run-game.ps1   # PowerShell launcher script
-├── package.json   # Client dependencies (phaser, http-server)
-├── test-animations.html # Animation testing utility
-└── test-rng-security.html # RNG security testing
+├── index.html             # Game entry point
+├── start-server.js        # Simple static file server (client-only)
+├── run-game.ps1           # PowerShell launcher script
+├── package.json           # Client dependencies (phaser, axios, socket.io-client)
+├── test-animations.html   # Animation testing utility
+├── test-rng-security.html # RNG security testing
+├── specs/                 # Feature specifications and task tracking
+└── tests/                 # Integration test suites
 ```
 
 ### Testing & Debugging
@@ -192,12 +253,72 @@ Root files:
 - **Global Objects**: All game classes attached to window (GridManager, NetworkService, etc.)
 - **Symbol Pool**: GridManager includes symbol recycling for performance
 - **Development**: No build step required - direct browser loading with script tags
+- **Test Suites**: Jest tests for cascade logic, API endpoints, WebSocket events
 
 ### Current Development State
-- **Deployment**: Single server model (client and backend on same port 3000)
-- **Game Logic**: Server-side spin generation using GridEngine with crypto.randomBytes
-- **Communication**: HTTP API endpoints functional, WebSocket handlers implemented
-- **Features**: Free spins and multiplier mechanics implemented both client and server-side
-- **Authentication**: JWT infrastructure in place but not fully activated
-- **Database**: PostgreSQL dependencies ready but models not implemented
-- **Development Mode**: Both client-only (npm run dev) and full-stack (server start) workflows
+- **Architecture**: Portal-first casino architecture with secure authentication flow
+- **Game Logic**: Complete server-side implementation with anti-cheat and audit systems
+- **State Management**: Redis-backed session management with disconnection recovery
+- **Database**: Full PostgreSQL schema with Sequelize models and relationships
+- **Authentication**: Complete JWT session validation and refresh system implemented
+- **Testing**: Comprehensive Jest test suites covering all game logic and API integration
+- **Docker**: Full containerization with orchestrated services (PostgreSQL, Redis, Nginx)
+- **Client Integration**: Dual-mode support (server-connected and demo fallback)
+- **Admin Panel**: Basic admin interface with player management and metrics dashboard
+
+## Code Style and Standards
+
+### Server-Side (infinity-storm-server/)
+- **ESLint Configuration**: Uses @eslint/js recommended with custom rules
+- **Style**: Single quotes, no trailing commas, 2-space indentation, 100-char line limit
+- **Testing**: Jest with 30-second timeout, 70% coverage threshold
+- **Format**: Prettier with single quotes, no trailing semicolons
+- **Dependencies**: Production-grade packages (express, socket.io, sequelize, redis)
+
+### Client-Side (src/)
+- **Pattern**: Global window object pattern for Phaser compatibility (NOT ES6 modules)
+- **Naming**: Symbol IDs match asset filenames exactly (use underscores, not camelCase)
+- **Audio**: SafeSound wrapper for graceful missing audio handling
+- **Config**: All game rules, RTP settings, and payouts defined in GameConfig.js
+- **State**: GameStateManager handles all game state transitions and validation
+
+## Development Patterns
+
+### Portal-First Security Model
+The game follows casino-grade security with portal-first authentication:
+1. Players authenticate on secure web portal (separate from game)
+2. Portal generates time-limited session tokens
+3. Game client receives pre-validated sessions (no in-game login)
+4. All game operations validated server-side with anti-cheat detection
+
+### Server Authority Pattern
+- All game logic validation happens server-side
+- Client displays results from server (never calculates wins locally)
+- Server maintains authoritative game state with audit trail
+- Anti-cheat system monitors for suspicious patterns and automation
+
+### Dual-Mode Architecture
+- Game supports both server-connected and demo modes
+- Automatic fallback to demo mode if server unavailable
+- Identical user experience regardless of mode
+- `SERVER_MODE` configuration controls integration level
+
+## Key Implementation Notes
+
+### Critical Paths
+- Session validation must complete before any game operations
+- All financial operations require server validation and audit logging
+- RNG operations use crypto.randomBytes for casino-grade security
+- Database operations use connection pooling and transactions
+
+### Testing Strategy
+- Unit tests for individual game logic components
+- Integration tests for complete game workflows  
+- Performance tests for concurrent user scenarios
+- RTP validation maintains 96.5% target within statistical variance
+
+### Deployment Considerations
+- Docker Compose orchestrates all services (game, portal, database, cache)
+- Environment-specific configuration via .env files
+- Health checks for all services with proper dependency management
+- Complete audit logging for regulatory compliance

@@ -4,11 +4,26 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const GridEngine = require('./game-logic/GridEngine');
+// const { pool } = require('./src/db/pool');
 const CascadeSynchronizer = require('./src/services/CascadeSynchronizer');
 const CascadeValidator = require('./src/services/CascadeValidator');
-const GameSession = require('./src/models/GameSession');
-const SpinResult = require('./src/models/SpinResult');
+// const GameSession = require('./src/models/GameSession');
+// const SpinResult = require('./src/models/SpinResult');
+
+// Authentication system
+const authRoutes = require('./src/routes/auth');
+const apiRoutes = require('./src/routes/api');
+const walletRoutes = require('./src/routes/wallet');
+const adminRoutes = require('./src/routes/admin');
+const { authenticate, optionalAuth, authErrorHandler } = require('./src/middleware/auth');
+// const { initializeRedis, testConnection } = require('./src/config/redis');
+const { logger } = require('./src/utils/logger');
+const metricsService = require('./src/services/metricsService');
 
 // Load environment variables
 dotenv.config();
@@ -47,46 +62,766 @@ const io = socketIo(server, {
     }
 });
 
+// Security and performance middleware
+app.use(helmet({
+    contentSecurityPolicy: false // Allow inline scripts for Phaser
+}));
+app.use(compression());
+app.use(morgan('combined'));
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Set view engine for admin panel
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Redis disabled for demo mode
+console.log('⚠️  Redis disabled - using fallback authentication');
+
+// // Initialize Redis connection
+// (async () => {
+//     try {
+//         initializeRedis();
+//         const connected = await testConnection();
+//         if (connected) {
+//             console.log('✅ Redis connection established for session management');
+//         } else {
+//             console.warn('⚠️  Redis connection failed - authentication will use fallback');
+//         }
+//     } catch (error) {
+//         console.error('Redis initialization error:', error);
+//     }
+// })();
+
+// Admin Panel routes (before other static routes)
+app.use('/admin', adminRoutes);
+
+// Authentication routes
+app.use('/api/auth', authRoutes);
+
+// Wallet API routes (temporarily disabled due to Redis dependency)
+// app.use('/api/wallet', walletRoutes);
+
+// Demo balance endpoint (no auth required)
+app.get('/api/wallet/balance', async (req, res) => {
+    // Return demo balance for non-authenticated users
+    // Real users would need proper authentication endpoints
+    res.json({
+        success: true,
+        data: {
+            balance: 1000.00,
+            currency: 'USD'
+        },
+        message: 'Demo balance'
+    });
+});
+
+// Test Supabase connection endpoint (no auth required)
+app.get('/api/test-supabase', async (req, res) => {
+    try {
+        const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
+        
+        // Test getting demo player
+        const demoPlayer = await getDemoPlayer();
+        console.log('Demo player:', demoPlayer);
+        
+        // Test getting balance
+        const balanceResult = await getPlayerBalance(demoPlayer.id);
+        console.log('Balance result:', balanceResult);
+        
+        res.json({
+            success: true,
+            message: 'Supabase connection test successful',
+            data: {
+                demoPlayer,
+                balanceResult
+            }
+        });
+    } catch (error) {
+        console.error('Supabase test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// Test wallet balance endpoint (no auth required) - bypass authentication for testing
+app.get('/api/test-wallet-balance', async (req, res) => {
+    try {
+        const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
+        
+        // Get demo player for testing
+        const demoPlayer = await getDemoPlayer();
+        const balanceResult = await getPlayerBalance(demoPlayer.id);
+        
+        if (balanceResult.error) {
+            return res.status(400).json({
+                success: false,
+                error: balanceResult.error
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Balance retrieved successfully',
+            data: {
+                balance: balanceResult.balance,
+                playerId: balanceResult.playerId,
+                username: balanceResult.username
+            }
+        });
+    } catch (error) {
+        console.error('Wallet balance test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// Transaction History Endpoints for Regulatory Compliance (defined before API routes to avoid middleware conflicts)
+
+// Get player transaction history
+app.get('/api/wallet/transactions', async (req, res) => {
+    console.log('🔍 Transaction history endpoint reached');
+    try {
+        const jwt = require('jsonwebtoken');
+        const transactionLogger = require('./src/services/transactionLogger');
+        
+        // Verify JWT token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                error: 'Authentication required',
+                code: 'NO_TOKEN',
+                message: 'Bearer token is required'
+            });
+        }
+        
+        const token = authHeader.slice(7);
+        let decoded;
+        try {
+            const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Invalid token',
+                code: 'INVALID_JWT',
+                message: jwtError.message
+            });
+        }
+        
+        // Parse query parameters
+        const options = {
+            limit: Math.min(parseInt(req.query.limit) || 50, 1000),
+            offset: parseInt(req.query.offset) || 0,
+            from_date: req.query.from_date,
+            to_date: req.query.to_date
+        };
+        
+        // Get transaction history
+        const transactions = await transactionLogger.getPlayerTransactions(decoded.player_id, options);
+        
+        res.json({
+            success: true,
+            player_id: decoded.player_id,
+            ...transactions
+        });
+        
+    } catch (error) {
+        console.error('Transaction history error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch transactions',
+            code: 'TRANSACTION_FETCH_ERROR',
+            message: error.message
+        });
+    }
+});
+
+// Get player transaction summary
+app.get('/api/wallet/summary', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const transactionLogger = require('./src/services/transactionLogger');
+        
+        // Verify JWT token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                error: 'Authentication required',
+                code: 'NO_TOKEN',
+                message: 'Bearer token is required'
+            });
+        }
+        
+        const token = authHeader.slice(7);
+        let decoded;
+        try {
+            const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Invalid token',
+                code: 'INVALID_JWT',
+                message: jwtError.message
+            });
+        }
+        
+        // Parse query parameters for date filtering
+        const options = {
+            from_date: req.query.from_date,
+            to_date: req.query.to_date
+        };
+        
+        // Get transaction summary
+        const summary = await transactionLogger.getPlayerTransactionSummary(decoded.player_id, options);
+        
+        res.json({
+            success: true,
+            player_id: decoded.player_id,
+            ...summary
+        });
+        
+    } catch (error) {
+        console.error('Transaction summary error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch transaction summary',
+            code: 'SUMMARY_FETCH_ERROR',
+            message: error.message
+        });
+    }
+});
+
+// Game API routes
+app.use('/api', apiRoutes);
+
+// Serve admin panel static files
+app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
 
 // Serve static files from the parent directory (game client)
 app.use(express.static(path.join(__dirname, '..')));
 
-// Basic route for health check
+// Basic route for health check (legacy endpoint)
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Infinity Storm Server is running' });
 });
 
-// Game API endpoints
-app.post('/api/spin', (req, res) => {
+// Portal-First Authentication Endpoints (Fallback without Redis)
+// These endpoints are designed for portal integration
+
+// Portal session validation endpoint (fallback)
+app.post('/api/auth/validate-portal', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const { Pool } = require('pg');
+        
+        const { token } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({
+                error: 'Token required',
+                code: 'MISSING_TOKEN',
+                message: 'Access token is required for validation'
+            });
+        }
+        
+        // Verify JWT token directly
+        let decoded;
+        try {
+            const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Session invalid',
+                code: 'INVALID_SESSION',
+                message: 'Token is invalid or expired'
+            });
+        }
+        
+        // Get player data from database
+        const dbPool = new Pool({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: parseInt(process.env.DB_PORT) || 54322,
+            database: process.env.DB_NAME || 'postgres',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+            ssl: false
+        });
+        
+        const client = await dbPool.connect();
+        let player, session;
+        try {
+            // Get player data
+            const playerQuery = 'SELECT * FROM players WHERE id = $1 AND status = $2';
+            const playerResult = await client.query(playerQuery, [decoded.player_id, 'active']);
+            
+            if (playerResult.rows.length === 0) {
+                return res.status(401).json({
+                    error: 'Session invalid',
+                    code: 'INVALID_SESSION',
+                    message: 'Player account not found or inactive'
+                });
+            }
+            
+            player = playerResult.rows[0];
+            
+            // Get session data (if exists)
+            const sessionQuery = 'SELECT * FROM sessions WHERE player_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1';
+            const sessionResult = await client.query(sessionQuery, [decoded.player_id]);
+            session = sessionResult.rows[0];
+            
+        } finally {
+            client.release();
+            await dbPool.end();
+        }
+        
+        console.log(`✅ Portal session validated for player ${player.username}`);
+        
+        res.json({
+            success: true,
+            player: {
+                id: player.id,
+                username: player.username,
+                credits: parseFloat(player.credits),
+                is_demo: player.is_demo,
+                is_admin: player.is_admin,
+                status: player.status
+            },
+            session: session ? {
+                id: session.id,
+                expires_at: session.expires_at,
+                created_at: session.created_at,
+                last_activity: session.last_activity || session.created_at
+            } : null,
+            message: 'Session is valid'
+        });
+        
+    } catch (error) {
+        console.error('Portal session validation error:', error);
+        res.status(500).json({
+            error: 'Validation failed',
+            code: 'VALIDATION_ERROR',
+            message: error.message
+        });
+    }
+});
+
+// Portal session creation endpoint (fallback)
+app.post('/api/auth/create-session', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const { Pool } = require('pg');
+        
+        const { token, ip_address, user_agent } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({
+                error: 'Token required',
+                code: 'MISSING_TOKEN',
+                message: 'Access token is required to create session'
+            });
+        }
+        
+        // Verify token
+        let decoded;
+        try {
+            const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Invalid token',
+                code: 'INVALID_TOKEN',
+                message: 'Provided token is invalid or expired'
+            });
+        }
+        
+        // Create session in database
+        const dbPool = new Pool({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: parseInt(process.env.DB_PORT) || 54322,
+            database: process.env.DB_NAME || 'postgres',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+            ssl: false
+        });
+        
+        const client = await dbPool.connect();
+        let session;
+        try {
+            // Deactivate old sessions
+            await client.query('UPDATE sessions SET is_active = false WHERE player_id = $1', [decoded.player_id]);
+            
+            // Create new session
+            const sessionQuery = `
+                INSERT INTO sessions (
+                    player_id, token_hash, ip_address, user_agent, 
+                    expires_at, is_active, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                RETURNING *
+            `;
+            
+            const bcrypt = require('bcrypt');
+            const tokenHash = await bcrypt.hash(token, 5);
+            const expiresAt = new Date(decoded.exp * 1000); // JWT exp is in seconds
+            
+            const sessionResult = await client.query(sessionQuery, [
+                decoded.player_id,
+                tokenHash,
+                ip_address || req.ip,
+                user_agent || req.get('User-Agent'),
+                expiresAt,
+                true
+            ]);
+            
+            session = sessionResult.rows[0];
+            
+        } finally {
+            client.release();
+            await dbPool.end();
+        }
+        
+        console.log(`🎮 Portal session created for player ${decoded.username}`);
+        
+        res.status(201).json({
+            success: true,
+            session: {
+                id: session.id,
+                player_id: session.player_id,
+                expires_at: session.expires_at,
+                created_at: session.created_at
+            },
+            message: 'Session created successfully'
+        });
+        
+    } catch (error) {
+        console.error('Portal session creation error:', error);
+        res.status(500).json({
+            error: 'Session creation failed',
+            code: 'SESSION_CREATION_ERROR',
+            message: error.message
+        });
+    }
+});
+
+// Simple authenticated spin endpoint (without Redis dependency)
+app.post('/api/auth-spin', async (req, res) => {
+    try {
+        const jwt = require('jsonwebtoken');
+        const { Pool } = require('pg');
+        const transactionLogger = require('./src/services/transactionLogger');
+        
+        // Extract and verify JWT token directly
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                error: 'Authentication required',
+                code: 'NO_TOKEN',
+                message: 'Bearer token is required'
+            });
+        }
+        
+        const token = authHeader.slice(7);
+        let decoded;
+        try {
+            const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Invalid token',
+                code: 'INVALID_JWT',
+                message: jwtError.message
+            });
+        }
+        
+        // Get player data from database
+        const dbPool = new Pool({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: parseInt(process.env.DB_PORT) || 54322,
+            database: process.env.DB_NAME || 'postgres',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+            ssl: false
+        });
+        
+        const client = await dbPool.connect();
+        let player;
+        try {
+            const playerQuery = 'SELECT * FROM players WHERE id = $1 AND status = $2';
+            const playerResult = await client.query(playerQuery, [decoded.player_id, 'active']);
+            
+            if (playerResult.rows.length === 0) {
+                return res.status(401).json({
+                    error: 'Player not found',
+                    code: 'PLAYER_NOT_FOUND',
+                    message: 'Player account not found or inactive'
+                });
+            }
+            
+            player = playerResult.rows[0];
+        } finally {
+            client.release();
+            await dbPool.end();
+        }
+        
+        // Process spin request
+        const { betAmount = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body;
+        
+        // Validate bet amount
+        if (!betAmount || betAmount < 0.01 || betAmount > 1000) {
+            return res.status(400).json({
+                error: 'Invalid bet amount',
+                code: 'INVALID_BET',
+                message: 'Bet amount must be between 0.01 and 1000'
+            });
+        }
+        
+        // Check if player has sufficient credits
+        if (parseFloat(player.credits) < betAmount) {
+            return res.status(400).json({
+                error: 'Insufficient credits',
+                code: 'INSUFFICIENT_CREDITS',
+                message: `Available: ${player.credits}, Required: ${betAmount}`
+            });
+        }
+        
+        // Generate simple spin result (for now, we'll use a mock implementation)
+        const generateRandomGrid = () => {
+            const symbols = ['time_gem', 'space_gem', 'power_gem', 'mind_gem', 'reality_gem', 'soul_gem', 'thanos_weapon', 'scarlet_witch', 'thanos', 'infinity_glove'];
+            const grid = [];
+            for (let col = 0; col < 6; col++) {
+                grid[col] = [];
+                for (let row = 0; row < 5; row++) {
+                    grid[col][row] = symbols[Math.floor(Math.random() * symbols.length)];
+                }
+            }
+            return grid;
+        };
+        
+        const spinId = `auth-spin-${Date.now()}`;
+        const initialGrid = generateRandomGrid();
+        const totalWin = Math.random() < 0.35 ? Math.floor(Math.random() * 20 + 1) * betAmount : 0; // 35% chance to win
+        
+        const spinResult = {
+            success: true,
+            spinId,
+            betAmount: parseFloat(betAmount),
+            totalWin,
+            baseWin: totalWin,
+            initialGrid,
+            finalGrid: initialGrid, // For now, same as initial
+            cascadeSteps: [],
+            bonusFeatures: {
+                freeSpinsTriggered: false,
+                freeSpinsAwarded: 0,
+                randomMultipliers: []
+            },
+            timing: {
+                totalDuration: 2000,
+                cascadeTiming: []
+            }
+        };
+        
+        console.log(`🎰 Auth Spin: Player ${player.username} bet $${betAmount}, won $${spinResult.totalWin}`);
+        
+        // Calculate new balance
+        const balanceBefore = parseFloat(player.credits);
+        const betAmountFloat = parseFloat(betAmount);
+        const winAmountFloat = parseFloat(spinResult.totalWin || 0);
+        const newCredits = balanceBefore - betAmountFloat + winAmountFloat;
+        
+        // Get session ID for transaction logging
+        let sessionId = null;
+        try {
+            const sessionQuery = 'SELECT id FROM sessions WHERE player_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1';
+            const sessionResult = await client.query(sessionQuery, [player.id]);
+            sessionId = sessionResult.rows[0]?.id || null;
+        } catch (sessionError) {
+            console.warn('Could not retrieve session ID for transaction logging:', sessionError.message);
+        }
+        
+        // Update credits in database
+        const updatePool = new Pool({
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: parseInt(process.env.DB_PORT) || 54322,
+            database: process.env.DB_NAME || 'postgres',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'postgres',
+            ssl: false
+        });
+        
+        const updateClient = await updatePool.connect();
+        try {
+            await updateClient.query('UPDATE players SET credits = $1, updated_at = NOW() WHERE id = $2', [newCredits, player.id]);
+        } finally {
+            updateClient.release();
+            await updatePool.end();
+        }
+        
+        // Log transactions for regulatory compliance
+        try {
+            // Log the bet transaction
+            await transactionLogger.logSpinBet(
+                player.id,
+                sessionId,
+                betAmountFloat,
+                balanceBefore,
+                balanceBefore - betAmountFloat,
+                spinResult.spinId,
+                {
+                    quick_spin_mode: quickSpinMode,
+                    free_spins_active: freeSpinsActive,
+                    accumulated_multiplier: accumulatedMultiplier,
+                    ip_address: req.ip,
+                    user_agent: req.get('User-Agent')
+                }
+            );
+            
+            // Log the win transaction if there's a win
+            if (winAmountFloat > 0) {
+                await transactionLogger.logSpinWin(
+                    player.id,
+                    sessionId,
+                    winAmountFloat,
+                    balanceBefore - betAmountFloat,
+                    newCredits,
+                    spinResult.spinId,
+                    {
+                        cascade_count: spinResult.cascadeSteps?.length || 0,
+                        bonus_features: spinResult.bonusFeatures,
+                        ip_address: req.ip,
+                        user_agent: req.get('User-Agent')
+                    }
+                );
+            }
+            
+            console.log(`💰 Transactions logged: bet=-$${betAmountFloat}, win=+$${winAmountFloat}, balance=${newCredits.toFixed(2)}`);
+            
+        } catch (transactionError) {
+            console.error('Transaction logging failed:', transactionError.message);
+            // Don't fail the spin if transaction logging fails
+        }
+        
+        res.json({
+            success: true,
+            player: {
+                id: player.id,
+                username: player.username,
+                credits: newCredits.toFixed(2)
+            },
+            spin: {
+                spinId: spinResult.spinId,
+                betAmount: betAmount,
+                totalWin: spinResult.totalWin || 0,
+                baseWin: spinResult.baseWin || 0,
+                initialGrid: spinResult.initialGrid,
+                finalGrid: spinResult.finalGrid,
+                cascadeSteps: spinResult.cascadeSteps || [],
+                bonusFeatures: spinResult.bonusFeatures || {
+                    freeSpinsTriggered: false,
+                    freeSpinsAwarded: 0,
+                    randomMultipliers: []
+                },
+                timing: spinResult.timing || {
+                    totalDuration: 2000,
+                    cascadeTiming: []
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Auth spin error:', error);
+        res.status(500).json({
+            error: 'Spin processing failed',
+            code: 'SPIN_ERROR',
+            message: error.message
+        });
+    }
+});
+
+
+// Legacy spin endpoint for backward compatibility
+app.post('/api/spin-legacy', authenticate, async (req, res) => {
     try {
         const { bet = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body;
         
         console.log(`🎰 Spin request: bet=$${bet}, quickSpin=${quickSpinMode}, freeSpins=${freeSpinsActive}, multiplier=${accumulatedMultiplier}x`);
         
+        // Check if player can place bet (not in demo mode for real money)
+        if (!req.user.is_demo && !req.user.canPlaceBet(bet)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INSUFFICIENT_CREDITS',
+                errorMessage: `Insufficient credits. Available: ${req.user.credits}, Required: ${bet}`
+            });
+        }
+
         // Generate complete spin result using GridEngine
         const spinResult = gridEngine.generateSpinResult({
             bet: parseFloat(bet),
             quickSpinMode: Boolean(quickSpinMode),
             freeSpinsActive: Boolean(freeSpinsActive),
-            accumulatedMultiplier: parseFloat(accumulatedMultiplier)
+            accumulatedMultiplier: parseFloat(accumulatedMultiplier),
+            playerId: req.user.id,
+            sessionId: req.session_info.id
         });
 
         if (spinResult.success) {
-            console.log(`✅ Spin ${spinResult.spinId}: ${spinResult.cascades.length} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
+            const cascadeCount = Array.isArray(spinResult.cascadeSteps) ? spinResult.cascadeSteps.length : 0;
+            console.log(`✅ Spin ${spinResult.spinId} (Player: ${req.user.username}): ${cascadeCount} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
+            
+            // Update player credits (if not demo mode)
+            if (!req.user.is_demo && spinResult.totalWin > 0) {
+                try {
+                    const Player = require('./src/models/Player');
+                    const player = await Player.findByPk(req.user.id);
+                    if (player) {
+                        await player.deductCredits(bet);
+                        await player.addCredits(spinResult.totalWin);
+                        logger.info(`Credits updated for player ${req.user.username}: -${bet} +${spinResult.totalWin}`);
+                    }
+                } catch (creditErr) {
+                    logger.error('Credit update failed:', creditErr.message);
+                }
+            }
         } else {
-            console.error(`❌ Spin failed: ${spinResult.errorMessage}`);
+            console.error(`❌ Spin failed for ${req.user.username}: ${spinResult.errorMessage}`);
         }
+
+        // Database persistence disabled for demo mode
+        // // Persist spin into database (best-effort)
+        // try {
+        //     await pool.query(
+        //         `insert into public.spins (spin_id, player_id, bet_amount, total_win, rng_seed, initial_grid, cascades)
+        //          values ($1,$2,$3,$4,$5,$6,$7)` ,
+        //         [
+        //             spinResult.spinId,
+        //             req.user.id,
+        //             spinResult.betAmount,
+        //             spinResult.totalWin,
+        //             spinResult.rngSeed,
+        //             JSON.stringify(spinResult.initialGrid),
+        //             JSON.stringify(spinResult.cascadeSteps || [])
+        //         ]
+        //     );
+        // } catch (persistErr) {
+        //     console.error('⚠️  Persist spin failed:', persistErr.message);
+        // }
 
         res.json(spinResult);
     } catch (error) {
         console.error('Spin error:', error);
+        const isTest = process.env.NODE_ENV === 'test';
         res.status(500).json({ 
             success: false, 
             error: 'SPIN_GENERATION_FAILED',
-            errorMessage: 'Internal server error'
+            errorMessage: error?.message || 'Internal server error',
+            stack: isTest ? String(error?.stack || '') : undefined
         });
     }
 });
@@ -774,15 +1509,52 @@ io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
     // Enhanced spin request with cascade synchronization support
-    socket.on('spin_request', (data) => {
+    socket.on('spin_request', async (data) => {
         console.log(`🎰 WebSocket spin request:`, data);
         
         try {
-            const { bet = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1, enableSync = false } = data;
+            const { bet = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1, enableSync = false, playerId } = data;
+            
+            // Import Supabase functions
+            const { processBet, processWin, getDemoPlayer, recordSpinResult, saveSpinResult } = require('./src/db/supabaseClient');
+            
+            // Get player ID (use demo player if not provided)
+            let actualPlayerId = playerId;
+            if (!actualPlayerId) {
+                try {
+                    const demoPlayer = await getDemoPlayer();
+                    actualPlayerId = demoPlayer.id;
+                    console.log('Using demo player:', actualPlayerId);
+                } catch (err) {
+                    console.error('Failed to get demo player:', err);
+                    socket.emit('spin_result', {
+                        success: false,
+                        error: 'AUTHENTICATION_FAILED',
+                        errorMessage: 'Failed to authenticate player'
+                    });
+                    return;
+                }
+            }
+            
+            // Process bet
+            const betAmount = parseFloat(bet);
+            const betResult = await processBet(actualPlayerId, betAmount);
+            
+            if (betResult.error) {
+                console.error(`❌ Bet failed: ${betResult.error}`);
+                socket.emit('spin_result', {
+                    success: false,
+                    error: 'INSUFFICIENT_BALANCE',
+                    errorMessage: betResult.error
+                });
+                return;
+            }
+            
+            console.log(`💰 Bet processed: $${betAmount}, new balance: $${betResult.newBalance}`);
             
             // Generate complete spin result using GridEngine
             const spinResult = gridEngine.generateSpinResult({
-                bet: parseFloat(bet),
+                bet: betAmount,
                 quickSpinMode: Boolean(quickSpinMode),
                 freeSpinsActive: Boolean(freeSpinsActive),
                 accumulatedMultiplier: parseFloat(accumulatedMultiplier)
@@ -790,6 +1562,54 @@ io.on('connection', (socket) => {
 
             if (spinResult.success) {
                 console.log(`✅ WebSocket Spin ${spinResult.spinId}: ${spinResult.cascades.length} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
+                
+                // Process win if any
+                if (spinResult.totalWin > 0) {
+                    const winResult = await processWin(actualPlayerId, spinResult.totalWin);
+                    if (winResult.error) {
+                        console.error('Failed to process win:', winResult.error);
+                    } else {
+                        console.log(`🎉 Win processed: $${spinResult.totalWin}, new balance: $${winResult.newBalance}`);
+                        spinResult.newBalance = winResult.newBalance;
+                    }
+                } else {
+                    spinResult.newBalance = betResult.newBalance;
+                }
+                
+                // Save spin result to database
+                const saveResult = await saveSpinResult(actualPlayerId, {
+                    bet: betAmount,
+                    initialGrid: spinResult.initialGrid,
+                    cascades: spinResult.cascades,
+                    totalWin: spinResult.totalWin,
+                    multipliers: spinResult.multipliers,
+                    rngSeed: spinResult.rngSeed,
+                    freeSpinsActive: freeSpinsActive
+                });
+                
+                if (saveResult.error) {
+                    console.error('Failed to save spin result:', saveResult.error);
+                } else {
+                    console.log('📊 Spin result saved to database with ID:', saveResult.spinResultId);
+                    spinResult.spinResultId = saveResult.spinResultId;
+                }
+                
+                // Also save to spins table using existing function
+                const recordResult = await recordSpinResult({
+                    spinId: spinResult.spinId,
+                    playerId: actualPlayerId,
+                    betAmount: betAmount,
+                    totalWin: spinResult.totalWin,
+                    rngSeed: spinResult.rngSeed,
+                    initialGrid: spinResult.initialGrid,
+                    cascades: spinResult.cascades
+                });
+                
+                if (recordResult.error) {
+                    console.error('Failed to record spin:', recordResult.error);
+                } else {
+                    console.log('📝 Spin recorded to spins table');
+                }
                 
                 // If cascade sync enabled, prepare sync session data
                 if (enableSync) {
@@ -934,6 +1754,63 @@ io.on('connection', (socket) => {
     // Register socket with cascade synchronizer for real-time updates
     cascadeSynchronizer.registerSocket(socket);
 
+    // Admin dashboard real-time metrics subscription
+    socket.on('subscribe_metrics', (data) => {
+        try {
+            console.log(`📊 Admin ${data.adminId || 'unknown'} subscribed to real-time metrics`);
+            socket.join('admin_metrics'); // Join admin metrics room
+            socket.admin_id = data.adminId;
+            
+            // Send initial metrics immediately
+            metricsService.getRealtimeMetrics().then(metrics => {
+                socket.emit('metrics_update', metrics);
+            }).catch(error => {
+                console.error('Error sending initial metrics:', error);
+            });
+        } catch (error) {
+            console.error('Metrics subscription error:', error);
+            socket.emit('metrics_error', { error: 'Failed to subscribe to metrics' });
+        }
+    });
+
+    socket.on('unsubscribe_metrics', (data) => {
+        console.log(`📊 Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from real-time metrics`);
+        socket.leave('admin_metrics');
+        socket.admin_id = null;
+    });
+
+    // RTP alert subscription
+    socket.on('subscribe_rtp_alerts', (data) => {
+        try {
+            console.log(`⚠️ Admin ${data.adminId || 'unknown'} subscribed to RTP alerts`);
+            socket.join('rtp_alerts');
+            socket.admin_id = data.adminId;
+        } catch (error) {
+            console.error('RTP alerts subscription error:', error);
+        }
+    });
+
+    socket.on('unsubscribe_rtp_alerts', (data) => {
+        console.log(`⚠️ Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from RTP alerts`);
+        socket.leave('rtp_alerts');
+    });
+
+    // System alerts subscription
+    socket.on('subscribe_system_alerts', (data) => {
+        try {
+            console.log(`🚨 Admin ${data.adminId || 'unknown'} subscribed to system alerts`);
+            socket.join('system_alerts');
+            socket.admin_id = data.adminId;
+        } catch (error) {
+            console.error('System alerts subscription error:', error);
+        }
+    });
+
+    socket.on('unsubscribe_system_alerts', (data) => {
+        console.log(`🚨 Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from system alerts`);
+        socket.leave('system_alerts');
+    });
+
     socket.on('test', (data) => {
         console.log('Test message received:', data);
         socket.emit('test_response', { message: 'Test successful', data: data });
@@ -943,7 +1820,92 @@ io.on('connection', (socket) => {
         console.log('Client disconnected:', socket.id);
         // Clean up any active sync sessions for this socket
         cascadeSynchronizer.unregisterSocket(socket);
+        
+        // Leave all admin rooms
+        socket.leave('admin_metrics');
+        socket.leave('rtp_alerts');
+        socket.leave('system_alerts');
     });
+});
+
+// Global error handler for authentication
+app.use(authErrorHandler);
+
+// Background service for real-time metrics broadcasting
+let metricsInterval = null;
+let rtpInterval = null;
+
+function startMetricsBroadcasting() {
+    // Broadcast metrics updates every 30 seconds to subscribed admin clients
+    metricsInterval = setInterval(async () => {
+        try {
+            const realtimeMetrics = await metricsService.getRealtimeMetrics();
+            io.to('admin_metrics').emit('metrics_update', realtimeMetrics);
+        } catch (error) {
+            console.error('Error broadcasting metrics:', error);
+        }
+    }, 30000); // 30 seconds
+
+    // Check for RTP alerts every 5 minutes
+    rtpInterval = setInterval(async () => {
+        try {
+            const rtpMetrics = await metricsService.getRTPMetrics('24h');
+            
+            // Check for RTP deviations and send alerts
+            if (rtpMetrics && rtpMetrics.alerts && rtpMetrics.alerts.length > 0) {
+                rtpMetrics.alerts.forEach(alert => {
+                    io.to('rtp_alerts').emit('rtp_alert', alert);
+                    console.log(`⚠️ RTP Alert broadcasted: ${alert.message}`);
+                });
+            }
+            
+            // Check for system health issues
+            const systemHealth = await metricsService.getSystemHealth();
+            if (systemHealth.health.status !== 'healthy') {
+                const systemAlert = {
+                    type: systemHealth.health.status === 'critical' ? 'critical' : 'warning',
+                    message: `System health status: ${systemHealth.health.status}`,
+                    details: {
+                        response_time: systemHealth.health.response_time,
+                        error_rate: systemHealth.health.error_rate,
+                        uptime: systemHealth.health.uptime
+                    },
+                    timestamp: new Date()
+                };
+                
+                io.to('system_alerts').emit('system_alert', systemAlert);
+                console.log(`🚨 System Alert broadcasted: ${systemAlert.message}`);
+            }
+            
+        } catch (error) {
+            console.error('Error checking alerts:', error);
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    console.log('📡 Real-time metrics broadcasting started');
+}
+
+function stopMetricsBroadcasting() {
+    if (metricsInterval) {
+        clearInterval(metricsInterval);
+        metricsInterval = null;
+    }
+    if (rtpInterval) {
+        clearInterval(rtpInterval);
+        rtpInterval = null;
+    }
+    console.log('📡 Real-time metrics broadcasting stopped');
+}
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+    console.log('📡 SIGTERM received, stopping metrics broadcasting...');
+    stopMetricsBroadcasting();
+});
+
+process.on('SIGINT', () => {
+    console.log('📡 SIGINT received, stopping metrics broadcasting...');
+    stopMetricsBroadcasting();
 });
 
 const PORT = process.env.PORT || 3000;
@@ -954,6 +1916,11 @@ server.listen(PORT, () => {
     console.log(`🌐 Client URL: ${CLIENT_URL}`);
     console.log(`📡 WebSocket server ready`);
     console.log(`🎮 Game available at: http://localhost:${PORT}`);
+    console.log(`🔐 Authentication system active`);
+    console.log(`🏛️ Admin panel available at: http://localhost:${PORT}/admin`);
+    
+    // Start real-time metrics broadcasting
+    startMetricsBroadcasting();
 });
 
 module.exports = { app, server, io };

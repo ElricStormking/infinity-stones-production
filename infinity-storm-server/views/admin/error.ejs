@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'Error - Admin Panel' %></title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom Admin CSS -->
+    <link href="/admin/css/admin.css" rel="stylesheet">
+</head>
+<body class="admin-body bg-light">
+    <div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center">
+        <div class="row w-100">
+            <div class="col-md-6 col-lg-4 mx-auto">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <!-- Error Icon -->
+                        <div class="mb-4">
+                            <div class="error-icon mx-auto">
+                                <i class="bi bi-exclamation-triangle-fill text-warning display-1"></i>
+                            </div>
+                        </div>
+
+                        <!-- Error Message -->
+                        <h1 class="h3 mb-3 text-dark">
+                            <%= error || 'An Error Occurred' %>
+                        </h1>
+                        
+                        <p class="text-muted mb-4">
+                            <%= message || 'Something went wrong while processing your request. Please try again.' %>
+                        </p>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-block">
+                            <button class="btn btn-primary" onclick="history.back()">
+                                <i class="bi bi-arrow-left"></i>
+                                Go Back
+                            </button>
+                            
+                            <a href="/admin/dashboard" class="btn btn-outline-primary">
+                                <i class="bi bi-house"></i>
+                                Dashboard
+                            </a>
+                        </div>
+
+                        <!-- Additional Help -->
+                        <hr class="my-4">
+                        
+                        <div class="text-muted small">
+                            <p class="mb-2">
+                                <i class="bi bi-info-circle"></i>
+                                If this error persists, please contact system administrator.
+                            </p>
+                            
+                            <p class="mb-0">
+                                <strong>Error ID:</strong> <%= Date.now().toString(36).toUpperCase() %>
+                                <br>
+                                <strong>Time:</strong> <%= new Date().toLocaleString() %>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="text-center mt-4">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/admin/dashboard" class="btn btn-link">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                        <a href="/admin/players" class="btn btn-link">
+                            <i class="bi bi-people"></i> Players
+                        </a>
+                        <a href="/admin/audit/logs" class="btn btn-link">
+                            <i class="bi bi-journal-check"></i> Audit Logs
+                        </a>
+                        <a href="/admin/logout" class="btn btn-link text-danger">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Auto-refresh after 30 seconds if network error
+        const errorMessage = '<%= error || "" %>';
+        if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('service')) {
+            setTimeout(() => {
+                if (confirm('Would you like to refresh the page and try again?')) {
+                    window.location.reload();
+                }
+            }, 30000);
+        }
+        
+        // Track error for debugging
+        console.error('Admin Panel Error:', {
+            error: '<%= error || "" %>',
+            message: '<%= message || "" %>',
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            url: window.location.href
+        });
+    </script>
+</body>
+</html>

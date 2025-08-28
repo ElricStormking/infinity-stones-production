@@ -10,6 +10,141 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const stateManager = this.game.stateManager;
         
+        // First, validate session before showing menu
+        this.validateSessionAndContinue();
+    }
+    
+    async validateSessionAndContinue() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        const stateManager = this.game.stateManager;
+        
+        // Show loading state during validation
+        this.showValidatingState();
+        
+        try {
+            // Ensure SessionService is available
+            if (!window.SessionService) {
+                console.error('🔐 SessionService not available');
+                // Fallback - show error or retry
+                setTimeout(() => this.validateSessionAndContinue(), 1000);
+                return;
+            }
+            
+            // Check session status
+            const sessionStatus = window.SessionService.getSessionStatus();
+            
+            if (!sessionStatus.authenticated) {
+                console.log('🔐 No valid session found, continuing in demo mode');
+                if (window.SessionService.redirectToPortal) {
+                    const redirectResult = window.SessionService.redirectToPortal('no_session');
+                    // If redirect was disabled (returns false), continue with demo mode
+                    if (redirectResult === false) {
+                        console.log('🔐 Demo mode: Showing menu without authentication');
+                        this.showMainMenu();
+                        return;
+                    }
+                } else {
+                    console.error('🔐 redirectToPortal method not available');
+                    this.showMainMenu();
+                }
+                return;
+            }
+            
+            // Validate session with server
+            const isValid = await window.SessionService.validateSession();
+            
+            if (!isValid) {
+                console.log('🔐 Session validation failed, continuing in demo mode');
+                if (window.SessionService.redirectToPortal) {
+                    const redirectResult = window.SessionService.redirectToPortal('invalid_session');
+                    // If redirect was disabled (returns false), continue with demo mode
+                    if (redirectResult === false) {
+                        console.log('🔐 Demo mode: Showing menu without authentication');
+                        this.showMainMenu();
+                        return;
+                    }
+                } else {
+                    console.error('🔐 redirectToPortal method not available');
+                    this.showMainMenu();
+                }
+                return;
+            }
+            
+            console.log('🔐 ✅ Session validated, showing menu');
+            this.showMainMenu();
+            
+        } catch (error) {
+            console.error('🔐 Session validation error:', error);
+            if (window.SessionService && window.SessionService.redirectToPortal) {
+                const redirectResult = window.SessionService.redirectToPortal('validation_error');
+                // If redirect was disabled (returns false), continue with demo mode
+                if (redirectResult === false) {
+                    console.log('🔐 Demo mode: Showing menu despite validation error');
+                    this.showMainMenu();
+                }
+            } else {
+                console.error('🔐 Cannot redirect to portal - SessionService not available, showing menu anyway');
+                this.showMainMenu();
+            }
+        }
+    }
+    
+    showValidatingState() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Background
+        let bg;
+        if (this.textures && this.textures.exists('scarlet_witch_loading')) {
+            bg = this.add.image(width / 2, height / 2, 'scarlet_witch_loading');
+            bg.setOrigin(0.5);
+            bg.setDisplaySize(width, height);
+        } else {
+            bg = this.add.tileSprite(0, 0, width, height, 'background');
+            bg.setOrigin(0, 0);
+        }
+        bg.setDepth(-1000);
+        
+        // Darken overlay
+        const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.65);
+        shade.setDepth(-900);
+        
+        // Loading message
+        const loadingText = this.add.text(width / 2, height / 2, 'Validating Session...', {
+            fontSize: '36px',
+            fontFamily: 'Arial Black',
+            color: '#ffffff',
+            stroke: '#6B46C1',
+            strokeThickness: 4
+        });
+        loadingText.setOrigin(0.5);
+        
+        // Pulse animation
+        this.tweens.add({
+            targets: loadingText,
+            alpha: 0.5,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Store for cleanup
+        this.validatingElements = [bg, shade, loadingText];
+    }
+    
+    showMainMenu() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        const stateManager = this.game.stateManager;
+        
+        // Clear validating state
+        if (this.validatingElements) {
+            this.validatingElements.forEach(element => element.destroy());
+            this.validatingElements = null;
+        }
+        
         // Background: use Scarlet Witch loading artwork if available
         let bg;
         if (this.textures && this.textures.exists('scarlet_witch_loading')) {
@@ -70,10 +205,28 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         });
         balanceText.setOrigin(0.5);
         
-        // Sound/Music toggles moved to Settings UI (in-game). Title menu no longer shows them.
+        // Session status (in development mode)
+        if (window.DEBUG) {
+            const sessionStatus = window.SessionService.getSessionStatus();
+            const statusText = this.add.text(width / 2, height / 2 + 200, 
+                `Session: ${sessionStatus.authenticated ? 'Valid' : 'Invalid'}`, {
+                fontSize: '16px',
+                fontFamily: 'Arial',
+                color: sessionStatus.authenticated ? '#4CAF50' : '#FF6B6B'
+            });
+            statusText.setOrigin(0.5);
+        }
+        
+        // Logout button (for testing/admin purposes)
+        if (window.DEBUG) {
+            const logoutButton = this.createButton(width - 100, 50, 'LOGOUT', () => {
+                window.SessionService.logout();
+            });
+            logoutButton.setScale(0.5);
+        }
         
         // Version text
-        this.add.text(10, height - 20, 'v1.0.0 - Demo', {
+        this.add.text(10, height - 20, 'v1.0.0 - Server Mode', {
             fontSize: '14px',
             fontFamily: 'Arial',
             color: '#666666'

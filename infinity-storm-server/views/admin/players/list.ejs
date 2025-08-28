@@ -1,0 +1,641 @@
+<% 
+// Set active navigation
+locals.activeNav = 'players';
+%>
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">
+            <i class="bi bi-people text-primary"></i>
+            Player Management
+        </h1>
+        <p class="text-muted mb-0">
+            Manage player accounts, view activity, and adjust settings
+        </p>
+    </div>
+    <div class="d-flex align-items-center">
+        <span class="badge bg-info me-2">
+            <%= totalCount %> Total Players
+        </span>
+        <span class="badge bg-success me-2">
+            <%= players.filter(p => p.status === 'active').length %> Active
+        </span>
+    </div>
+</div>
+
+<!-- Advanced Search and Filters -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-funnel"></i>
+                Search & Filter Options
+            </h6>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+                <i class="bi bi-gear"></i> Advanced
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end" id="playerFiltersForm">
+            <!-- Basic Search -->
+            <div class="col-md-4">
+                <label for="search" class="form-label">Search Players</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="search" 
+                        name="search" 
+                        placeholder="Username, email, or ID..."
+                        value="<%= filters.search || '' %>"
+                    >
+                    <button class="btn btn-outline-secondary" type="button" id="searchClear" title="Clear search">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="col-md-2">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">All Status</option>
+                    <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
+                    <option value="suspended" <%= filters.status === 'suspended' ? 'selected' : '' %>>Suspended</option>
+                    <option value="banned" <%= filters.status === 'banned' ? 'selected' : '' %>>Banned</option>
+                </select>
+            </div>
+
+            <!-- Account Type Filter -->
+            <div class="col-md-2">
+                <label for="is_admin" class="form-label">Account Type</label>
+                <select class="form-select" id="is_admin" name="is_admin">
+                    <option value="">All Types</option>
+                    <option value="false" <%= filters.is_admin === 'false' ? 'selected' : '' %>>Regular Players</option>
+                    <option value="true" <%= filters.is_admin === 'true' ? 'selected' : '' %>>Administrators</option>
+                </select>
+            </div>
+
+            <!-- Results Per Page -->
+            <div class="col-md-2">
+                <label for="limit" class="form-label">Per Page</label>
+                <select class="form-select" id="limit" name="limit">
+                    <option value="25" <%= pagination.limit === 25 ? 'selected' : '' %>>25</option>
+                    <option value="50" <%= pagination.limit === 50 ? 'selected' : '' %>>50</option>
+                    <option value="100" <%= pagination.limit === 100 ? 'selected' : '' %>>100</option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="col-md-2">
+                <div class="btn-group w-100" role="group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="resetFilters" title="Reset all filters">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Advanced Filters (Collapsible) -->
+        <div class="collapse mt-3" id="advancedFilters">
+            <hr>
+            <div class="row g-3">
+                <!-- Registration Date Range -->
+                <div class="col-md-3">
+                    <label for="date_from" class="form-label">Joined From</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from" 
+                           value="<%= filters.date_from || '' %>">
+                </div>
+                <div class="col-md-3">
+                    <label for="date_to" class="form-label">Joined Until</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to" 
+                           value="<%= filters.date_to || '' %>">
+                </div>
+                
+                <!-- Balance Range -->
+                <div class="col-md-3">
+                    <label for="balance_min" class="form-label">Min Balance</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="balance_min" name="balance_min" 
+                               min="0" step="0.01" placeholder="0.00"
+                               value="<%= filters.balance_min || '' %>">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label for="balance_max" class="form-label">Max Balance</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="balance_max" name="balance_max" 
+                               min="0" step="0.01" placeholder="1000.00"
+                               value="<%= filters.balance_max || '' %>">
+                    </div>
+                </div>
+                
+                <!-- Activity Filters -->
+                <div class="col-md-3">
+                    <label for="last_login" class="form-label">Last Login</label>
+                    <select class="form-select" id="last_login" name="last_login">
+                        <option value="">Any Time</option>
+                        <option value="today" <%= filters.last_login === 'today' ? 'selected' : '' %>>Today</option>
+                        <option value="week" <%= filters.last_login === 'week' ? 'selected' : '' %>>This Week</option>
+                        <option value="month" <%= filters.last_login === 'month' ? 'selected' : '' %>>This Month</option>
+                        <option value="never" <%= filters.last_login === 'never' ? 'selected' : '' %>>Never</option>
+                    </select>
+                </div>
+                
+                <!-- Demo Account Filter -->
+                <div class="col-md-3">
+                    <label for="is_demo" class="form-label">Demo Accounts</label>
+                    <select class="form-select" id="is_demo" name="is_demo">
+                        <option value="">Include All</option>
+                        <option value="false" <%= filters.is_demo === 'false' ? 'selected' : '' %>>Exclude Demo</option>
+                        <option value="true" <%= filters.is_demo === 'true' ? 'selected' : '' %>>Only Demo</option>
+                    </select>
+                </div>
+                
+                <!-- Sort Options -->
+                <div class="col-md-3">
+                    <label for="sort_by" class="form-label">Sort By</label>
+                    <select class="form-select" id="sort_by" name="sort_by">
+                        <option value="created_at" <%= filters.sort_by === 'created_at' ? 'selected' : '' %>>Registration Date</option>
+                        <option value="last_login_at" <%= filters.sort_by === 'last_login_at' ? 'selected' : '' %>>Last Login</option>
+                        <option value="credits" <%= filters.sort_by === 'credits' ? 'selected' : '' %>>Balance</option>
+                        <option value="username" <%= filters.sort_by === 'username' ? 'selected' : '' %>>Username</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="sort_order" class="form-label">Sort Order</label>
+                    <select class="form-select" id="sort_order" name="sort_order">
+                        <option value="desc" <%= filters.sort_order === 'desc' ? 'selected' : '' %>>Descending</option>
+                        <option value="asc" <%= filters.sort_order === 'asc' ? 'selected' : '' %>>Ascending</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Filter Badges and Active Filters -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <!-- Quick Filters -->
+            <div>
+                <small class="text-muted me-2">Quick filters:</small>
+                <a href="?status=active" class="badge bg-success text-decoration-none me-1">Active Players</a>
+                <a href="?status=suspended" class="badge bg-warning text-decoration-none me-1">Suspended</a>
+                <a href="?status=banned" class="badge bg-danger text-decoration-none me-1">Banned</a>
+                <a href="?is_admin=true" class="badge bg-info text-decoration-none me-1">Admins</a>
+                <a href="?is_demo=true" class="badge bg-secondary text-decoration-none me-1">Demo</a>
+                <a href="?" class="badge bg-light text-dark text-decoration-none border">Clear All</a>
+            </div>
+            
+            <!-- Active Filter Count -->
+            <div>
+                <% 
+                const filterCount = Object.values(filters).filter(f => f && f !== '').length;
+                if (filterCount > 0) { %>
+                    <small class="text-info">
+                        <i class="bi bi-funnel-fill"></i>
+                        <%= filterCount %> filter<%= filterCount > 1 ? 's' : '' %> active
+                    </small>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Players Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            Player List 
+            <span class="text-muted fw-normal">
+                (Page <%= pagination.currentPage %> of <%= pagination.totalPages %>)
+            </span>
+        </h5>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <% if (players && players.length > 0) { %>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" data-sortable="true">
+                    <thead class="table-light">
+                        <tr>
+                            <th data-sort="username">
+                                <i class="bi bi-person"></i> Player
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th data-sort="email" class="d-none d-md-table-cell">
+                                <i class="bi bi-envelope"></i> Email
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th data-sort="credits" class="text-end">
+                                <i class="bi bi-coin"></i> Credits
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th data-sort="status">
+                                <i class="bi bi-shield"></i> Status
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th data-sort="created_at" class="d-none d-lg-table-cell">
+                                <i class="bi bi-calendar"></i> Joined
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th data-sort="last_login_at" class="d-none d-xl-table-cell">
+                                <i class="bi bi-clock"></i> Last Login
+                                <i class="bi bi-arrow-down-up small ms-1"></i>
+                            </th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% players.forEach(function(player) { %>
+                        <tr>
+                            <!-- Player Info -->
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="player-avatar me-2">
+                                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="bi bi-person text-white small"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-medium">
+                                            <%= player.username %>
+                                            <% if (player.is_admin) { %>
+                                                <span class="badge bg-warning text-dark ms-1">
+                                                    <i class="bi bi-shield"></i> Admin
+                                                </span>
+                                            <% } %>
+                                            <% if (player.is_demo) { %>
+                                                <span class="badge bg-info ms-1">Demo</span>
+                                            <% } %>
+                                        </div>
+                                        <small class="text-muted d-md-none">
+                                            <%= player.email %>
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Email (hidden on mobile) -->
+                            <td class="d-none d-md-table-cell">
+                                <span class="text-muted">
+                                    <%= player.email %>
+                                </span>
+                            </td>
+
+                            <!-- Credits -->
+                            <td class="text-end">
+                                <span class="fw-medium" data-value="<%= player.credits %>">
+                                    $<%= parseFloat(player.credits).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %>
+                                </span>
+                            </td>
+
+                            <!-- Status -->
+                            <td data-value="<%= player.status %>">
+                                <% if (player.status === 'active') { %>
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Active
+                                    </span>
+                                <% } else if (player.status === 'suspended') { %>
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-pause-circle"></i> Suspended
+                                    </span>
+                                <% } else if (player.status === 'banned') { %>
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> Banned
+                                    </span>
+                                <% } %>
+                            </td>
+
+                            <!-- Joined Date (hidden on mobile/tablet) -->
+                            <td class="d-none d-lg-table-cell" data-value="<%= player.created_at %>">
+                                <span class="text-muted">
+                                    <%= new Date(player.created_at).toLocaleDateString() %>
+                                </span>
+                            </td>
+
+                            <!-- Last Login (hidden on small screens) -->
+                            <td class="d-none d-xl-table-cell" data-value="<%= player.last_login_at || '' %>">
+                                <span class="text-muted">
+                                    <% if (player.last_login_at) { %>
+                                        <%= new Date(player.last_login_at).toLocaleDateString() %>
+                                    <% } else { %>
+                                        Never
+                                    <% } %>
+                                </span>
+                            </td>
+
+                            <!-- Actions -->
+                            <td class="text-end">
+                                <div class="btn-group" role="group">
+                                    <a href="/admin/players/<%= player.id %>" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                        <span class="d-none d-sm-inline">View</span>
+                                    </a>
+                                    
+                                    <% if (player.status === 'active' && player.id !== admin.id) { %>
+                                        <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#suspendModal"
+                                                data-player-id="<%= player.id %>"
+                                                data-player-username="<%= player.username %>">
+                                            <i class="bi bi-pause"></i>
+                                            <span class="d-none d-md-inline">Suspend</span>
+                                        </button>
+                                    <% } else if (player.status !== 'active' && player.id !== admin.id) { %>
+                                        <form method="POST" action="/admin/players/<%= player.id %>/activate" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                                    data-confirm="Are you sure you want to activate <%= player.username %>?">
+                                                <i class="bi bi-play"></i>
+                                                <span class="d-none d-md-inline">Activate</span>
+                                            </button>
+                                        </form>
+                                    <% } %>
+                                </div>
+                            </td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        <% } else { %>
+            <!-- No Players Found -->
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                </div>
+                <h5 class="text-muted">No players found</h5>
+                <p class="text-muted mb-0">
+                    <% if (Object.values(filters).some(f => f)) { %>
+                        No players match your current filters. Try adjusting your search criteria.
+                    <% } else { %>
+                        There are currently no players in the system.
+                    <% } %>
+                </p>
+                <% if (Object.values(filters).some(f => f)) { %>
+                    <a href="/admin/players" class="btn btn-outline-primary mt-3">
+                        <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                    </a>
+                <% } %>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- Pagination -->
+<% if (pagination.totalPages > 1) { %>
+<nav aria-label="Player pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <!-- Previous Page -->
+        <li class="page-item <%= pagination.currentPage === 1 ? 'disabled' : '' %>">
+            <a class="page-link" href="?page=<%= Math.max(1, pagination.currentPage - 1) %>&<%= new URLSearchParams(filters).toString() %>&limit=<%= pagination.limit %>">
+                <i class="bi bi-chevron-left"></i> Previous
+            </a>
+        </li>
+
+        <!-- Page Numbers -->
+        <% 
+        const startPage = Math.max(1, pagination.currentPage - 2);
+        const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2);
+        
+        for (let i = startPage; i <= endPage; i++) { 
+        %>
+            <li class="page-item <%= pagination.currentPage === i ? 'active' : '' %>">
+                <a class="page-link" href="?page=<%= i %>&<%= new URLSearchParams(filters).toString() %>&limit=<%= pagination.limit %>">
+                    <%= i %>
+                </a>
+            </li>
+        <% } %>
+
+        <!-- Next Page -->
+        <li class="page-item <%= pagination.currentPage === pagination.totalPages ? 'disabled' : '' %>">
+            <a class="page-link" href="?page=<%= Math.min(pagination.totalPages, pagination.currentPage + 1) %>&<%= new URLSearchParams(filters).toString() %>&limit=<%= pagination.limit %>">
+                Next <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    </ul>
+    
+    <!-- Page Info -->
+    <div class="text-center text-muted small mt-2">
+        Showing <%= Math.min((pagination.currentPage - 1) * pagination.limit + 1, totalCount) %>-<%= Math.min(pagination.currentPage * pagination.limit, totalCount) %> of <%= totalCount %> players
+    </div>
+</nav>
+<% } %>
+
+<!-- Suspend Player Modal -->
+<div class="modal fade" id="suspendModal" tabindex="-1" aria-labelledby="suspendModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="suspendModalLabel">
+                    <i class="bi bi-pause-circle text-warning"></i>
+                    Suspend Player
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="suspendForm">
+                <div class="modal-body">
+                    <p>
+                        Are you sure you want to suspend <strong id="suspendPlayerName"></strong>?
+                    </p>
+                    <p class="text-muted small">
+                        This will prevent the player from accessing the game until reactivated by an administrator.
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label for="suspendReason" class="form-label">Reason (Optional)</label>
+                        <textarea class="form-control" id="suspendReason" name="reason" rows="3" 
+                                  placeholder="Enter reason for suspension..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-pause-circle"></i>
+                        Suspend Player
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Page-specific Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle suspend modal
+    const suspendModal = document.getElementById('suspendModal');
+    if (suspendModal) {
+        suspendModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const playerId = button.getAttribute('data-player-id');
+            const playerUsername = button.getAttribute('data-player-username');
+            
+            const form = document.getElementById('suspendForm');
+            const playerName = document.getElementById('suspendPlayerName');
+            
+            form.action = `/admin/players/${playerId}/suspend`;
+            playerName.textContent = playerUsername;
+        });
+    }
+    
+    // Auto-submit form on filter change
+    const filterSelects = document.querySelectorAll('#status, #is_admin, #limit');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            if (this.id !== 'limit') {
+                // Reset to page 1 when changing filters
+                const form = this.closest('form');
+                const pageInput = form.querySelector('input[name="page"]');
+                if (pageInput) {
+                    pageInput.value = '1';
+                }
+            }
+            this.closest('form').submit();
+        });
+    });
+    
+    // Enhanced search with debounce
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Auto-submit search after 1 second of no typing
+                const value = this.value.trim();
+                if (value.length >= 3 || value.length === 0) {
+                    this.closest('form').submit();
+                }
+            }, 1000);
+        });
+    }
+    
+    // Clear search button
+    document.getElementById('searchClear')?.addEventListener('click', function() {
+        const searchInput = document.getElementById('search');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+            searchInput.closest('form').submit();
+        }
+    });
+    
+    // Reset all filters button
+    document.getElementById('resetFilters')?.addEventListener('click', function() {
+        window.location.href = window.location.pathname;
+    });
+    
+    // Advanced filters toggle
+    const advancedToggle = document.querySelector('[data-bs-target="#advancedFilters"]');
+    const advancedFilters = document.getElementById('advancedFilters');
+    
+    // Show advanced filters if any advanced filter is active
+    const advancedFilterFields = ['date_from', 'date_to', 'balance_min', 'balance_max', 'last_login', 'is_demo', 'sort_by', 'sort_order'];
+    let hasAdvancedFilters = false;
+    
+    advancedFilterFields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element && element.value) {
+            hasAdvancedFilters = true;
+        }
+    });
+    
+    if (hasAdvancedFilters && advancedFilters) {
+        const collapse = new bootstrap.Collapse(advancedFilters, { show: true });
+        if (advancedToggle) {
+            advancedToggle.innerHTML = '<i class="bi bi-gear-fill"></i> Advanced';
+            advancedToggle.classList.add('active');
+        }
+    }
+    
+    // Update toggle button when collapsed/expanded
+    if (advancedFilters) {
+        advancedFilters.addEventListener('shown.bs.collapse', function() {
+            if (advancedToggle) {
+                advancedToggle.innerHTML = '<i class="bi bi-gear-fill"></i> Advanced';
+                advancedToggle.classList.add('active');
+            }
+        });
+        
+        advancedFilters.addEventListener('hidden.bs.collapse', function() {
+            if (advancedToggle) {
+                advancedToggle.innerHTML = '<i class="bi bi-gear"></i> Advanced';
+                advancedToggle.classList.remove('active');
+            }
+        });
+    }
+    
+    // Auto-submit on advanced filter changes
+    const advancedInputs = document.querySelectorAll('#advancedFilters input, #advancedFilters select');
+    advancedInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            // Reset to page 1 when changing filters
+            const form = this.closest('form');
+            const pageInput = form.querySelector('input[name="page"]');
+            if (pageInput) {
+                pageInput.value = '1';
+            }
+            form.submit();
+        });
+    });
+    
+    // Bulk actions (future enhancement)
+    const selectAllCheckbox = document.getElementById('selectAllPlayers');
+    const playerCheckboxes = document.querySelectorAll('.player-checkbox');
+    const bulkActionsDiv = document.getElementById('bulkActions');
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            playerCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkActions();
+        });
+    }
+    
+    playerCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateBulkActions);
+    });
+    
+    function updateBulkActions() {
+        const checkedCount = document.querySelectorAll('.player-checkbox:checked').length;
+        if (bulkActionsDiv) {
+            if (checkedCount > 0) {
+                bulkActionsDiv.classList.remove('d-none');
+                document.getElementById('selectedCount').textContent = checkedCount;
+            } else {
+                bulkActionsDiv.classList.add('d-none');
+            }
+        }
+        
+        // Update select all checkbox state
+        if (selectAllCheckbox) {
+            const totalCheckboxes = playerCheckboxes.length;
+            if (checkedCount === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (checkedCount === totalCheckboxes) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            }
+        }
+    }
+});
+</script>

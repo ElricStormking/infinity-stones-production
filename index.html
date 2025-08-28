@@ -240,13 +240,17 @@
         })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" onerror="this.onerror=null;this.src='phaser.min.js'"></script>
+    <!-- Axios for HTTP requests -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <!-- Engine primitives (pure logic / RNG) -->
     <script src="src/engine/RNG.js"></script>
     <script src="src/engine/Paytable.js"></script>
     <script src="src/engine/SymbolSource.js"></script>
     <!-- Load all modules in order -->
-    <script src="src/services/NetworkService-simple.js"></script>
-    <script src="src/services/GameAPI-simple.js"></script>
+    <script src="src/services/NetworkService.js"></script>
+    <script src="src/services/SessionService.js"></script>
+    <script src="src/services/WalletAPI.js"></script>
+    <script src="src/services/GameAPI.js"></script>
     <script>
       // Initialize default symbol source (uses GameConfig via Paytable + RNG)
       (function(){

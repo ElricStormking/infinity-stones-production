@@ -1,0 +1,21 @@
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: infinity_postgres_test
+    environment:
+      POSTGRES_DB: infinity_storm_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    command: >
+      postgres 
+      -c log_statement=all
+      -c log_destination=stderr
+      -c logging_collector=off
+
+volumes:
+  postgres_test_data:

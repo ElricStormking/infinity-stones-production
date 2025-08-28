@@ -1,0 +1,8 @@
+# Routes directory
+This directory contains Express route definitions.
+
+Structure:
+- api.js - Main API routes
+- auth.js - Authentication routes
+- admin.js - Admin panel routes
+- game.js - Game-specific routes

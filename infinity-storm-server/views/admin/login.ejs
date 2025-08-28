@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'Admin Login - Infinity Storm' %></title>
+    
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom Admin CSS -->
+    <link href="/admin/css/admin-login.css" rel="stylesheet">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-5 col-xl-4">
+                    <div class="login-card">
+                        <!-- Header -->
+                        <div class="login-header text-center">
+                            <div class="login-logo">
+                                <i class="bi bi-gem"></i>
+                            </div>
+                            <h2 class="login-title">Infinity Storm</h2>
+                            <p class="login-subtitle">Casino Administration Panel</p>
+                        </div>
+
+                        <!-- Error Messages -->
+                        <% if (typeof error !== 'undefined' && error) { %>
+                        <div class="alert alert-danger" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <%= error %>
+                        </div>
+                        <% } %>
+
+                        <!-- Login Form -->
+                        <form action="/admin/login" method="POST" class="login-form" id="loginForm">
+                            <!-- CSRF Token -->
+                            <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <% } %>
+
+                            <!-- Username Field -->
+                            <div class="mb-3">
+                                <label for="username" class="form-label">
+                                    <i class="bi bi-person"></i> Username or Email
+                                </label>
+                                <input 
+                                    type="text" 
+                                    class="form-control form-control-lg" 
+                                    id="username" 
+                                    name="username" 
+                                    value="<%= typeof formData !== 'undefined' && formData.username ? formData.username : '' %>"
+                                    required 
+                                    autocomplete="username"
+                                    autocapitalize="none"
+                                    spellcheck="false"
+                                    placeholder="Enter your admin username"
+                                >
+                            </div>
+
+                            <!-- Password Field -->
+                            <div class="mb-3">
+                                <label for="password" class="form-label">
+                                    <i class="bi bi-lock"></i> Password
+                                </label>
+                                <div class="input-group">
+                                    <input 
+                                        type="password" 
+                                        class="form-control form-control-lg" 
+                                        id="password" 
+                                        name="password" 
+                                        required 
+                                        autocomplete="current-password"
+                                        placeholder="Enter your password"
+                                    >
+                                    <button 
+                                        class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="togglePassword"
+                                        aria-label="Show password"
+                                    >
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Remember Me -->
+                            <div class="mb-3 form-check">
+                                <input 
+                                    type="checkbox" 
+                                    class="form-check-input" 
+                                    id="remember_me" 
+                                    name="remember_me"
+                                >
+                                <label class="form-check-label" for="remember_me">
+                                    Keep me signed in for 30 days
+                                </label>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <button 
+                                type="submit" 
+                                class="btn btn-primary btn-lg w-100" 
+                                id="loginButton"
+                            >
+                                <span class="login-button-text">
+                                    <i class="bi bi-box-arrow-in-right"></i>
+                                    Sign In to Admin Panel
+                                </span>
+                                <div class="spinner-border spinner-border-sm d-none" role="status">
+                                    <span class="visually-hidden">Signing in...</span>
+                                </div>
+                            </button>
+                        </form>
+
+                        <!-- Security Notice -->
+                        <div class="login-footer">
+                            <div class="security-notice">
+                                <i class="bi bi-shield-lock text-success"></i>
+                                <small class="text-muted">
+                                    This is a secure admin area. All access attempts are logged and monitored.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Security Information -->
+                    <div class="text-center mt-4">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Admin access requires special privileges. Regular player accounts cannot access this area.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="login-footer-bottom">
+        <div class="container text-center">
+            <small class="text-muted">
+                &copy; <%= new Date().getFullYear() %> Infinity Storm Casino Management System
+                <span class="mx-2">|</span>
+                <i class="bi bi-shield-check"></i> Secure Login
+            </small>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Login Page JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginButton = document.getElementById('loginButton');
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordField = document.getElementById('password');
+
+            // Password visibility toggle
+            togglePassword.addEventListener('click', function() {
+                const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordField.setAttribute('type', type);
+                
+                const icon = this.querySelector('i');
+                icon.classList.toggle('bi-eye');
+                icon.classList.toggle('bi-eye-slash');
+                
+                this.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
+            });
+
+            // Form submission loading state
+            loginForm.addEventListener('submit', function(e) {
+                const buttonText = loginButton.querySelector('.login-button-text');
+                const spinner = loginButton.querySelector('.spinner-border');
+                
+                buttonText.classList.add('d-none');
+                spinner.classList.remove('d-none');
+                loginButton.disabled = true;
+                
+                // Re-enable button after timeout in case of network issues
+                setTimeout(function() {
+                    buttonText.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                    loginButton.disabled = false;
+                }, 10000);
+            });
+
+            // Auto-focus username field
+            document.getElementById('username').focus();
+
+            // Clear any error messages when user starts typing
+            const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
+            inputs.forEach(function(input) {
+                input.addEventListener('input', function() {
+                    const alert = document.querySelector('.alert-danger');
+                    if (alert) {
+                        alert.style.display = 'none';
+                    }
+                });
+            });
+
+            // Security: Clear password field on page unload
+            window.addEventListener('beforeunload', function() {
+                document.getElementById('password').value = '';
+            });
+
+            // Rate limiting feedback
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('error') === 'rate_limit') {
+                const alert = document.querySelector('.alert-danger');
+                if (alert) {
+                    alert.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Too many login attempts. Please try again in 15 minutes.';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
