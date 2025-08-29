@@ -15,6 +15,11 @@ window.BurstModeManager = class BurstModeManager {
         this.burstResultsContainer = null;
         this.burstWinsContainer = null; // Center-only feed of winning spins
 
+        // Shader references
+        this.blackholeShader = null;
+        this.blackholeEffect = null;
+        this.blackholeMask = null;
+
         // Cached scale for dynamic text sizing
         this._scaleX = 1;
         this._scaleY = 1;
@@ -82,6 +87,17 @@ window.BurstModeManager = class BurstModeManager {
         this.magicAnimation = null;
         this.spinBtn = null;
         this.autoToggleBtn = null;
+        
+        // Clean up blackhole shader and mask
+        if (this.blackholeEffect) {
+            this.blackholeEffect.destroy();
+            this.blackholeEffect = null;
+        }
+        if (this.blackholeMask) {
+            this.blackholeMask.destroy();
+            this.blackholeMask = null;
+        }
+        this.blackholeShader = null;
         
         // Stop burst auto spinning
         this.burstAutoSpinning = false;
@@ -219,6 +235,9 @@ window.BurstModeManager = class BurstModeManager {
             this.magicAnimation = this.scene.add.rectangle(632 * scaleX, 215 * scaleY, 100, 100, 0x6a6a6a);
             this.burstModeUI.add(this.magicAnimation);
         }
+
+        // Add blackhole shader effect in the center of the magic portal
+        this.createBlackholeEffect(632 * scaleX, 165 * scaleY, scaleX, scaleY);
         
         // Results container for all spins (positioned above magic animation)
         this.burstResultsContainer = this.scene.add.container(width / 2 - 400, 50 * scaleY);
@@ -1102,6 +1121,72 @@ window.BurstModeManager = class BurstModeManager {
         }
         if (this.roundsPlayedText) {
             this.roundsPlayedText.setText(this.burstStats.roundsPlayed.toString());
+        }
+    }
+    
+    createBlackholeEffect(x, y, scaleX, scaleY) {
+        try {
+            // Load the blackhole shader if not already loaded
+            if (!this.blackholeShader && window.createBlackholeShader) {
+                this.blackholeShader = window.createBlackholeShader(this.scene);
+                console.log('🕳️ Blackhole shader created for burst mode');
+            }
+            
+            if (this.blackholeShader) {
+                // Create a circular container for the blackhole effect
+                const radius = Math.min(148 * scaleX, 148 * scaleY); // Radius of the circular effect
+                
+                // Adjust position to center the black hole in the portal
+                // Previously offset pushed it too low; lift it slightly so the center sits fully in the mask
+                const adjustedY = y + (50 * scaleY);
+                
+                // Create a graphics object for the circular mask
+                const maskGraphics = this.scene.add.graphics();
+                maskGraphics.fillStyle(0xffffff, 1);
+                maskGraphics.fillCircle(0, 0, radius); // Draw at origin, position will be set on container
+                maskGraphics.setVisible(false); // Hide the mask graphic itself
+                
+                // Position the mask graphics
+                maskGraphics.x = x;
+                maskGraphics.y = adjustedY;
+                
+                // Create a geometry mask from the graphics
+                const mask = maskGraphics.createGeometryMask();
+                
+                // Create a larger rectangle to render the shader effect on
+                // Make it larger so the effect fills the circle properly
+                const size = radius * 3; // Larger size to show more of the shader effect
+                this.blackholeEffect = this.scene.add.rectangle(x, adjustedY, size, size, 0x000000);
+                
+                // Apply the blackhole shader pipeline FIRST
+                this.blackholeEffect.setPipeline(this.blackholeShader);
+                
+                // Then apply the circular mask to create round shape
+                this.blackholeEffect.setMask(mask);
+                
+                // Set initial shader parameters
+                this.blackholeShader.setIntensity(1.0); // Full intensity
+                this.blackholeShader.setScale(0.6);     // Reduced scale to show complete blackhole
+                // Move shader content up a bit within the circle without moving the mask
+                // Tweak 0.05-0.12 as needed; value is in normalized screen units (relative to height)
+                if (this.blackholeShader.setCenterOffset) {
+                    this.blackholeShader.setCenterOffset(0.0, 0.38);
+                }
+                
+                // Add to burst mode UI with higher depth to appear in center
+                this.blackholeEffect.setDepth(2010);
+                this.burstModeUI.add(this.blackholeEffect);
+                this.burstModeUI.add(maskGraphics); // Add mask graphics but it's invisible
+                
+                // Store mask reference for cleanup
+                this.blackholeMask = maskGraphics;
+                
+                console.log(`🕳️ Blackhole effect created at (${x}, ${adjustedY}) with radius ${radius}`);
+            } else {
+                console.warn('🕳️ Blackhole shader not available, skipping effect');
+            }
+        } catch (error) {
+            console.error('🕳️ Failed to create blackhole effect:', error);
         }
     }
     

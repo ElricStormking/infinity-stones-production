@@ -49,7 +49,9 @@
       "Bash(sed:*)",
       "Bash(cross-env SKIP_REDIS=true npm start)",
       "Bash(start:*)",
-      "Read(d:\\infinity-gauntlet\\debug/**)"
+      "Read(d:\\infinity-gauntlet\\debug/**)",
+      "Bash(git remote set-url:*)",
+      "Read(d:\\infinity-gauntlet\\ShaderSample/**)"
     ],
     "deny": [],
     "additionalDirectories": [

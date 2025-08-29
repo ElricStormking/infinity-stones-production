@@ -16,7 +16,7 @@ npm start
 
 # Alternative: Simple static server (client-only, no backend features)
 node start-server.js
-# Runs on port 3000 (or 8080 if using run-game.ps1)
+# Runs on port 3000
 ```
 
 ### Install Dependencies
