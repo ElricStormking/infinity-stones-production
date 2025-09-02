@@ -239,14 +239,8 @@ window.BurstModeManager = class BurstModeManager {
         // Add blackhole shader effect in the center of the magic portal
         this.createBlackholeEffect(632 * scaleX, 165 * scaleY, scaleX, scaleY);
         
-        // Results container for all spins (positioned above magic animation)
-        this.burstResultsContainer = this.scene.add.container(width / 2 - 400, 50 * scaleY);
-        this.burstModeUI.add(this.burstResultsContainer);
-        
-        // Add a subtle background for the results area
-        const resultsBg = this.scene.add.rectangle(400, 60, 800, 120, 0x000000, 0.3);
-        resultsBg.setStrokeStyle(1, 0x666666);
-        this.burstResultsContainer.add(resultsBg);
+        // Disable normal scrolling results list; keep only winning feed
+        this.burstResultsContainer = null;
         
         // Create buttons
         this.createButtons(scaleX, scaleY, uiScale);
@@ -700,6 +694,21 @@ window.BurstModeManager = class BurstModeManager {
     }
     
     async performSpin() {
+        // Temporarily mute cascade/shatter SFX during burst spins
+        const originalSafeSoundPlay = window.SafeSound && window.SafeSound.play ? window.SafeSound.play : null;
+        const shouldMuteKey = (key) => key === 'cascade' || key === 'symbol_shattering';
+        if (originalSafeSoundPlay) {
+            window.SafeSound.play = (scene, key, ...rest) => {
+                try {
+                    if (this.burstModeActive && shouldMuteKey(key)) {
+                        return null;
+                    }
+                    return originalSafeSoundPlay.call(window.SafeSound, scene, key, ...rest);
+                } catch (e) {
+                    return null;
+                }
+            };
+        }
         try {
             // SECURITY: Use controlled RNG for burst mode operations
             if (!window.RNG) {
@@ -894,6 +903,10 @@ window.BurstModeManager = class BurstModeManager {
                 freeSpinsCount: 0,
                 multiplierAccumulator: 1
             };
+        } finally {
+            if (originalSafeSoundPlay) {
+                window.SafeSound.play = originalSafeSoundPlay;
+            }
         }
     }
     
@@ -915,42 +928,7 @@ window.BurstModeManager = class BurstModeManager {
         // Update statistics displays
         this.updateStatisticsDisplays();
         
-        // Safety check for burst results container
-        if (!this.burstResultsContainer) {
-            console.warn('Burst results container not found, skipping result display');
-            return;
-        }
-        
-        try {
-            const resultText = this.createResultText(result);
-            this.burstResultsContainer.add(resultText);
-            
-            const containerSize = this.burstResultsContainer.list ? this.burstResultsContainer.list.length : 0;
-            console.log('Burst results container now has', containerSize, 'items');
-            
-            // Scroll existing results up
-            if (this.burstResultsContainer.list) {
-                this.burstResultsContainer.list.forEach((text, index) => {
-                    if (index < this.burstResultsContainer.list.length - 1) {
-                this.scene.tweens.add({
-                            targets: text,
-                            y: text.y - 20,
-                    duration: 100,
-                            ease: 'Power2'
-                        });
-                    }
-                });
-                
-                // Remove old results if too many (reduced to fit smaller container)
-                if (this.burstResultsContainer.list.length > 5) {
-                    const oldText = this.burstResultsContainer.list[0];
-                    this.burstResultsContainer.remove(oldText);
-                    oldText.destroy();
-                }
-            }
-        } catch (error) {
-            console.error('Error adding burst result:', error);
-        }
+        // Skip normal scrolling results entirely; only show center winning feed
         
         // Update UI displays
         this.scene.totalWin = result.win;
@@ -971,7 +949,22 @@ window.BurstModeManager = class BurstModeManager {
         const scaleX = this._scaleX || 1;
         const scaleY = this._scaleY || 1;
 
-        // Removed: Let WinPresentationManager control when win SFX play (no kaching here)
+        // Play burst winning SFX when a winning entry is displayed
+        try {
+            if (result && result.win > 0) {
+                const played = window.SafeSound && window.SafeSound.play
+                    ? window.SafeSound.play(this.scene, 'burst_winning')
+                    : null;
+                if (!played) {
+                    // Fallbacks if burst_winning is not loaded
+                    const altPlayed = window.SafeSound && window.SafeSound.play
+                        ? (window.SafeSound.play(this.scene, 'winning_big') || window.SafeSound.play(this.scene, 'kaching'))
+                        : null;
+                }
+            }
+        } catch (e) {
+            // ignore audio errors to avoid interrupting UI flow
+        }
 
         const winMultiplier = result.bet > 0 ? (result.win / result.bet).toFixed(1) : '0.0';
         const msg = `WIN $${result.win.toFixed(2)}  (${winMultiplier}x)` +
@@ -1134,24 +1127,32 @@ window.BurstModeManager = class BurstModeManager {
             
             if (this.blackholeShader) {
                 // Create a circular container for the blackhole effect
-                const radius = Math.min(148 * scaleX, 148 * scaleY); // Radius of the circular effect
+                const radius = Math.min(100 * scaleX, 100 * scaleY); // Radius of the circular effect
                 
                 // Adjust position to center the black hole in the portal
                 // Previously offset pushed it too low; lift it slightly so the center sits fully in the mask
                 const adjustedY = y + (50 * scaleY);
                 
-                // Create a graphics object for the circular mask
-                const maskGraphics = this.scene.add.graphics();
-                maskGraphics.fillStyle(0xffffff, 1);
-                maskGraphics.fillCircle(0, 0, radius); // Draw at origin, position will be set on container
-                maskGraphics.setVisible(false); // Hide the mask graphic itself
+                // Create a soft-edged circular mask using a bitmap mask with radial gradient
+                const maskSize = Math.ceil(radius * 2);
+                const maskKey = `blackhole_mask_${Math.floor(Math.random() * 1e9)}`;
+                const maskCanvas = this.scene.textures.createCanvas(maskKey, maskSize, maskSize);
+                const ctx = maskCanvas.getContext();
+                const cx = maskSize / 2;
+                const cy = maskSize / 2;
+                const softEdge = Math.max(8, radius * 0.3); // softness width in px
+                const gradient = ctx.createRadialGradient(cx, cy, Math.max(0, radius - softEdge), cx, cy, radius);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.clearRect(0, 0, maskSize, maskSize);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, maskSize, maskSize);
+                maskCanvas.refresh();
                 
-                // Position the mask graphics
-                maskGraphics.x = x;
-                maskGraphics.y = adjustedY;
-                
-                // Create a geometry mask from the graphics
-                const mask = maskGraphics.createGeometryMask();
+                const maskImage = this.scene.add.image(x, adjustedY, maskKey);
+                maskImage.setOrigin(0.5, 0.5);
+                maskImage.setVisible(false); // only used for masking
+                const mask = maskImage.createBitmapMask();
                 
                 // Create a larger rectangle to render the shader effect on
                 // Make it larger so the effect fills the circle properly
@@ -1176,10 +1177,10 @@ window.BurstModeManager = class BurstModeManager {
                 // Add to burst mode UI with higher depth to appear in center
                 this.blackholeEffect.setDepth(2010);
                 this.burstModeUI.add(this.blackholeEffect);
-                this.burstModeUI.add(maskGraphics); // Add mask graphics but it's invisible
+                this.burstModeUI.add(maskImage); // Add mask image but it's invisible
                 
                 // Store mask reference for cleanup
-                this.blackholeMask = maskGraphics;
+                this.blackholeMask = maskImage;
                 
                 console.log(`🕳️ Blackhole effect created at (${x}, ${adjustedY}) with radius ${radius}`);
             } else {

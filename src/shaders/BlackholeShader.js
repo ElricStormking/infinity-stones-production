@@ -142,7 +142,7 @@ window.BlackholeShader = class BlackholeShader extends Phaser.Renderer.WebGL.Pip
                     
                     color = rotateZ( color, angle );
                     
-                    float frequency = 1.4 * scale; // Use scale parameter to control frequency
+                    float frequency = 1.1 * scale; // Use scale parameter to control frequency, original 1.4
                     float distortion = 0.01;
                     color.x = fbm3d(color * frequency + 0.0, 5) + distortion;
                     color.y = fbm3d(color * frequency + 1.0, 5) + distortion;
@@ -159,7 +159,7 @@ window.BlackholeShader = class BlackholeShader extends Phaser.Renderer.WebGL.Pip
                     noiseColorLength *= 4.2;
                     noiseColorLength = pow(noiseColorLength, 1.0);
                     
-                    vec3 emissionColor = emission(vec3(0.961,0.592,0.078), noiseColorLength * 0.4);
+                    vec3 emissionColor = emission(vec3(0.0,0.5,0.5), noiseColorLength * 0.2);
                     
                     float fac = length(uv) - facture(color + 0.32);
                     fac += 0.1;
@@ -187,8 +187,8 @@ window.BlackholeShader = class BlackholeShader extends Phaser.Renderer.WebGL.Pip
     onPreRender() {
         this.set1f('time', this.game.loop.time / 1000.0);
         this.set2f('resolution', this.game.config.width, this.game.config.height);
-        this.set1f('intensity', this.intensity || 1.0);
-        this.set1f('scale', this.scale || 1.0);
+        this.set1f('intensity', this.intensity || 0.5);
+        this.set1f('scale', this.scale || 0.3);
         const offX = (typeof this.centerOffsetX === 'number') ? this.centerOffsetX : 0.0;
         const offY = (typeof this.centerOffsetY === 'number') ? this.centerOffsetY : 0.0;
         this.set2f('centerOffset', offX, offY);

@@ -51,7 +51,10 @@
       "Bash(start:*)",
       "Read(d:\\infinity-gauntlet\\debug/**)",
       "Bash(git remote set-url:*)",
-      "Read(d:\\infinity-gauntlet\\ShaderSample/**)"
+      "Read(d:\\infinity-gauntlet\\ShaderSample/**)",
+      "Read(d:\\infinity-gauntlet\\debug/**)",
+      "Read(d:\\infinity-gauntlet\\debug/**)",
+      "Bash(git clone:*)"
     ],
     "deny": [],
     "additionalDirectories": [

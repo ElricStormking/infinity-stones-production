@@ -1075,6 +1075,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
             // If something cleared/replaced the grid cell between animations, try again
             await this.bonusManager.checkRandomMultiplier();
             
+            // Sync balance with WalletAPI after demo spin
+            if (window.WalletAPI) {
+                window.WalletAPI.currentBalance = this.stateManager.gameData.balance;
+            }
+            // Force UI update
+            this.updateBalanceDisplay();
+            
         } catch (error) {
             console.error('❌ Demo spin error:', error);
             this.showMessage('Spin error - please try again');
@@ -1084,6 +1091,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // Record demo spin to server database (non-blocking)
     async recordDemoSpinToDatabase() {
         try {
+            // Skip API calls in demo mode (static server)
+            if (!window.NetworkService.authToken || this.demoMode) {
+                console.log('🎮 Demo mode - skipping database recording');
+                return;
+            }
+            
             const betAmount = this.stateManager.gameData.currentBet;
             
             // Make async call to demo-spin endpoint (don't await to avoid blocking gameplay)

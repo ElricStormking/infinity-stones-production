@@ -66,7 +66,40 @@ const authenticate = async (req, res, next) => {
         }
 
         // Validate session
-        const validation = await SessionManager.validateSession(token);
+        let validation;
+        try {
+            validation = await SessionManager.validateSession(token);
+        } catch (error) {
+            // If Redis is disabled and session validation fails, try JWT-only validation
+            if (process.env.SKIP_REDIS === 'true' && error.message.includes('retries per request limit')) {
+                logger.info('Redis unavailable, using JWT-only validation', {
+                    ip: req.ip,
+                    endpoint: req.originalUrl
+                });
+                
+                // Try direct JWT validation without Redis
+                const JWTAuth = require('../auth/jwt');
+                try {
+                    const decoded = JWTAuth.verifyAccessToken(token);
+                    const Player = require('../models/Player');
+                    const player = await Player.findByPk(decoded.player_id);
+                    
+                    if (player) {
+                        validation = {
+                            valid: true,
+                            player: player,
+                            session: { id: 'fallback_session', player_id: decoded.player_id }
+                        };
+                    } else {
+                        validation = { valid: false, error: 'Player not found' };
+                    }
+                } catch (jwtError) {
+                    validation = { valid: false, error: 'Invalid JWT token' };
+                }
+            } else {
+                validation = { valid: false, error: error.message };
+            }
+        }
         
         if (!validation.valid) {
             // Log authentication failure
