@@ -536,120 +536,96 @@ window.FreeSpinsManager = class FreeSpinsManager {
         const width = this.scene.cameras.main.width;
         const height = this.scene.cameras.main.height;
         
-        // Create overlay
-        const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        // Create overlay (nearly black, strong focus)
+        const overlay = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.92);
         overlay.setDepth(2000);
         overlay.setInteractive(); // Block clicks behind it
         
         // Create dialog container
         const dialogContainer = this.scene.add.container(width / 2, height / 2);
         dialogContainer.setDepth(2001);
-        
-        // Dialog background
-        const dialogBg = this.scene.add.rectangle(0, 0, 600, 400, 0x2C3E50, 1);
-        dialogBg.setStrokeStyle(6, 0xFFD700);
-        
-        // Title
-        const title = this.scene.add.text(0, -140, 'FREE SPINS BONUS!', {
-            fontSize: '42px',
-            fontFamily: 'Arial Black',
-            color: '#FFD700',
-            stroke: '#000000',
-            strokeThickness: 4
-        });
-        title.setOrigin(0.5);
-        
-        // Subtitle based on trigger type
-        const subtitleText = triggerType === 'scatter' 
-            ? `${freeSpins} FREE SPINS AWARDED!` 
-            : `${freeSpins} FREE SPINS PURCHASED!`;
-        const subtitle = this.scene.add.text(0, -80, subtitleText, {
-            fontSize: '28px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF'
-        });
-        subtitle.setOrigin(0.5);
-        
-        // Infinity gauntlet image or animation placeholder
-        const gauntletIcon = this.scene.add.image(0, -20, 'infinity_glove');
-        gauntletIcon.setScale(1.5);
-        
-        // Info text
-        const infoText = this.scene.add.text(0, 50, 'Click OK to start your Free Spins!', {
-            fontSize: '20px',
-            fontFamily: 'Arial',
-            color: '#CCCCCC'
-        });
-        infoText.setOrigin(0.5);
-        
-        // OK button
-        const okButton = this.scene.add.container(0, 120);
-        const okBg = this.scene.add.rectangle(0, 0, 160, 60, 0x27AE60);
-        okBg.setStrokeStyle(4, 0xFFD700);
-        okBg.setInteractive({ useHandCursor: true });
-        
-        const okLabel = this.scene.add.text(0, 0, 'OK', {
-            fontSize: '32px',
-            fontFamily: 'Arial Black',
-            color: '#FFFFFF'
-        });
-        okLabel.setOrigin(0.5);
-        
-        okButton.add([okBg, okLabel]);
-        
-        // Add all elements to dialog container
-        dialogContainer.add([dialogBg, title, subtitle, gauntletIcon, infoText, okButton]);
-        
-        // Add floating animation to gauntlet
-        this.scene.tweens.add({
-            targets: gauntletIcon,
-            y: -20 + 10,
-            duration: 2000,
-            ease: 'Sine.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });
-        
-        // Add pulse effect to OK button
-        const pulseTween = this.scene.tweens.add({
-            targets: okBg,
-            scaleX: 1.1,
-            scaleY: 1.1,
-            duration: 800,
-            ease: 'Sine.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });
-        
-        // Prevent any button interactions after click
-        let buttonDisabled = false;
-        
-        // Button hover effects (only if not disabled)
-        okBg.on('pointerover', () => {
-            if (!buttonDisabled) {
-                okBg.setFillStyle(0x2ECC71);
-                this.scene.tweens.killTweensOf(okBg);
-                okBg.setScale(1.1);
-            }
-        });
-        
-        okBg.on('pointerout', () => {
-            if (!buttonDisabled) {
-                okBg.setFillStyle(0x27AE60);
-                okBg.setScale(1);
-                // Restart pulse animation
-                this.scene.tweens.add({
-                    targets: okBg,
-                    scaleX: 1.1,
-                    scaleY: 1.1,
-                    duration: 800,
-                    ease: 'Sine.easeInOut',
-                    yoyo: true,
+
+        // No background panel — design is clean centered typography over black
+
+        // Sprites from free_spins_ok
+        // Title (animated if spritesheet loaded)
+        const titleSprite = this.scene.add.sprite(0, 10, 'fgch_title');
+        titleSprite.setOrigin(0.5);
+        // Scale title to fit container width
+        try {
+            const maxTitleWidth = Math.min(width * 0.8, 740);
+            const titleScale = Math.min(maxTitleWidth / (titleSprite.width || 1646), 1);
+            titleSprite.setScale(titleScale);
+            if (this.scene.anims && !this.scene.anims.exists('fgch_title_anim')) {
+                this.scene.anims.create({
+                    key: 'fgch_title_anim',
+                    frames: this.scene.anims.generateFrameNumbers('fgch_title', { start: 0, end: 19 }),
+                    frameRate: 20,
                     repeat: -1
                 });
             }
-        });
-        
+            if (this.scene.anims.exists('fgch_title_anim')) {
+                titleSprite.play('fgch_title_anim');
+            }
+        } catch (_) {}
+
+        // Number flourish (animated)
+        const numberSprite = this.scene.add.sprite(0, -150, 'fgch_number');
+        numberSprite.setOrigin(0.5);
+        try {
+            const maxNumWidth = Math.min(width * 0.35, 420);
+            const numScale = Math.min(maxNumWidth / (numberSprite.width || 354), 1);
+            numberSprite.setScale(numScale);
+            if (this.scene.anims && !this.scene.anims.exists('fgch_number_anim')) {
+                this.scene.anims.create({
+                    key: 'fgch_number_anim',
+                    frames: this.scene.anims.generateFrameNumbers('fgch_number', { start: 0, end: 19 }),
+                    frameRate: 20,
+                    repeat: -1
+                });
+            }
+            if (this.scene.anims.exists('fgch_number_anim')) {
+                numberSprite.play('fgch_number_anim');
+            }
+        } catch (_) {}
+
+        // Subtle glow on the number to match reference highlight
+        try {
+            numberSprite.setTint(0xFFFFFF);
+            numberSprite.setAlpha(0.95);
+            this.scene.tweens.add({ targets: numberSprite, alpha: 1, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        } catch (_) {}
+
+        // Add a gentle horizontal shimmer on title to evoke motion blur accents
+        try {
+            this.scene.tweens.add({ targets: titleSprite, x: { from: -6, to: 6 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        } catch (_) {}
+
+        // OK button using image states
+        const okButton = this.scene.add.container(0, 200);
+        const okOff = this.scene.add.image(0, 0, 'fgch_button_off');
+        const okOn = this.scene.add.image(0, 0, 'fgch_button_on');
+        okOn.setVisible(false);
+        // Scale button to a reasonable size
+        const targetBtnWidth = Math.min(360, width * 0.28);
+        const baseBtnW = okOff.width || 354; // fallback
+        const btnScale = Math.min(targetBtnWidth / baseBtnW, 1);
+        okOff.setScale(btnScale);
+        okOn.setScale(btnScale);
+        okButton.add([okOff, okOn]);
+
+        // Add all elements to dialog container
+        dialogContainer.add([numberSprite, titleSprite, okButton]);
+
+        // Prevent any button interactions after click
+        let buttonDisabled = false;
+
+        const setButtonVisual = (hovered) => {
+            if (buttonDisabled) return;
+            okOn.setVisible(hovered);
+            okOff.setVisible(!hovered);
+        };
+
         // OK button click handler - SINGLE handler with thorough protection
         const handleOKClick = () => {
             // Prevent any further processing
@@ -660,12 +636,10 @@ window.FreeSpinsManager = class FreeSpinsManager {
             buttonDisabled = true;
             console.log('🔥 OK button clicked - disabling all interactions');
             
-            // Kill all tweens immediately
-            this.scene.tweens.killTweensOf(okBg);
-            
             // Remove ALL event listeners immediately
-            okBg.removeAllListeners();
-            okBg.disableInteractive();
+            okOff.removeAllListeners();
+            okOn.removeAllListeners();
+            try { okOff.disableInteractive(); okOn.disableInteractive(); } catch (_) {}
             
             // Play click sound
             window.SafeSound.play(this.scene, 'click');
@@ -691,10 +665,16 @@ window.FreeSpinsManager = class FreeSpinsManager {
                 this.isProcessingFreeSpinsUI = false;
             }
         };
-        
-        // Register click handler only once
-        okBg.once('pointerup', handleOKClick);
-        
+
+        // Register interactive behavior
+        okOff.setInteractive({ useHandCursor: true });
+        okOn.setInteractive({ useHandCursor: true });
+        okOff.on('pointerover', () => setButtonVisual(true));
+        okOff.on('pointerout', () => setButtonVisual(false));
+        okOn.on('pointerout', () => setButtonVisual(false));
+        okOff.once('pointerup', handleOKClick);
+        okOn.once('pointerup', handleOKClick);
+
         // Play bonus sound
         window.SafeSound.play(this.scene, 'bonus');
     }

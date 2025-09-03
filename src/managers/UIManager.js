@@ -370,7 +370,7 @@ window.UIManager = class UIManager {
             const fontSize = Math.floor(18 * Math.min(scaleX, scaleY));
             this.ui_freegame_purchase_text = this.scene.add.text(
                 this.ui_freegame_purchase.x,
-                this.ui_freegame_purchase.y + (12 * Math.min(scaleX, scaleY)),
+                this.ui_freegame_purchase.y + (40 * Math.min(scaleX, scaleY)),
                 '',
                 {
                     fontSize: fontSize + 'px',
@@ -669,7 +669,7 @@ window.UIManager = class UIManager {
         // Top-center winning amount visual (inside the plaque on the frame)
         // Position tuned for the 1280x720 design; scaled at runtime
         this.winTopText = this.scene.add.text(650 * scaleX, 50 * scaleY, '', {
-            fontSize: Math.floor(28 * Math.min(scaleX, scaleY)) + 'px',
+            fontSize: Math.floor(26 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial Black',
             color: '#FFD700',
             stroke: '#000000',
@@ -678,10 +678,35 @@ window.UIManager = class UIManager {
         });
         this.winTopText.setOrigin(0.5);
         this.winTopText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
-        this.winTopText.setVisible(false);
+        // Default guidance text when no win/formula is shown
+        this.defaultPlaqueText = '4 Scatter = Free Spins!';
+        this.winTopText.setText(this.defaultPlaqueText);
+        this.winTopText.setVisible(true);
         // Save original scale to avoid accumulation during tweens
         this.winTopText.originalScaleX = this.winTopText.scaleX;
         this.winTopText.originalScaleY = this.winTopText.scaleY;
+        
+        // Ensure default text is always visible during losing spins
+        if (!this.defaultPlaqueEnforcer) {
+            this.defaultPlaqueEnforcer = this.scene.time.addEvent({
+                delay: 250,
+                loop: true,
+                callback: () => {
+                    try {
+                        if (!this.winTopText) return;
+                        const amount = Number(this.scene && this.scene.totalWin) || 0;
+                        if (amount <= 0) {
+                            const shouldRestore = !this.winTopText.visible || !this.winTopText.text || this.winTopText.text.trim() === '';
+                            if (shouldRestore) {
+                                const text = this.defaultPlaqueText || '8+ matched symbols wins!';
+                                this.winTopText.setText(text);
+                                this.winTopText.setVisible(true);
+                            }
+                        }
+                    } catch (_) {}
+                }
+            });
+        }
         
         this.betText = this.scene.add.text(931 * scaleX, 675 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
             fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
@@ -944,7 +969,13 @@ window.UIManager = class UIManager {
                     ease: 'Power2'
                 });
             } else {
-                this.winTopText.setVisible(false);
+                // Show default guidance text on the plaque when no win/formula
+                if (this.defaultPlaqueText) {
+                    this.winTopText.setText(this.defaultPlaqueText);
+                    this.winTopText.setVisible(true);
+                } else {
+                    this.winTopText.setVisible(false);
+                }
             }
         }
     }
@@ -1211,7 +1242,7 @@ window.UIManager = class UIManager {
                 const height = this.scene.cameras.main.height;
                 const scaleX = width / 1280;
                 const scaleY = height / 720;
-                this.ui_freegame_purchase_text.setPosition(this.ui_freegame_purchase.x, this.ui_freegame_purchase.y + (12 * Math.min(scaleX, scaleY)));
+                this.ui_freegame_purchase_text.setPosition(this.ui_freegame_purchase.x, this.ui_freegame_purchase.y + (20 * Math.min(scaleX, scaleY)));
             }
             
             // Update button appearance based on affordability

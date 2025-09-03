@@ -57,22 +57,35 @@ window.WinPresentationManager = class WinPresentationManager {
                 this.createWinParticles(width / 2, height / 2);
             }
             
-            // Add win amount text
+            // Large, stylish win amount beneath the WIN banner
             const winAmountText = this.scene.add.text(
                 width / 2,
-                height / 2 + 100,
+                height / 2 + 110,
                 `$${totalWin.toFixed(2)}`,
                 {
-                    fontSize: '48px',
+                    fontSize: '72px',
                     fontFamily: 'Arial Black',
                     color: '#FFD700',
-                    stroke: '#000000',
-                    strokeThickness: 6
+                    stroke: '#5A3A00',
+                    strokeThickness: 8
                 }
             );
             winAmountText.setOrigin(0.5);
             winAmountText.setDepth(window.GameConfig.UI_DEPTHS.FX + 1);
+            winAmountText.setShadow(0, 4, '#000000', 8, false, true);
             winAmountText.setScale(0);
+            // Soft golden glow behind amount
+            const glow = this.scene.add.graphics();
+            glow.setDepth(window.GameConfig.UI_DEPTHS.FX);
+            const glowUpdate = () => {
+                if (!glow || !glow.scene || !this.scene.scene || !this.scene.scene.isActive()) return;
+                try {
+                    glow.clear();
+                    glow.fillStyle(0xFFD700, 0.15);
+                    glow.fillCircle(winAmountText.x, winAmountText.y + 6, 160);
+                } catch (_) {}
+            };
+            glowUpdate();
             
             // Animate entrance
             this.scene.tweens.add({
@@ -97,12 +110,13 @@ window.WinPresentationManager = class WinPresentationManager {
                 }
             });
             
+            // Animate amount entrance
             this.scene.tweens.add({
                 targets: winAmountText,
                 scaleX: 1,
                 scaleY: 1,
                 duration: 600,
-                delay: 200,
+                delay: 150,
                 ease: 'Back.out'
             });
             
@@ -122,7 +136,7 @@ window.WinPresentationManager = class WinPresentationManager {
             const displayDuration = winCategory.key === 'LEGENDARY' ? 4500 : 2500;
             this.scene.time.delayedCall(displayDuration, () => {
                 this.scene.tweens.add({
-                    targets: [winSprite, winAmountText],
+                    targets: [winSprite, winAmountText, glow],
                     alpha: 0,
                     scaleX: 0,
                     scaleY: 0,
@@ -135,6 +149,9 @@ window.WinPresentationManager = class WinPresentationManager {
                         }
                         if (winAmountText && winAmountText.scene) {
                             winAmountText.destroy();
+                        }
+                        if (glow && glow.scene) {
+                            glow.destroy();
                         }
                         // Only clear flag if scene is still active
                         if (this.scene.scene && this.scene.scene.isActive()) {

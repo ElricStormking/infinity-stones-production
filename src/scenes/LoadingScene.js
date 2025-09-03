@@ -330,6 +330,24 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('fg_confirm_deco', 'assets/images/fg_confirm_deco.png', 0xFFD700);
         this.loadImageWithFallback('fg_confirm_UI', 'assets/images/fg_confirm_UI.png', 0x2C3E50);
 
+        // New Free Spins Start UI art (free_spins_ok)
+        try {
+            // Title and number are provided as spritesheets (20 frames typical)
+            this.load.spritesheet('fgch_title', 'assets/images/sprites/free_spins_ok/fgch_title.png', {
+                frameWidth: 1646,
+                frameHeight: 360
+            });
+            this.load.spritesheet('fgch_number', 'assets/images/sprites/free_spins_ok/fgch_number.png', {
+                frameWidth: 354,
+                frameHeight: 311
+            });
+        } catch (e) {
+            console.warn('Failed to queue fgch_title/fgch_number spritesheets:', e);
+        }
+        // OK button states (image-based)
+        this.loadImageWithFallback('fgch_button_off', 'assets/images/sprites/free_spins_ok/fgch_button_off.png', 0x27AE60);
+        this.loadImageWithFallback('fgch_button_on',  'assets/images/sprites/free_spins_ok/fgch_button_on.png',  0x2ECC71);
+
         // Load spritesheets
         try {
             // Money animation spritesheet (use exact frame size to avoid edge clipping)

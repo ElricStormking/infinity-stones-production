@@ -106,9 +106,7 @@ window.BonusManager = class BonusManager {
             this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
         }
 
-        // Show multiplier message with appropriate character
-        const characterName = useThanos ? 'THANOS POWER GRIP!' : 'SCARLET WITCH CHAOS MAGIC!';
-        this.scene.showMessage(`${characterName} ${multiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
+        // Suppress character callout text under WIN banner
     }
 
     placeRandomMultiplierOverlay(col, row, multiplier) {
@@ -439,9 +437,7 @@ window.BonusManager = class BonusManager {
         // Update win display
         this.scene.updateWinDisplay();
         
-        // Show cascading multiplier message
-        const multiplierText = multipliers.map(m => `${m}x`).join(' × ');
-        this.scene.showMessage(`CASCADING POWER! ${multiplierText} = ${totalMultiplier}x MULTIPLIER!\nWin: $${originalWin.toFixed(2)} → $${this.scene.totalWin.toFixed(2)}`);
+        // Optional cascade message removed for cleaner presentation
 
         // Fire a shooting star per applied multiplier to build the plaque sum visually, arrival controls sum
         if (this.scene && this.scene.playRandomMultiplierShootingStar) {

@@ -1,0 +1,40 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/freegame_check/fgch_number.png",
+                "frameConfig": {
+                    "frameWidth": 354,
+                    "frameHeight": 311,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "fgch_number"
+            },
+            {
+                "url": "assets/freegame_check/fgch_title.png",
+                "frameConfig": {
+                    "frameWidth": 1646,
+                    "frameHeight": 360,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "fgch_title"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}
