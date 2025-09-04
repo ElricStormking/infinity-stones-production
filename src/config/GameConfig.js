@@ -1,11 +1,12 @@
 window.GameConfig = {
     // UI Design/Anchors (for consistent positioning without magic numbers)
+    // Updated for 1920x1080 mobile-first design
     UI: {
-        DESIGN_WIDTH: 1280,
-        DESIGN_HEIGHT: 720,
-        UI_BOX_CENTER: { x: 632, y: 347 },
-        UI_BOX_SCALE: 0.67,
-        GRID_OFFSET: { x: 2, y: 37 }
+        DESIGN_WIDTH: 1920,
+        DESIGN_HEIGHT: 1080,
+        UI_BOX_CENTER: { x: 960, y: 540 },
+        UI_BOX_SCALE: 1.0,
+        GRID_OFFSET: { x: 0, y: 0 }
     },
     // Named depths to avoid magic numbers sprinkled across UI code
     UI_DEPTHS: {
@@ -30,11 +31,11 @@ window.GameConfig = {
         MULTIPLIER_SLOT: 4,
         OVERLAY_HIGH: 5000
     },
-    // Grid Configuration
+    // Grid Configuration - optimized for 1920x1080 mobile layout
     GRID_COLS: 6,
     GRID_ROWS: 5,
-    SYMBOL_SIZE: 150,  // Updated to match new 150x150 gem graphics
-    GRID_SPACING: 0,   // Adjusted spacing for larger symbols
+    SYMBOL_SIZE: 150,  // Optimal size for mobile touch targets (150x150)
+    GRID_SPACING: 8,   // Spacing between symbols for better visual separation on mobile
     
     // Game Settings
     MIN_MATCH_COUNT: 8,

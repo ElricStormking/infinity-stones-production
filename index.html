@@ -22,10 +22,96 @@
             max-width: 100%;
             max-height: 100vh;
         }
+        
+        /* Orientation Overlay for mobile devices */
+        #orientation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        
+        #orientation-overlay.visible {
+            opacity: 1;
+        }
+        
+        .rotate-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            animation: rotate-phone 2s infinite linear;
+            fill: #ffffff;
+        }
+        
+        @keyframes rotate-phone {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-90deg); }
+            50% { transform: rotate(-90deg); }
+            75% { transform: rotate(0deg); }
+            100% { transform: rotate(0deg); }
+        }
+        
+        .orientation-text {
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            max-width: 300px;
+            line-height: 1.4;
+        }
+        
+        .orientation-subtitle {
+            color: #cccccc;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+            max-width: 280px;
+        }
+        
+        /* Responsive sizing for smaller screens */
+        @media (max-width: 480px) {
+            .rotate-icon {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .orientation-text {
+                font-size: 16px;
+                max-width: 280px;
+            }
+            
+            .orientation-subtitle {
+                font-size: 12px;
+                max-width: 260px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
+    
+    <!-- Orientation Overlay for mobile devices -->
+    <div id="orientation-overlay">
+        <svg class="rotate-icon" viewBox="0 0 24 24">
+            <path d="M16,1H8A3,3 0 0,0 5,4V20A3,3 0 0,0 8,23H16A3,3 0 0,0 19,20V4A3,3 0 0,0 16,1M16,21H8A1,1 0 0,1 7,20V4A1,1 0 0,1 8,3H16A1,1 0 0,1 17,4V20A1,1 0 0,1 16,21M12,18A1,1 0 0,0 13,17A1,1 0 0,0 12,16A1,1 0 0,0 11,17A1,1 0 0,0 12,18Z"/>
+        </svg>
+        <div class="orientation-text">
+            Please rotate your device to landscape
+        </div>
+        <div class="orientation-subtitle">
+            Turn your device sideways for the best gaming experience
+        </div>
+    </div>
     <script>
         (function () {
             try {
@@ -251,6 +337,8 @@
     <script src="src/services/SessionService.js"></script>
     <script src="src/services/WalletAPI.js"></script>
     <script src="src/services/GameAPI.js"></script>
+    <script src="src/services/DeviceDetectionService.js"></script>
+    <script src="src/services/GestureDetectionService.js"></script>
     <script>
       // Initialize default symbol source (uses GameConfig via Paytable + RNG)
       (function(){
@@ -274,6 +362,8 @@
     <script src="src/managers/WinPresentationManager.js"></script>
     <script src="src/managers/FreeSpinsManager.js"></script>
     <script src="src/managers/BonusManager.js"></script>
+    <script src="src/managers/OrientationManager.js"></script>
+    <script src="src/controllers/OverlayController.js"></script>
     <script src="src/shaders/RedLightningShader.js"></script>
     <script src="src/shaders/ThanosPowerGripShader.js"></script>
     <script src="src/shaders/FireShader.js"></script>

@@ -239,19 +239,70 @@ window.UIManager = class UIManager {
     }
     
     createButtons(scaleX, scaleY, uiScale) {
+        // Touch optimization helper for bet buttons
+        const isMobileDevice = window.deviceDetection && window.deviceDetection.isMobileOrTablet();
+        const setupBetButton = (button, adjustValue) => {
+            if (!button) return;
+            
+            button.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
+            
+            // Store original scale for feedback
+            button.originalScaleX = button.scaleX;
+            button.originalScaleY = button.scaleY;
+            
+            // Touch optimization: Ensure adequate hit area
+            if (isMobileDevice) {
+                const minTouchSize = 44;
+                const buttonWidth = Math.max(button.width * button.scaleX, minTouchSize);
+                const buttonHeight = Math.max(button.height * button.scaleY, minTouchSize);
+                const hitArea = new Phaser.Geom.Rectangle(
+                    -buttonWidth / 2,
+                    -buttonHeight / 2,
+                    buttonWidth,
+                    buttonHeight
+                );
+                button.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+            } else {
+                button.setInteractive();
+            }
+            
+            button.on('pointerdown', () => {
+                // Touch feedback
+                if (isMobileDevice) {
+                    button.setScale(
+                        button.originalScaleX * 0.9,
+                        button.originalScaleY * 0.9
+                    );
+                    button.setTint(0xCCCCCC);
+                }
+            });
+            
+            button.on('pointerup', () => {
+                // Reset visual state
+                if (isMobileDevice) {
+                    button.setScale(button.originalScaleX, button.originalScaleY);
+                    button.clearTint();
+                }
+                this.scene.adjustBet(adjustValue);
+            });
+            
+            button.on('pointerupoutside', () => {
+                if (isMobileDevice) {
+                    button.setScale(button.originalScaleX, button.originalScaleY);
+                    button.clearTint();
+                }
+            });
+        };
+        
         // Bet adjustment buttons
         this.ui_number_bet_minus = this.safeCreateImage(830, 675, 'ui_number_bet-');
         if (this.ui_number_bet_minus) {
-            this.ui_number_bet_minus.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
-            this.ui_number_bet_minus.setInteractive();
-            this.ui_number_bet_minus.on('pointerdown', () => this.scene.adjustBet(-1));
+            setupBetButton(this.ui_number_bet_minus, -1);
         }
         
         this.ui_number_bet_plus = this.safeCreateImage(1034, 675, 'ui_number_bet+');
         if (this.ui_number_bet_plus) {
-            this.ui_number_bet_plus.setDepth(window.GameConfig.UI_DEPTHS.NUMBER_PANEL);
-            this.ui_number_bet_plus.setInteractive();
-            this.ui_number_bet_plus.on('pointerdown', () => this.scene.adjustBet(1));
+            setupBetButton(this.ui_number_bet_plus, 1);
         }
         
         // Control buttons - spin button as animated sprite
@@ -265,8 +316,64 @@ window.UIManager = class UIManager {
         if (this.ui_spin) {
             this.ui_spin.setScale(uiScale * scaleX, uiScale * scaleY);
             this.ui_spin.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_spin.setInteractive();
-            this.ui_spin.on('pointerdown', () => this.scene.handleSpinButtonClick());
+            
+            // Touch optimization: Create larger hit area for mobile devices
+            const isMobileDevice = window.deviceDetection && window.deviceDetection.isMobileOrTablet();
+            if (isMobileDevice) {
+                // Calculate minimum touch target size (44x44px minimum)
+                const minTouchSize = 44;
+                const buttonWidth = Math.max(this.ui_spin.width * this.ui_spin.scaleX, minTouchSize);
+                const buttonHeight = Math.max(this.ui_spin.height * this.ui_spin.scaleY, minTouchSize);
+                
+                // Create expanded hit area for better touch accuracy
+                const hitArea = new Phaser.Geom.Rectangle(
+                    -buttonWidth / 2,
+                    -buttonHeight / 2,
+                    buttonWidth,
+                    buttonHeight
+                );
+                this.ui_spin.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+            } else {
+                // Desktop: Use default hit area
+                this.ui_spin.setInteractive();
+            }
+            
+            // Touch-friendly event handlers
+            this.ui_spin.on('pointerdown', () => {
+                // Enhanced touch feedback for mobile
+                if (isMobileDevice && !this.scene.isSpinning) {
+                    this.ui_spin.setScale(this.ui_spin.originalScaleX * 0.95, this.ui_spin.originalScaleY * 0.95);
+                    this.ui_spin.setTint(0xCCCCCC); // Add subtle tint for visual feedback
+                    if (this.ui_spin_light && this.ui_spin_light.applyScaleFromSpin) {
+                        this.ui_spin_light.applyScaleFromSpin();
+                    }
+                }
+            });
+            
+            this.ui_spin.on('pointerup', () => {
+                // Reset visual state on release
+                if (isMobileDevice && !this.scene.isSpinning) {
+                    this.ui_spin.setScale(this.ui_spin.originalScaleX, this.ui_spin.originalScaleY);
+                    this.ui_spin.clearTint();
+                    if (this.ui_spin_light && this.ui_spin_light.applyScaleFromSpin) {
+                        this.ui_spin_light.applyScaleFromSpin();
+                    }
+                }
+                // Execute spin action
+                this.scene.handleSpinButtonClick();
+            });
+            
+            // Handle touch cancel (finger dragged off button)
+            this.ui_spin.on('pointerupoutside', () => {
+                if (isMobileDevice && !this.scene.isSpinning) {
+                    this.ui_spin.setScale(this.ui_spin.originalScaleX, this.ui_spin.originalScaleY);
+                    this.ui_spin.clearTint();
+                    if (this.ui_spin_light && this.ui_spin_light.applyScaleFromSpin) {
+                        this.ui_spin_light.applyScaleFromSpin();
+                    }
+                }
+            });
+            
             this.ui_spin.setFrame(0);
             
             // Store original scale values to prevent accumulation bugs
@@ -324,18 +431,85 @@ window.UIManager = class UIManager {
             }
         }
         
+        // Touch optimization helper for small control buttons
+        const setupSmallButton = (button) => {
+            if (!button) return;
+            
+            // Store original scale for feedback
+            button.originalScaleX = button.scaleX;
+            button.originalScaleY = button.scaleY;
+            
+            // Touch optimization: Ensure adequate hit area
+            if (isMobileDevice) {
+                const minTouchSize = 44;
+                const buttonWidth = Math.max(button.width * button.scaleX, minTouchSize);
+                const buttonHeight = Math.max(button.height * button.scaleY, minTouchSize);
+                const hitArea = new Phaser.Geom.Rectangle(
+                    -buttonWidth / 2,
+                    -buttonHeight / 2,
+                    buttonWidth,
+                    buttonHeight
+                );
+                button.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+            } else {
+                button.setInteractive();
+            }
+            
+            // Add pointerdown handler for touch feedback
+            const existingPointerdown = button.listenerCount('pointerdown');
+            if (existingPointerdown === 0) {
+                button.on('pointerdown', () => {
+                    if (isMobileDevice) {
+                        button.setScale(
+                            button.originalScaleX * 0.9,
+                            button.originalScaleY * 0.9
+                        );
+                        button.setTint(0xCCCCCC);
+                    }
+                });
+            }
+            
+            // Add pointerupoutside handler for touch cancel
+            button.on('pointerupoutside', () => {
+                if (isMobileDevice) {
+                    button.setScale(button.originalScaleX, button.originalScaleY);
+                    button.clearTint();
+                }
+            });
+        };
+        
         this.ui_small_stop = this.safeCreateImage(1038, 578, 'ui_small_stop');
         if (this.ui_small_stop) {
             this.ui_small_stop.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_small_stop.setInteractive();
-            this.ui_small_stop.on('pointerdown', () => this.scene.toggleAutoplay());
+            setupSmallButton(this.ui_small_stop);
+            
+            this.ui_small_stop.on('pointerup', () => {
+                // Reset visual state
+                if (isMobileDevice) {
+                    this.ui_small_stop.setScale(
+                        this.ui_small_stop.originalScaleX,
+                        this.ui_small_stop.originalScaleY
+                    );
+                    this.ui_small_stop.clearTint();
+                }
+                this.scene.toggleAutoplay();
+            });
         }
         
         this.ui_small_burst = this.safeCreateImage(1102, 512, 'ui_small_burst');
         if (this.ui_small_burst) {
             this.ui_small_burst.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_small_burst.setInteractive();
+            setupSmallButton(this.ui_small_burst);
+            
             this.ui_small_burst.on('pointerup', () => {
+                // Reset visual state
+                if (isMobileDevice) {
+                    this.ui_small_burst.setScale(
+                        this.ui_small_burst.originalScaleX,
+                        this.ui_small_burst.originalScaleY
+                    );
+                    this.ui_small_burst.clearTint();
+                }
                 // Add cooldown to prevent double-triggering
                 if (!this.burstButtonCooldown) {
                     this.burstButtonCooldown = true;
@@ -352,16 +526,38 @@ window.UIManager = class UIManager {
         this.ui_small_menu = this.safeCreateImage(1182, 499, 'ui_small_menu');
         if (this.ui_small_menu) {
             this.ui_small_menu.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_small_menu.setInteractive({ useHandCursor: true });
-            this.ui_small_menu.on('pointerdown', () => this.openSettingsUI());
+            setupSmallButton(this.ui_small_menu);
+            
+            this.ui_small_menu.on('pointerup', () => {
+                // Reset visual state
+                if (isMobileDevice) {
+                    this.ui_small_menu.setScale(
+                        this.ui_small_menu.originalScaleX,
+                        this.ui_small_menu.originalScaleY
+                    );
+                    this.ui_small_menu.clearTint();
+                }
+                this.openSettingsUI();
+            });
         }
 
         // New: Free Game Purchase button on the left side of the scene
         this.ui_freegame_purchase = this.safeCreateImage(150, 530, 'ui_freegame_purchase', 0.6);
         if (this.ui_freegame_purchase) {
             this.ui_freegame_purchase.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
-            this.ui_freegame_purchase.setInteractive({ useHandCursor: true });
-            this.ui_freegame_purchase.on('pointerdown', () => this.scene.showPurchaseUI());
+            setupSmallButton(this.ui_freegame_purchase);
+            
+            this.ui_freegame_purchase.on('pointerup', () => {
+                // Reset visual state
+                if (isMobileDevice) {
+                    this.ui_freegame_purchase.setScale(
+                        this.ui_freegame_purchase.originalScaleX,
+                        this.ui_freegame_purchase.originalScaleY
+                    );
+                    this.ui_freegame_purchase.clearTint();
+                }
+                this.scene.showPurchaseUI();
+            });
             // Overlay cost text on the purchase button (current bet x 100)
             const width = this.scene.cameras.main.width;
             const height = this.scene.cameras.main.height;
@@ -810,8 +1006,9 @@ window.UIManager = class UIManager {
             }
         });
         
-        // Special hover effect for spin button (sprite)
-        if (this.ui_spin) {
+        // Special hover effect for spin button (sprite) - desktop only
+        const isMobileDevice = window.deviceDetection && window.deviceDetection.isMobileOrTablet();
+        if (this.ui_spin && !isMobileDevice) {
             this.ui_spin.on('pointerover', () => {
                 if (!this.scene.isSpinning) {
                     // Use original scale * 1.1 to prevent accumulation bugs

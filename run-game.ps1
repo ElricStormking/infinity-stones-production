@@ -13,13 +13,13 @@ try {
 }
 
 # Start the server
-Write-Host "Starting local server on http://localhost:8080" -ForegroundColor Green
+Write-Host "Starting local server on http://localhost:3000" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop the server" -ForegroundColor Yellow
 
 # Open browser after a short delay
 Start-Job -ScriptBlock {
     Start-Sleep -Seconds 2
-    Start-Process "http://localhost:8080"
+    Start-Process "http://localhost:3000"
 } | Out-Null
 
 # Run the server

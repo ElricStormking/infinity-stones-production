@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Horizontal Layout Test Runner - Infinity Storm</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #00d4ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            color: #b0b0b0;
+        }
+        
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, #0099cc, #007399);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #666, #444);
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #777, #555);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff4757, #ff3742);
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #ff3742, #ff2837);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #2ed573, #1dd362);
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #1dd362, #0cd251);
+        }
+        
+        .device-info {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .device-info h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #b0b0b0;
+        }
+        
+        .info-value {
+            color: white;
+            font-family: monospace;
+        }
+        
+        .progress-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            height: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #00d4ff, #0099cc);
+            height: 100%;
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .current-test {
+            color: #00d4ff;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        
+        .results-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .results-container.active {
+            display: block;
+        }
+        
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .summary-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            font-size: 0.9em;
+            color: #b0b0b0;
+            text-transform: uppercase;
+        }
+        
+        .passed { color: #2ed573; }
+        .failed { color: #ff4757; }
+        .errors { color: #ff6b6b; }
+        .performance { color: #00d4ff; }
+        
+        .test-results {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .test-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+        }
+        
+        .test-status {
+            width: 20px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        .test-name {
+            flex: 1;
+            font-weight: 600;
+        }
+        
+        .test-details {
+            color: #b0b0b0;
+            font-size: 12px;
+            margin-left: 30px;
+        }
+        
+        .console-output {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #b0b0b0;
+        }
+        
+        .mobile-warning {
+            background: linear-gradient(135deg, #ff6b6b, #ff5252);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .mobile-warning.show {
+            display: block;
+        }
+        
+        .orientation-status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .results-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Mobile Test Runner</h1>
+            <p>Infinity Storm Mobile Horizontal Layout Testing Suite</p>
+        </div>
+        
+        <div class="mobile-warning" id="mobileWarning">
+            <strong>⚠️ Mobile Device Detected</strong><br>
+            For best testing experience, rotate your device to landscape mode.
+        </div>
+        
+        <div class="orientation-status" id="orientationStatus">
+            <strong>📱 Current Status:</strong> <span id="deviceStatus">Detecting device...</span>
+        </div>
+        
+        <div class="control-panel">
+            <button class="btn" id="runAllTests">🚀 Run All Tests</button>
+            <button class="btn btn-secondary" id="runQuickTests">⚡ Quick Tests</button>
+            <button class="btn btn-secondary" id="runPerformanceTests">📊 Performance Only</button>
+            <button class="btn btn-success" id="collectInfo">📋 Device Info</button>
+            <button class="btn btn-danger" id="clearResults">🗑️ Clear Results</button>
+        </div>
+        
+        <div class="device-info" id="deviceInfo">
+            <h3>📱 Device Information</h3>
+            <div class="info-grid" id="deviceInfoGrid">
+                <div class="info-item">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">Loading...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <h3>🔄 Test Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="current-test" id="currentTest">Initializing...</div>
+        </div>
+        
+        <div class="results-container" id="resultsContainer">
+            <h3>📊 Test Results</h3>
+            <div class="results-summary" id="resultsSummary">
+                <div class="summary-card">
+                    <div class="summary-number passed" id="passedCount">0</div>
+                    <div class="summary-label">Passed</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number failed" id="failedCount">0</div>
+                    <div class="summary-label">Failed</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number errors" id="errorCount">0</div>
+                    <div class="summary-label">Errors</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number performance" id="successRate">0%</div>
+                    <div class="summary-label">Success Rate</div>
+                </div>
+            </div>
+            
+            <div class="performance-metrics" id="performanceMetrics"></div>
+            
+            <div class="test-results" id="testResults"></div>
+            
+            <div class="console-output" id="consoleOutput"></div>
+        </div>
+    </div>
+
+    <script src="MobileTestSuite.js"></script>
+    <script>
+        class TestRunner {
+            constructor() {
+                this.testSuite = null;
+                this.isRunning = false;
+                this.originalConsoleLog = console.log;
+                this.originalConsoleError = console.error;
+                this.consoleBuffer = [];
+                
+                this.init();
+            }
+            
+            async init() {
+                // Initialize UI
+                this.setupEventListeners();
+                this.setupConsoleCapture();
+                
+                // Detect device and show appropriate warnings
+                this.updateDeviceStatus();
+                
+                // Initialize test suite
+                try {
+                    this.testSuite = new window.MobileTestSuite();
+                    await this.testSuite.init();
+                    this.updateDeviceInfo();
+                } catch (error) {
+                    this.logError('Failed to initialize test suite:', error);
+                }
+                
+                // Update orientation status periodically
+                setInterval(() => this.updateDeviceStatus(), 1000);
+            }
+            
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('runQuickTests').addEventListener('click', () => this.runQuickTests());
+                document.getElementById('runPerformanceTests').addEventListener('click', () => this.runPerformanceTests());
+                document.getElementById('collectInfo').addEventListener('click', () => this.updateDeviceInfo());
+                document.getElementById('clearResults').addEventListener('click', () => this.clearResults());
+            }
+            
+            setupConsoleCapture() {
+                console.log = (...args) => {
+                    this.originalConsoleLog.apply(console, args);
+                    this.consoleBuffer.push(`[LOG] ${args.join(' ')}`);
+                    this.updateConsoleOutput();
+                };
+                
+                console.error = (...args) => {
+                    this.originalConsoleError.apply(console, args);
+                    this.consoleBuffer.push(`[ERROR] ${args.join(' ')}`);
+                    this.updateConsoleOutput();
+                };
+            }
+            
+            updateConsoleOutput() {
+                const consoleOutput = document.getElementById('consoleOutput');
+                consoleOutput.textContent = this.consoleBuffer.slice(-50).join('\n'); // Keep last 50 lines
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+            
+            updateDeviceStatus() {
+                const deviceStatus = document.getElementById('deviceStatus');
+                const mobileWarning = document.getElementById('mobileWarning');
+                
+                let status = '';
+                let showWarning = false;
+                
+                if (this.testSuite && this.testSuite.deviceInfo) {
+                    const info = this.testSuite.deviceInfo;
+                    const orientation = this.getCurrentOrientation();
+                    
+                    if (info.isMobile) {
+                        status = `📱 Mobile Device (${info.platform}) - ${orientation} orientation`;
+                        showWarning = orientation === 'portrait';
+                    } else {
+                        status = `💻 Desktop Device (${info.platform}) - ${info.viewportWidth}×${info.viewportHeight}`;
+                    }
+                } else {
+                    const isMobile = this.fallbackMobileDetection();
+                    const orientation = this.getCurrentOrientation();
+                    
+                    if (isMobile) {
+                        status = `📱 Mobile Device - ${orientation} orientation`;
+                        showWarning = orientation === 'portrait';
+                    } else {
+                        status = `💻 Desktop Device - ${window.innerWidth}×${window.innerHeight}`;
+                    }
+                }
+                
+                deviceStatus.textContent = status;
+                
+                if (showWarning) {
+                    mobileWarning.classList.add('show');
+                } else {
+                    mobileWarning.classList.remove('show');
+                }
+            }
+            
+            getCurrentOrientation() {
+                if (screen.orientation && screen.orientation.type) {
+                    return screen.orientation.type.includes('portrait') ? 'portrait' : 'landscape';
+                }
+                
+                if (window.orientation !== undefined) {
+                    return Math.abs(window.orientation) === 90 ? 'landscape' : 'portrait';
+                }
+                
+                return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+            }
+            
+            fallbackMobileDetection() {
+                const userAgent = navigator.userAgent.toLowerCase();
+                const mobilePatterns = [
+                    /android/i, /webos/i, /iphone/i, /ipad/i, /ipod/i, /blackberry/i, /windows phone/i
+                ];
+                
+                return mobilePatterns.some(pattern => pattern.test(userAgent)) || 
+                       (window.innerWidth <= 768) || 
+                       ('ontouchstart' in window);
+            }
+            
+            updateDeviceInfo() {
+                if (!this.testSuite || !this.testSuite.deviceInfo) {
+                    return;
+                }
+                
+                const info = this.testSuite.deviceInfo;
+                const grid = document.getElementById('deviceInfoGrid');
+                
+                const infoItems = [
+                    ['Device Type', info.isMobile ? 'Mobile' : 'Desktop'],
+                    ['Platform', info.platform],
+                    ['Browser', info.browser],
+                    ['Screen Size', `${info.screenWidth}×${info.screenHeight}`],
+                    ['Viewport Size', `${info.viewportWidth}×${info.viewportHeight}`],
+                    ['Device Pixel Ratio', info.devicePixelRatio],
+                    ['Orientation', info.orientation],
+                    ['Touch Support', info.touchSupport ? 'Yes' : 'No'],
+                    ['Max Touch Points', info.maxTouchPoints],
+                    ['CPU Cores', info.hardwareConcurrency],
+                    ['Memory', info.memory !== 'unknown' ? `${info.memory}GB` : 'Unknown'],
+                    ['Connection', info.connection ? info.connection.effectiveType : 'Unknown']
+                ];
+                
+                grid.innerHTML = infoItems.map(([label, value]) => `
+                    <div class="info-item">
+                        <span class="info-label">${label}:</span>
+                        <span class="info-value">${value}</span>
+                    </div>
+                `).join('');
+            }
+            
+            async runAllTests() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.showProgress();
+                
+                try {
+                    const results = await this.testSuite.runAllTests();
+                    this.displayResults(results);
+                } catch (error) {
+                    this.logError('Test suite failed:', error);
+                } finally {
+                    this.isRunning = false;
+                    this.hideProgress();
+                }
+            }
+            
+            async runQuickTests() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.showProgress();
+                
+                try {
+                    // Run essential tests only
+                    await this.testSuite.runDeviceDetectionTests();
+                    await this.testSuite.runOrientationTests();
+                    await this.testSuite.runTouchInputTests();
+                    
+                    const results = this.testSuite.generateTestReport();
+                    this.displayResults(results);
+                } catch (error) {
+                    this.logError('Quick tests failed:', error);
+                } finally {
+                    this.isRunning = false;
+                    this.hideProgress();
+                }
+            }
+            
+            async runPerformanceTests() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.showProgress();
+                
+                try {
+                    await this.testSuite.runPerformanceTests();
+                    const results = this.testSuite.generateTestReport();
+                    this.displayResults(results);
+                } catch (error) {
+                    this.logError('Performance tests failed:', error);
+                } finally {
+                    this.isRunning = false;
+                    this.hideProgress();
+                }
+            }
+            
+            showProgress() {
+                document.getElementById('progressContainer').classList.add('active');
+                // Simulate progress animation
+                let progress = 0;
+                const progressFill = document.getElementById('progressFill');
+                const currentTest = document.getElementById('currentTest');
+                
+                const interval = setInterval(() => {
+                    progress += Math.random() * 10;
+                    if (progress > 95) progress = 95;
+                    
+                    progressFill.style.width = `${progress}%`;
+                    
+                    if (!this.isRunning) {
+                        progress = 100;
+                        progressFill.style.width = '100%';
+                        currentTest.textContent = 'Tests completed!';
+                        clearInterval(interval);
+                        
+                        setTimeout(() => {
+                            this.hideProgress();
+                        }, 1000);
+                    }
+                }, 200);
+            }
+            
+            hideProgress() {
+                document.getElementById('progressContainer').classList.remove('active');
+            }
+            
+            displayResults(results) {
+                document.getElementById('resultsContainer').classList.add('active');
+                
+                // Update summary
+                document.getElementById('passedCount').textContent = results.summary.passed;
+                document.getElementById('failedCount').textContent = results.summary.failed;
+                document.getElementById('errorCount').textContent = results.summary.errors;
+                document.getElementById('successRate').textContent = `${results.summary.successRate}%`;
+                
+                // Display performance metrics
+                this.displayPerformanceMetrics(results.performanceMetrics);
+                
+                // Display test results
+                const testResults = document.getElementById('testResults');
+                testResults.innerHTML = results.results.map(result => {
+                    let statusIcon = '';
+                    let statusClass = '';
+                    
+                    switch (result.status) {
+                        case 'PASS':
+                            statusIcon = '✅';
+                            statusClass = 'passed';
+                            break;
+                        case 'FAIL':
+                            statusIcon = '❌';
+                            statusClass = 'failed';
+                            break;
+                        case 'ERROR':
+                            statusIcon = '⚠️';
+                            statusClass = 'errors';
+                            break;
+                    }
+                    
+                    return `
+                        <div class="test-item">
+                            <span class="test-status ${statusClass}">${statusIcon}</span>
+                            <span class="test-name">${result.test}</span>
+                        </div>
+                        <div class="test-details">${result.details}</div>
+                    `;
+                }).join('');
+            }
+            
+            displayPerformanceMetrics(metrics) {
+                const container = document.getElementById('performanceMetrics');
+                const metricItems = [];
+                
+                if (metrics.fps) {
+                    metricItems.push({
+                        label: 'Frame Rate',
+                        value: `${metrics.fps.toFixed(1)} FPS`
+                    });
+                }
+                
+                if (metrics.memory) {
+                    metricItems.push({
+                        label: 'Memory Usage',
+                        value: `${(metrics.memory.used / 1024 / 1024).toFixed(1)} MB`
+                    });
+                }
+                
+                if (metrics.touchLatency) {
+                    metricItems.push({
+                        label: 'Touch Latency',
+                        value: `${metrics.touchLatency.toFixed(1)} ms`
+                    });
+                }
+                
+                if (metrics.orientationChangeTime) {
+                    metricItems.push({
+                        label: 'Orientation Change',
+                        value: `${metrics.orientationChangeTime.toFixed(1)} ms`
+                    });
+                }
+                
+                container.innerHTML = metricItems.map(metric => `
+                    <div class="metric-card">
+                        <div class="metric-value">${metric.value}</div>
+                        <div class="metric-label">${metric.label}</div>
+                    </div>
+                `).join('');
+            }
+            
+            clearResults() {
+                document.getElementById('resultsContainer').classList.remove('active');
+                this.consoleBuffer = [];
+                this.updateConsoleOutput();
+                
+                if (this.testSuite) {
+                    this.testSuite.testResults = [];
+                    this.testSuite.performanceMetrics = {};
+                }
+            }
+            
+            logError(message, error) {
+                console.error(message, error);
+                this.originalConsoleError(message, error);
+            }
+        }
+        
+        // Initialize test runner when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            window.testRunner = new TestRunner();
+        });
+        
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (window.testRunner) {
+                    window.testRunner.updateDeviceStatus();
+                }
+            }, 100);
+        });
+        
+        window.addEventListener('resize', () => {
+            if (window.testRunner) {
+                window.testRunner.updateDeviceStatus();
+            }
+        });
+    </script>
+</body>
+</html>

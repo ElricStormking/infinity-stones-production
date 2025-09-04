@@ -9,6 +9,10 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
     
     preload() {
         console.log('LoadingScene preload started');
+        
+        // Initialize mobile detection and orientation handling
+        this.initializeMobileServices();
+        
         // Initialize game state manager
         this.game.stateManager = new window.GameStateManager();
         console.log('GameStateManager initialized');
@@ -1116,5 +1120,66 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.log('Starting MenuScene...');
             this.scene.start('MenuScene');
         });
+    }
+    
+    // Initialize mobile detection and orientation services
+    initializeMobileServices() {
+        console.log('📱 Initializing mobile services...');
+        
+        try {
+            // Check if device detection service is available
+            if (window.deviceDetection) {
+                console.log('📱 Device detection service found');
+                
+                // Get device info and log it
+                const deviceInfo = window.deviceDetection.getDeviceInfo();
+                console.log('📱 Device info:', deviceInfo);
+                
+                // Initialize orientation manager only for mobile devices
+                if (deviceInfo.isMobileOrTablet) {
+                    console.log('📱 Mobile/tablet detected, initializing orientation manager...');
+                    
+                    // Check if orientation manager is available
+                    if (window.orientationManager) {
+                        // Initialize the orientation manager with references
+                        window.orientationManager.init({
+                            gameScene: this,
+                            overlayController: window.overlayController || null
+                        });
+                        
+                        console.log('📱 OrientationManager initialized successfully');
+                        
+                        // Initialize gesture detection service
+                        if (window.gestureDetection) {
+                            window.gestureDetection.init();
+                            console.log('📱 Gesture detection initialized');
+                        } else {
+                            console.warn('📱 Gesture detection service not available');
+                        }
+                        
+                        // Check initial orientation and show overlay if needed
+                        const currentOrientation = window.deviceDetection.getOrientation();
+                        console.log(`📱 Current orientation: ${currentOrientation}`);
+                        
+                        if (currentOrientation === 'portrait') {
+                            console.log('📱 Device is in portrait mode, will show overlay when ready');
+                            // The OrientationManager will handle showing the overlay
+                            window.orientationManager.forceCheck();
+                        }
+                        
+                    } else {
+                        console.warn('📱 OrientationManager not available');
+                    }
+                } else {
+                    console.log('📱 Desktop device detected, skipping mobile-specific initialization');
+                }
+                
+            } else {
+                console.warn('📱 DeviceDetectionService not available');
+            }
+            
+        } catch (error) {
+            console.error('📱 Error initializing mobile services:', error);
+        }
     }
 } 

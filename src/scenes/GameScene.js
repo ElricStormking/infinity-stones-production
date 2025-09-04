@@ -241,6 +241,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 if (window.DEBUG) console.log('🎵 GameScene: BGM already playing, skipping initial BGM setup');
             }
         });
+        
+        // Initialize orientation change handling for mobile devices
+        this.initializeOrientationHandling();
     }
         
 
@@ -3281,6 +3284,309 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.quickSpinEnabled = enabled;
     }
     
+    // Initialize orientation change handling for mobile devices
+    initializeOrientationHandling() {
+        // Only set up for mobile devices
+        if (!window.deviceDetection || !window.deviceDetection.isMobileOrTablet()) {
+            return;
+        }
+        
+        console.log('🎮 Initializing orientation change handling for GameScene');
+        
+        // Store reference to orientation manager
+        this.orientationManager = window.orientationManager;
+        
+        // Store original pause/resume state handlers
+        this.orientationPaused = false;
+        this.preOrientationState = null;
+        
+        // Listen to global orientation events
+        this.orientationChangeHandler = (event) => {
+            this.handleOrientationChange(event.detail);
+        };
+        window.addEventListener('orientationchanged', this.orientationChangeHandler);
+        
+        // Listen to game pause/resume events from OrientationManager
+        this.gamePauseHandler = (event) => {
+            if (event.detail.reason === 'orientation') {
+                this.handleOrientationPause();
+            }
+        };
+        window.addEventListener('game:pause', this.gamePauseHandler);
+        
+        this.gameResumeHandler = (event) => {
+            if (event.detail.reason === 'orientation') {
+                this.handleOrientationResume();
+            }
+        };
+        window.addEventListener('game:resume', this.gameResumeHandler);
+        
+        // Register callbacks with OrientationManager for direct integration
+        if (this.orientationManager) {
+            this.orientationManager.gameScene = this;
+        }
+        
+        // Set up gesture detection for mobile devices
+        this.initializeMobileGestures();
+    }
+    
+    // Initialize mobile gesture detection
+    initializeMobileGestures() {
+        if (!window.gestureDetection || !window.deviceDetection || !window.deviceDetection.isMobileOrTablet()) {
+            return; // Skip gesture setup on desktop
+        }
+        
+        console.log('🎮 Initializing mobile gesture detection...');
+        
+        // Hold gesture for auto-spin (hold spin button for 800ms)
+        this.holdGestureHandler = (gesture) => {
+            // Check if the hold was on the spin button
+            const spinButton = this.uiManager && this.uiManager.getSpinButton();
+            if (spinButton && spinButton.getBounds && gesture.element && this.isElementInButton(gesture, spinButton)) {
+                this.handleHoldAutoSpin(gesture);
+            }
+        };
+        window.gestureDetection.on('hold', this.holdGestureHandler);
+        
+        // Swipe gestures for future enhancements (placeholder)
+        this.swipeGestureHandler = (gesture) => {
+            console.log('🎮 Swipe gesture detected:', gesture.direction);
+            // Future: Could implement swipe-to-spin or swipe navigation
+        };
+        window.gestureDetection.on('swipe', this.swipeGestureHandler);
+        
+        console.log('🎮 Mobile gesture detection initialized');
+    }
+    
+    // Check if a gesture occurred within a button's bounds
+    isElementInButton(gesture, button) {
+        try {
+            const bounds = button.getBounds();
+            return (
+                gesture.x >= bounds.x &&
+                gesture.x <= bounds.x + bounds.width &&
+                gesture.y >= bounds.y &&
+                gesture.y <= bounds.y + bounds.height
+            );
+        } catch (error) {
+            console.warn('🎮 Error checking button bounds:', error);
+            return false;
+        }
+    }
+    
+    // Handle hold gesture on spin button to start auto-spin
+    handleHoldAutoSpin(gesture) {
+        if (this.isSpinning || this.orientationPaused) {
+            return; // Don't start auto-spin if already spinning or paused
+        }
+        
+        console.log('🎮 Hold gesture detected on spin button - starting auto-spin');
+        
+        // Show visual feedback
+        if (this.showMessage) {
+            this.showMessage('Auto-spin activated!', 1500);
+        }
+        
+        // Start auto-spin with default count (50 spins)
+        this.startAutoplay(50);
+    }
+    
+    // Handle orientation change event
+    handleOrientationChange(detail) {
+        console.log(`🎮 GameScene: Orientation changed from ${detail.oldOrientation} to ${detail.newOrientation}`);
+        
+        // Additional handling can be added here if needed
+        // The actual pause/resume is handled by the OrientationManager
+    }
+    
+    // Handle game pause due to orientation change
+    handleOrientationPause() {
+        if (this.orientationPaused) {
+            return; // Already paused
+        }
+        
+        console.log('🎮 GameScene: Pausing game due to orientation change');
+        this.orientationPaused = true;
+        
+        // Store current game state
+        this.preOrientationState = {
+            isSpinning: this.isSpinning,
+            autoplayActive: this.autoplayActive,
+            burstAutoSpinning: this.burstAutoSpinning,
+            cascadeInProgress: this.cascadeInProgress,
+            soundEnabled: this.sound && this.sound.mute === false,
+            animationsInProgress: []
+        };
+        
+        // Pause all active animations
+        if (this.tweens) {
+            this.tweens.pauseAll();
+        }
+        
+        // Pause all sounds
+        if (this.sound && !this.sound.mute) {
+            this.sound.pauseAll();
+        }
+        
+        // Stop auto-play if active
+        if (this.autoplayActive) {
+            this.wasAutoplayActive = true;
+            this.stopAutoplay(false); // Don't play sound effect
+        }
+        
+        // Stop burst mode auto-spin if active
+        if (this.burstAutoSpinning) {
+            this.wasBurstAutoSpinning = true;
+            this.burstAutoSpinning = false;
+        }
+        
+        // Pause cascade processing if in progress
+        if (this.cascadeInProgress) {
+            this.cascadePausedByOrientation = true;
+        }
+        
+        // Disable all interactive elements
+        this.setInteractiveElementsEnabled(false);
+        
+        // Update UI to show paused state
+        if (this.uiManager) {
+            // Optionally dim the screen or show a pause indicator
+            this.orientationPauseOverlay = this.add.rectangle(
+                this.cameras.main.width / 2,
+                this.cameras.main.height / 2,
+                this.cameras.main.width,
+                this.cameras.main.height,
+                0x000000,
+                0.5
+            );
+            this.orientationPauseOverlay.setDepth(9999);
+        }
+    }
+    
+    // Handle game resume after orientation change
+    handleOrientationResume() {
+        if (!this.orientationPaused) {
+            return; // Not paused by orientation
+        }
+        
+        console.log('🎮 GameScene: Resuming game after orientation change');
+        this.orientationPaused = false;
+        
+        // Remove pause overlay
+        if (this.orientationPauseOverlay) {
+            this.orientationPauseOverlay.destroy();
+            this.orientationPauseOverlay = null;
+        }
+        
+        // Resume all tweens
+        if (this.tweens) {
+            this.tweens.resumeAll();
+        }
+        
+        // Resume all sounds
+        if (this.sound && this.preOrientationState && this.preOrientationState.soundEnabled) {
+            this.sound.resumeAll();
+        }
+        
+        // Re-enable interactive elements
+        this.setInteractiveElementsEnabled(true);
+        
+        // Note: We don't automatically restart auto-play or burst mode
+        // The player needs to manually restart these features for safety
+        if (this.wasAutoplayActive) {
+            console.log('🎮 Auto-play was active before orientation change. Please restart it manually.');
+            this.wasAutoplayActive = false;
+        }
+        
+        if (this.wasBurstAutoSpinning) {
+            console.log('🎮 Burst auto-spin was active before orientation change. Please restart it manually.');
+            this.wasBurstAutoSpinning = false;
+        }
+        
+        // Resume cascade processing if it was paused
+        if (this.cascadePausedByOrientation) {
+            this.cascadePausedByOrientation = false;
+            // Cascade will continue on next update cycle
+        }
+        
+        // Clear stored state
+        this.preOrientationState = null;
+    }
+    
+    // Helper method to enable/disable interactive elements
+    setInteractiveElementsEnabled(enabled) {
+        const elements = [
+            this.ui_spin,
+            this.ui_number_bet_minus,
+            this.ui_number_bet_plus,
+            this.ui_small_menu,
+            this.ui_small_burst,
+            this.ui_small_stop,
+            this.ui_freegame_purchase,
+            this.fallbackSpinButton,
+            this.fallbackMinusButton,
+            this.fallbackPlusButton,
+            this.fallbackMenuButton,
+            this.fallbackBurstButton
+        ];
+        
+        elements.forEach(element => {
+            if (element) {
+                if (enabled) {
+                    element.setInteractive();
+                } else {
+                    element.disableInteractive();
+                }
+            }
+        });
+        
+        // Also handle burst mode UI if visible
+        if (this.burstModeUI && this.burstModeUI.list) {
+            this.burstModeUI.list.forEach(child => {
+                if (child.input) {
+                    if (enabled) {
+                        child.setInteractive();
+                    } else {
+                        child.disableInteractive();
+                    }
+                }
+            });
+        }
+    }
+    
+    // Cleanup orientation handling on scene destroy
+    cleanupOrientationHandling() {
+        if (this.orientationChangeHandler) {
+            window.removeEventListener('orientationchanged', this.orientationChangeHandler);
+            this.orientationChangeHandler = null;
+        }
+        
+        if (this.gamePauseHandler) {
+            window.removeEventListener('game:pause', this.gamePauseHandler);
+            this.gamePauseHandler = null;
+        }
+        
+        if (this.gameResumeHandler) {
+            window.removeEventListener('game:resume', this.gameResumeHandler);
+            this.gameResumeHandler = null;
+        }
+        
+        // Clean up gesture handlers
+        if (window.gestureDetection && this.holdGestureHandler) {
+            window.gestureDetection.off('hold', this.holdGestureHandler);
+            this.holdGestureHandler = null;
+        }
+        
+        if (window.gestureDetection && this.swipeGestureHandler) {
+            window.gestureDetection.off('swipe', this.swipeGestureHandler);
+            this.swipeGestureHandler = null;
+        }
+        
+        // Clear reference in OrientationManager
+        if (this.orientationManager && this.orientationManager.gameScene === this) {
+            this.orientationManager.gameScene = null;
+        }
+    }
 
     
     // Cleanup method to prevent memory leaks and crashes
@@ -3302,6 +3608,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
             });
             this.keyboardListeners = null;
         }
+        
+        // Clean up orientation handling
+        this.cleanupOrientationHandling();
         
         // Clean up managers in reverse order of creation
         if (this.fireEffect && this.fireEffect.destroy) {
