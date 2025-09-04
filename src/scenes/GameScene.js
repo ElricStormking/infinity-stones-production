@@ -423,6 +423,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (window.DEBUG) {
                 console.log('🔌 Server integration disabled - running in demo mode');
             }
+
+            // Ensure players have free demo balance
+            this.ensureDemoBalance();
         }
     }
     
@@ -1094,33 +1097,32 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // Record demo spin to server database (non-blocking)
     async recordDemoSpinToDatabase() {
         try {
-            // Skip API calls in demo mode (static server)
-            if (!window.NetworkService.authToken || this.demoMode) {
-                console.log('🎮 Demo mode - skipping database recording');
-                return;
-            }
+            // Only record when in demo mode; endpoint does not require auth
+            if (!this.demoMode) return;
             
             const betAmount = this.stateManager.gameData.currentBet;
+            const quickSpinMode = !!this.quickSpinEnabled;
+            const freeSpinsActive = !!this.stateManager.freeSpinsData.active;
+            const accumulatedMultiplier = this.stateManager.freeSpinsData.multiplierAccumulator || 1;
+            const apiBase = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
             
-            // Make async call to demo-spin endpoint (don't await to avoid blocking gameplay)
-            fetch('http://localhost:3000/api/demo-spin', {
+            // Fire-and-forget; do not block gameplay
+            fetch(`${apiBase}/api/demo-spin`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ betAmount })
-            }).then(response => {
-                if (response.ok) {
-                    console.log('✅ Demo spin recorded to database');
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ betAmount, quickSpinMode, freeSpinsActive, accumulatedMultiplier })
+            }).then(res => {
+                if (res.ok) {
+                    console.log('✅ Demo spin recorded to Supabase (spin_results)');
                 } else {
-                    console.warn('⚠️ Failed to record demo spin to database');
+                    console.warn('⚠️ Demo spin recording responded with non-OK status');
                 }
-            }).catch(error => {
-                console.warn('⚠️ Demo spin database recording failed:', error.message);
+            }).catch(err => {
+                console.warn('⚠️ Demo spin recording failed:', err.message);
             });
         } catch (error) {
-            // Silently fail - database recording is optional for demo mode
-            console.warn('⚠️ Demo spin recording error:', error.message);
+            // Non-fatal
+            if (window.DEBUG) console.warn('⚠️ Demo spin recording error:', error.message);
         }
     }
     
@@ -2279,6 +2281,27 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         if (window.DEBUG) {
             console.log('🔌 Switched to demo mode due to server error');
+        }
+
+        // Top-up demo balance to ensure gameplay
+        this.ensureDemoBalance();
+    }
+
+    ensureDemoBalance() {
+        try {
+            const minDemo = 5000;
+            if (this.demoMode && this.stateManager && this.stateManager.gameData) {
+                if (this.stateManager.gameData.balance < minDemo) {
+                    this.stateManager.gameData.balance = minDemo;
+                    if (window.WalletAPI) {
+                        window.WalletAPI.currentBalance = minDemo;
+                    }
+                    this.updateBalanceDisplay();
+                }
+            }
+        } catch (e) {
+            // Non-fatal
+            if (window.DEBUG) console.warn('ensureDemoBalance failed:', e);
         }
     }
 

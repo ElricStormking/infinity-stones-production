@@ -96,9 +96,9 @@ router.post('/demo-spin',
     validateAndProceed,
     async (req, res) => {
         // Return mock spin data for testing AND store in database
-        const { betAmount = 1.0 } = req.body;
-        const { Pool } = require('pg');
-        
+        const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body;
+        const { getDemoPlayer, saveSpinResult } = require('../db/supabaseClient');
+
         // Generate a simple mock grid
         const generateRandomGrid = () => {
             const symbols = ['time_gem', 'space_gem', 'power_gem', 'mind_gem', 'reality_gem', 'soul_gem'];
@@ -111,51 +111,29 @@ router.post('/demo-spin',
             }
             return grid;
         };
-        
+
         const spinId = `demo-spin-${Date.now()}`;
         const initialGrid = generateRandomGrid();
         const totalWin = Math.random() < 0.3 ? Math.floor(Math.random() * 10) * betAmount : 0;
-        
-        // Try to store in database (but don't fail if it doesn't work)
+
+        // Persist to Supabase using admin client; ensure demo player exists
         try {
-            const pool = new Pool({
-                host: process.env.DB_HOST || '127.0.0.1',
-                port: parseInt(process.env.DB_PORT) || 54322,
-                database: process.env.DB_NAME || 'postgres',
-                user: process.env.DB_USER || 'postgres',
-                password: process.env.DB_PASSWORD || 'postgres',
-                ssl: false
+            const demoPlayer = await getDemoPlayer();
+            await saveSpinResult(demoPlayer.id, {
+                bet: betAmount,
+                initialGrid: { symbols: initialGrid },
+                cascades: [],
+                totalWin,
+                multipliers: [],
+                rngSeed: Math.random().toString(36).substring(2),
+                freeSpinsActive
             });
-            const client = await pool.connect();
-            try {
-                // Insert spin result using existing demo player and session
-                await client.query(`
-                    INSERT INTO spin_results (
-                        player_id, session_id, spin_number, bet_amount, initial_grid, 
-                        cascades, total_win, multipliers_applied, rng_seed, game_mode, created_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-                `, [
-                    'ee946cf5-9fd1-47b9-970d-1df595a4ec0d', // existing demo player UUID
-                    '550e8400-e29b-41d4-a716-446655440001', // existing session UUID
-                    Math.floor(Math.random() * 1000), // random spin number
-                    betAmount,
-                    JSON.stringify({ symbols: initialGrid }),
-                    JSON.stringify([]), // empty cascades for demo
-                    totalWin,
-                    JSON.stringify([]), // empty multipliers for demo
-                    Math.random().toString(36).substring(2),
-                    'base'
-                ]);
-                
-                console.log('Demo spin saved to database:', spinId);
-            } finally {
-                client.release();
-            }
+            console.log('✅ Demo spin saved to Supabase spin_results for player', demoPlayer.id);
         } catch (dbError) {
-            console.error('Failed to save demo spin to database:', dbError.message);
-            // Continue anyway - database save is optional for demo
+            console.error('⚠️ Failed to save demo spin (Supabase):', dbError.message);
+            // Continue anyway - demo should not break gameplay
         }
-        
+
         // Return mock result
         res.json({
             success: true,
@@ -175,8 +153,10 @@ router.post('/demo-spin',
                 totalDuration: 2000,
                 cascadeTiming: []
             },
-            playerCredits: 1000, // Mock balance
-            message: 'Demo spin successful (saved to database)'
+            playerCredits: 1000,
+            quickSpinMode,
+            accumulatedMultiplier,
+            message: 'Demo spin successful (attempted DB save)'
         });
     }
 );
