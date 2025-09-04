@@ -1,6 +1,8 @@
 // Metrics service with simulated data for dashboard functionality
 // Database integration will be added when PostgreSQL is set up
 
+const { supabaseAdmin } = require('../db/supabaseClient');
+
 class MetricsService {
     constructor() {
         this.realtimeCache = {
@@ -59,23 +61,27 @@ class MetricsService {
      */
     async getFinancialMetrics(timeframe) {
         try {
-            // For now, return simulated data with realistic casino metrics
-            // In a production environment, this would query the actual database
-            const baseWagered = 25000 + Math.random() * 10000;
-            const targetRTP = 96.5;
-            const totalWagered = Math.round(baseWagered);
-            const totalWon = Math.round(totalWagered * (targetRTP / 100));
+            // Pull from Supabase spin_results
+            const since = this.getTimeClause(timeframe);
+            const { data: spins, error } = await supabaseAdmin
+                .from('spin_results')
+                .select('bet_amount,total_win,created_at')
+                .gte('created_at', since.toISOString());
+            if (error) throw new Error(error.message);
+
+            const totalSpins = spins?.length || 0;
+            const totalWagered = Math.round((spins || []).reduce((s, r) => s + (parseFloat(r.bet_amount) || 0), 0));
+            const totalWon = Math.round((spins || []).reduce((s, r) => s + (parseFloat(r.total_win) || 0), 0));
             const revenue = totalWagered - totalWon;
             const rtp = totalWagered > 0 ? (totalWon / totalWagered * 100) : 0;
-            const totalSpins = Math.round(totalWagered / 2.5); // Avg bet $2.50
             const avgBetSize = totalSpins > 0 ? totalWagered / totalSpins : 0;
 
-            // Credit flow simulation
-            const creditsAdded = Math.round(totalWagered * 1.2); // Players add more than they wager
-            const creditsWithdrawn = Math.round(totalWon * 0.8); // Not all winnings are withdrawn
-            
-            // Generate hourly trend data
-            const revenueTrend = this.generateHourlyTrend(24, revenue / 24);
+            // Simple placeholders until transactions wired
+            const creditsAdded = 0;
+            const creditsWithdrawn = 0;
+
+            // Generate hourly trend using realized revenue
+            const revenueTrend = this.generateHourlyTrend(24, totalSpins > 0 ? revenue / 24 : 0);
             const rtpTrend = this.generateHourlyTrend(24, rtp, 2);
 
             return {

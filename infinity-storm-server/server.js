@@ -138,6 +138,16 @@ if (process.env.NODE_ENV !== 'production') {
             next(e);
         }
     });
+    // Dev-only admin metrics API without auth to feed dashboard JS
+    app.get('/admin/api/metrics', async (req, res) => {
+        try {
+            const metricsService = require('./src/services/metricsService');
+            const metrics = await metricsService.getDashboardMetrics(req.query.timeframe || '24h');
+            res.json({ success: true, metrics });
+        } catch (e) {
+            res.status(500).json({ success: false, error: e.message });
+        }
+    });
 }
 app.use('/admin', adminRoutes);
 
