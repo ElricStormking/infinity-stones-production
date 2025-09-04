@@ -5,7 +5,7 @@ const { pool } = require('./pool');
 
 async function ensureCryptoExt() {
   try {
-    await pool.query("create extension if not exists pgcrypto");
+    await pool.query('create extension if not exists pgcrypto');
     console.log('pgcrypto extension ensured');
   } catch (err) {
     console.warn('Could not create pgcrypto extension:', err.message);

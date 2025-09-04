@@ -17,7 +17,7 @@ npm start
 
 # Alternative: Simple static server (client-only, no backend features)  
 node start-server.js
-# Runs on port 3000 with basic file serving only
+# Runs on port 3001 with basic file serving only
 
 # Full development setup with Docker services
 cd infinity-storm-server
@@ -57,7 +57,7 @@ node src/tools/MathSimulator.js
 # Open test-rng-security.html in browser
 
 # Mobile development and testing
-# Open test-mobile.html in browser for mobile testing
+# Open tests/mobile/mobile-test-runner.html in browser for mobile testing
 # Use Chrome DevTools device emulation (Ctrl+Shift+M)
 # Test orientation changes and touch interactions
 ```
@@ -83,7 +83,7 @@ npm run test:integration:coverage  # Coverage report
 npm run test:integration:report    # Open HTML report
 
 # Mobile testing (via browser console)
-# Open test-mobile.html in browser and use MobileTestSuite
+# Open tests/mobile/mobile-test-runner.html in browser and use MobileTestSuite
 # const testSuite = new MobileTestSuite(); testSuite.init(); await testSuite.runAllTests();
 
 # Run a single test file
@@ -96,6 +96,7 @@ npx jest tests/smoke/smoke.test.js --verbose
 ```bash
 # Docker services management
 cd infinity-storm-server
+npm run dev:db            # Start database services only (PostgreSQL, Redis)
 docker compose up -d      # Start all services (PostgreSQL, Redis)
 docker compose down       # Stop all services
 docker compose logs -f    # View service logs

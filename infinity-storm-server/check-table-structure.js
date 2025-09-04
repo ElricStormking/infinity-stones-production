@@ -10,20 +10,20 @@ const supabase = createClient(
 async function checkTableStructure() {
   try {
     console.log('📊 Checking players table structure...\n');
-    
+
     // Get all columns of players table
     const { data, error } = await supabase.rpc('get_table_columns', {
       schema_name: 'public',
       table_name: 'players'
     });
-    
+
     if (error) {
       // Try alternative method
       const { data: sampleData, error: sampleError } = await supabase
         .from('players')
         .select('*')
         .limit(1);
-      
+
       if (sampleError) {
         console.log('Error:', sampleError);
       } else {
@@ -35,7 +35,7 @@ async function checkTableStructure() {
     } else {
       console.log('Table columns:', data);
     }
-    
+
     process.exit(0);
   } catch (error) {
     console.error('❌ Failed:', error);

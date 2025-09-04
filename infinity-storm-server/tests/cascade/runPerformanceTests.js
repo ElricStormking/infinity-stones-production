@@ -2,7 +2,7 @@
 
 /**
  * Performance and Stress Test Runner for Enhanced Cascade Synchronization
- * 
+ *
  * Usage:
  *   node runPerformanceTests.js                    # Run all performance tests
  *   node runPerformanceTests.js --frequency        # Run only high-frequency tests
@@ -24,36 +24,36 @@ class PerformanceTestRunner {
   }
 
   async runTests(options = {}) {
-    const { 
-      frequency = false, 
-      memory = false, 
-      concurrent = false, 
-      resource = false, 
+    const {
+      frequency = false,
+      memory = false,
+      concurrent = false,
+      resource = false,
       report = false,
-      all = true 
+      all = true
     } = options;
 
     console.log('🚀 Enhanced Cascade Synchronization - Performance Test Suite');
     console.log('='.repeat(60));
-    
+
     try {
       // Prepare test environment
       await this.prepareEnvironment();
 
       const testPatterns = [];
-      
+
       if (frequency || all) {
         testPatterns.push('Test High-Frequency Cascade Handling');
       }
-      
+
       if (memory || all) {
         testPatterns.push('Validate Memory Usage Patterns');
       }
-      
+
       if (concurrent || all) {
         testPatterns.push('Test Concurrent Player Handling');
       }
-      
+
       if (resource || all) {
         testPatterns.push('Verify Server Resource Utilization');
       }
@@ -64,7 +64,7 @@ class PerformanceTestRunner {
 
       // Run tests based on patterns
       const results = await this.executeTests(testPatterns);
-      
+
       // Generate report
       if (report || all) {
         await this.generateReport(results);
@@ -73,9 +73,9 @@ class PerformanceTestRunner {
       console.log('\n✅ Performance test suite completed successfully');
       console.log(`📊 Test results available in: ${this.reportFile}`);
       console.log(`📝 Detailed logs available in: ${this.logFile}`);
-      
+
       return results;
-      
+
     } catch (error) {
       console.error('❌ Performance test suite failed:', error.message);
       process.exit(1);
@@ -84,7 +84,7 @@ class PerformanceTestRunner {
 
   async prepareEnvironment() {
     console.log('🔧 Preparing test environment...');
-    
+
     // Enable garbage collection for memory tests
     if (!global.gc) {
       console.log('⚠️  Garbage collection not exposed. Run with --expose-gc for better memory testing');
@@ -102,14 +102,14 @@ class PerformanceTestRunner {
 
   async executeTests(testPatterns) {
     console.log(`🧪 Running tests for patterns: ${testPatterns.join(', ')}`);
-    
+
     const jestConfig = {
       testMatch: [this.testFile],
       verbose: true,
       detectOpenHandles: true,
       forceExit: true,
       maxWorkers: 1, // Run sequentially for accurate performance measurement
-      testTimeout: 120000, // 2 minutes per test
+      testTimeout: 120000 // 2 minutes per test
     };
 
     return new Promise((resolve, reject) => {
@@ -118,7 +118,7 @@ class PerformanceTestRunner {
         '--testNamePattern', testPatterns.join('|'),
         '--verbose',
         '--no-cache',
-        '--runInBand', // Force sequential execution
+        '--runInBand' // Force sequential execution
       ];
 
       const jestProcess = spawn('npx', ['jest', ...jestArgs], {
@@ -192,7 +192,7 @@ class PerformanceTestRunner {
         arch: process.arch,
         cpuCount: require('os').cpus().length,
         totalMemory: `${(require('os').totalmem() / 1024 / 1024 / 1024).toFixed(2)}GB`,
-        freeMemory: `${(require('os').freemem() / 1024 / 1024 / 1024).toFixed(2)}GB`,
+        freeMemory: `${(require('os').freemem() / 1024 / 1024 / 1024).toFixed(2)}GB`
       },
       performance: {
         processMemory: process.memoryUsage(),
@@ -271,7 +271,7 @@ class PerformanceTestRunner {
 
   static async main() {
     const args = process.argv.slice(2);
-    
+
     const options = {
       frequency: args.includes('--frequency'),
       memory: args.includes('--memory'),

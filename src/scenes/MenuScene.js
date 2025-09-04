@@ -211,8 +211,29 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         
         // Play button - optimized positioning for touch
         const playButtonY = titleY + subtitleSpacing + playButtonSpacing;
-        const playButton = this.createButton(width / 2, playButtonY, 'PLAY', () => {
+        const playButton = this.createButton(width / 2, playButtonY, 'PLAY', async () => {
             window.SafeSound.play(this, 'click');
+            
+            // Request fullscreen on mobile devices when entering the game
+            if (window.deviceDetection && window.deviceDetection.isMobileOrTablet()) {
+                try {
+                    if (window.orientationManager && window.orientationManager.requestFullscreen) {
+                        await window.orientationManager.requestFullscreen();
+                    } else {
+                        // Fallback direct fullscreen request
+                        if (document.documentElement.requestFullscreen) {
+                            await document.documentElement.requestFullscreen();
+                        } else if (document.documentElement.webkitRequestFullscreen) {
+                            await document.documentElement.webkitRequestFullscreen();
+                        } else if (document.documentElement.mozRequestFullScreen) {
+                            await document.documentElement.mozRequestFullScreen();
+                        }
+                    }
+                } catch (error) {
+                    console.log('📱 Fullscreen request not supported or blocked:', error.message);
+                }
+            }
+            
             this.scene.start('GameScene');
         });
         

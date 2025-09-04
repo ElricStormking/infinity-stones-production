@@ -1,9 +1,9 @@
 /**
  * wallet.js - Wallet Routes
- * 
+ *
  * Defines RESTful API endpoints for wallet management including
  * balance inquiries, transaction history, admin operations, and security features.
- * 
+ *
  * Routes:
  * - GET /api/wallet/balance - Get current balance
  * - GET /api/wallet/status - Get wallet status
@@ -42,9 +42,9 @@ router.use(WalletValidation.validatePlayerStatus);
  * @access Private (Player)
  */
 router.get('/balance',
-    WalletValidation.validateBalanceInquiry,
-    WalletValidation.logWalletOperation('get_balance'),
-    WalletController.getBalance
+  WalletValidation.validateBalanceInquiry,
+  WalletValidation.logWalletOperation('get_balance'),
+  WalletController.getBalance
 );
 
 /**
@@ -53,8 +53,8 @@ router.get('/balance',
  * @access Private (Player)
  */
 router.get('/status',
-    WalletValidation.logWalletOperation('get_status'),
-    WalletController.getWalletStatus
+  WalletValidation.logWalletOperation('get_status'),
+  WalletController.getWalletStatus
 );
 
 /**
@@ -69,11 +69,11 @@ router.get('/status',
  * @query {boolean} include_admin - Include admin transactions
  */
 router.get('/transactions',
-    WalletValidation.validateTransactionHistoryQuery,
-    WalletValidation.validateDateRange,
-    WalletValidation.normalizeNumericInputs,
-    WalletValidation.logWalletOperation('get_transactions'),
-    WalletController.getTransactionHistory
+  WalletValidation.validateTransactionHistoryQuery,
+  WalletValidation.validateDateRange,
+  WalletValidation.normalizeNumericInputs,
+  WalletValidation.logWalletOperation('get_transactions'),
+  WalletController.getTransactionHistory
 );
 
 /**
@@ -84,10 +84,10 @@ router.get('/transactions',
  * @query {boolean} include_admin_adjustments - Include admin adjustments
  */
 router.get('/stats',
-    WalletValidation.validateWalletStatsQuery,
-    WalletValidation.normalizeNumericInputs,
-    WalletValidation.logWalletOperation('get_stats'),
-    WalletController.getWalletStats
+  WalletValidation.validateWalletStatsQuery,
+  WalletValidation.normalizeNumericInputs,
+  WalletValidation.logWalletOperation('get_stats'),
+  WalletController.getWalletStats
 );
 
 /**
@@ -96,8 +96,8 @@ router.get('/stats',
  * @access Private (Player)
  */
 router.get('/validate',
-    WalletValidation.logWalletOperation('validate_balance'),
-    WalletController.validateBalance
+  WalletValidation.logWalletOperation('validate_balance'),
+  WalletController.validateBalance
 );
 
 /**
@@ -115,12 +115,12 @@ router.get('/validate',
  * @body {object} metadata - Additional metadata (optional)
  */
 router.post('/admin/adjust',
-    WalletValidation.validateAdminPermissions,
-    WalletValidation.validateAdminAdjustment,
-    WalletValidation.validateTransactionSecurity,
-    WalletValidation.normalizeNumericInputs,
-    WalletValidation.logWalletOperation('admin_adjust_balance'),
-    WalletController.adminAdjustBalance
+  WalletValidation.validateAdminPermissions,
+  WalletValidation.validateAdminAdjustment,
+  WalletValidation.validateTransactionSecurity,
+  WalletValidation.normalizeNumericInputs,
+  WalletValidation.logWalletOperation('admin_adjust_balance'),
+  WalletController.adminAdjustBalance
 );
 
 /**
@@ -130,10 +130,10 @@ router.post('/admin/adjust',
  * @param {string} playerId - Player UUID
  */
 router.get('/admin/balance/:playerId',
-    WalletValidation.validateAdminPermissions,
-    WalletValidation.validatePlayerIdParam,
-    WalletValidation.logWalletOperation('admin_get_balance'),
-    WalletController.adminGetBalance
+  WalletValidation.validateAdminPermissions,
+  WalletValidation.validatePlayerIdParam,
+  WalletValidation.logWalletOperation('admin_get_balance'),
+  WalletController.adminGetBalance
 );
 
 /**
@@ -148,13 +148,13 @@ router.get('/admin/balance/:playerId',
  * @query {string} date_to - End date (ISO 8601)
  */
 router.get('/admin/transactions/:playerId',
-    WalletValidation.validateAdminPermissions,
-    WalletValidation.validatePlayerIdParam,
-    WalletValidation.validateTransactionHistoryQuery,
-    WalletValidation.validateDateRange,
-    WalletValidation.normalizeNumericInputs,
-    WalletValidation.logWalletOperation('admin_get_transactions'),
-    WalletController.adminGetTransactionHistory
+  WalletValidation.validateAdminPermissions,
+  WalletValidation.validatePlayerIdParam,
+  WalletValidation.validateTransactionHistoryQuery,
+  WalletValidation.validateDateRange,
+  WalletValidation.normalizeNumericInputs,
+  WalletValidation.logWalletOperation('admin_get_transactions'),
+  WalletController.adminGetTransactionHistory
 );
 
 /**
@@ -164,10 +164,10 @@ router.get('/admin/transactions/:playerId',
  * @param {string} playerId - Player UUID
  */
 router.get('/admin/validate/:playerId',
-    WalletValidation.validateAdminPermissions,
-    WalletValidation.validatePlayerIdParam,
-    WalletValidation.logWalletOperation('admin_validate_balance'),
-    WalletController.adminValidateBalance
+  WalletValidation.validateAdminPermissions,
+  WalletValidation.validatePlayerIdParam,
+  WalletValidation.logWalletOperation('admin_validate_balance'),
+  WalletController.adminValidateBalance
 );
 
 // Error handling middleware temporarily removed due to issues

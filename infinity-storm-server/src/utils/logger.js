@@ -17,12 +17,12 @@ const consoleFormat = winston.format.combine(
   }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let msg = `${timestamp} [${level}]: ${message}`;
-    
+
     // Add metadata if present
     if (Object.keys(meta).length > 0) {
       msg += ` ${JSON.stringify(meta)}`;
     }
-    
+
     return msg;
   })
 );
@@ -51,7 +51,7 @@ const logger = winston.createLogger({
       maxFiles: 5,
       tailable: true
     }),
-    
+
     // Combined log file
     new winston.transports.File({
       filename: path.join(logDir, 'combined.log'),
@@ -152,7 +152,7 @@ const logDatabaseOperation = (operation, table, rowsAffected = null, duration = 
  */
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     logApiRequest(
@@ -163,7 +163,7 @@ const requestLogger = (req, res, next) => {
       res.statusCode
     );
   });
-  
+
   next();
 };
 

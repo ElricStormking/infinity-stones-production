@@ -47,7 +47,7 @@ let redisClient;
 const initializeRedis = () => {
   if (!redisClient) {
     const redisConfig = config[environment];
-    
+
     // Handle Redis URL if provided
     if (process.env.REDIS_URL && environment !== 'development') {
       redisClient = new Redis(process.env.REDIS_URL, {
@@ -57,24 +57,24 @@ const initializeRedis = () => {
     } else {
       redisClient = new Redis(redisConfig);
     }
-    
+
     redisClient.on('connect', () => {
       console.log('Connected to Redis server');
     });
-    
+
     redisClient.on('error', (error) => {
       console.error('Redis connection error:', error.message);
     });
-    
+
     redisClient.on('close', () => {
       console.log('Redis connection closed');
     });
-    
+
     redisClient.on('reconnecting', () => {
       console.log('Reconnecting to Redis...');
     });
   }
-  
+
   return redisClient;
 };
 

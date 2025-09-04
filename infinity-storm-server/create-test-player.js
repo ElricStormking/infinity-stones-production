@@ -11,10 +11,10 @@ const supabase = createClient(
 async function createTestPlayer() {
   try {
     console.log('🎮 Creating test player account...');
-    
+
     // Hash the password
     const hashedPassword = await bcrypt.hash('test123', 10);
-    
+
     // Create test player
     const testPlayer = {
       username: 'test_player',
@@ -27,24 +27,24 @@ async function createTestPlayer() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    
+
     // Insert player into database
     const { data, error } = await supabase
       .from('players')
       .insert([testPlayer])
       .select();
-    
+
     if (error) {
       console.error('❌ Error creating test player:', error);
       return;
     }
-    
+
     console.log('✅ Test player created successfully!');
     console.log('📧 Email: test@infinitystorm.com');
     console.log('🔑 Password: test123');
     console.log('💰 Credits: $5000.00');
     console.log('🆔 Player ID:', data[0].id);
-    
+
     // Create initial session for the player
     const sessionData = {
       id: 'test-session-' + Date.now(),
@@ -56,19 +56,19 @@ async function createTestPlayer() {
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
     };
-    
+
     const { data: sessionResult, error: sessionError } = await supabase
       .from('sessions')
       .insert([sessionData])
       .select();
-    
+
     if (sessionError) {
       console.error('❌ Error creating session:', sessionError);
     } else {
       console.log('✅ Session created for test player');
       console.log('🎫 Session Token:', sessionData.token);
     }
-    
+
     process.exit(0);
   } catch (error) {
     console.error('❌ Failed to create test player:', error);

@@ -83,6 +83,27 @@ window.OrientationManager = class OrientationManager {
             });
         }
         
+        // Fullscreen change events (cross-browser support)
+        document.addEventListener('fullscreenchange', () => {
+            console.log('📱 Fullscreen state changed');
+            this._handleFullscreenChange();
+        });
+        
+        document.addEventListener('webkitfullscreenchange', () => {
+            console.log('📱 WebKit fullscreen state changed');
+            this._handleFullscreenChange();
+        });
+        
+        document.addEventListener('mozfullscreenchange', () => {
+            console.log('📱 Mozilla fullscreen state changed');
+            this._handleFullscreenChange();
+        });
+        
+        document.addEventListener('msfullscreenchange', () => {
+            console.log('📱 MS fullscreen state changed');
+            this._handleFullscreenChange();
+        });
+        
         console.log('📐 Event listeners registered');
     }
     
@@ -132,6 +153,32 @@ window.OrientationManager = class OrientationManager {
                 console.error('📐 Error in orientation change callback:', error);
             }
         });
+    }
+    
+    // Handle fullscreen state changes
+    _handleFullscreenChange() {
+        const isFullscreen = document.fullscreenElement || 
+                           document.webkitFullscreenElement || 
+                           document.mozFullScreenElement ||
+                           document.msFullscreenElement;
+        
+        console.log(`📱 Fullscreen state: ${isFullscreen ? 'ACTIVE' : 'INACTIVE'}`);
+        
+        // If we're on mobile and fullscreen was exited, we might need to check orientation overlay
+        if (!isFullscreen && window.deviceDetection && window.deviceDetection.isMobileOrTablet()) {
+            // Small delay to allow for UI adjustments
+            setTimeout(() => {
+                this._checkOrientation();
+            }, 100);
+        }
+        
+        // Dispatch custom fullscreen event
+        window.dispatchEvent(new CustomEvent('orientation:fullscreenchange', {
+            detail: { 
+                isFullscreen: !!isFullscreen,
+                timestamp: Date.now() 
+            }
+        }));
     }
     
     // Check orientation and show/hide overlay
@@ -320,8 +367,87 @@ window.OrientationManager = class OrientationManager {
             overlayVisible: this.overlayVisible,
             gamePaused: this.gamePaused,
             gameInitialized: this.gameInitialized,
-            isMobile: window.deviceDetection ? window.deviceDetection.isMobileOrTablet() : false
+            isMobile: window.deviceDetection ? window.deviceDetection.isMobileOrTablet() : false,
+            isFullscreen: document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement
         };
+    }
+    
+    // Request fullscreen mode (mobile optimized)
+    async requestFullscreen() {
+        if (!window.deviceDetection || !window.deviceDetection.isMobileOrTablet()) {
+            console.log('📱 Fullscreen request skipped - not a mobile device');
+            return;
+        }
+        
+        console.log('📱 Requesting fullscreen mode for mobile gameplay...');
+        
+        try {
+            const element = document.documentElement;
+            
+            if (element.requestFullscreen) {
+                await element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) {
+                await element.webkitRequestFullscreen();
+            } else if (element.mozRequestFullScreen) {
+                await element.mozRequestFullScreen();
+            } else if (element.msRequestFullscreen) {
+                await element.msRequestFullscreen();
+            } else {
+                throw new Error('Fullscreen API not supported');
+            }
+            
+            console.log('📱 Fullscreen mode activated');
+            
+            // Dispatch fullscreen event
+            window.dispatchEvent(new CustomEvent('game:fullscreen', {
+                detail: { active: true }
+            }));
+            
+        } catch (error) {
+            console.log('📱 Fullscreen request failed:', error.message);
+            // Not throwing error as fullscreen may be blocked by user/browser
+        }
+    }
+    
+    // Exit fullscreen mode
+    async exitFullscreen() {
+        console.log('📱 Exiting fullscreen mode...');
+        
+        try {
+            if (document.exitFullscreen) {
+                await document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                await document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                await document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                await document.msExitFullscreen();
+            }
+            
+            console.log('📱 Fullscreen mode deactivated');
+            
+            // Dispatch fullscreen event
+            window.dispatchEvent(new CustomEvent('game:fullscreen', {
+                detail: { active: false }
+            }));
+            
+        } catch (error) {
+            console.log('📱 Exit fullscreen failed:', error.message);
+        }
+    }
+    
+    // Toggle fullscreen mode
+    async toggleFullscreen() {
+        const isFullscreen = document.fullscreenElement || 
+                           document.webkitFullscreenElement || 
+                           document.mozFullScreenElement ||
+                           document.msFullscreenElement;
+                           
+        if (isFullscreen) {
+            await this.exitFullscreen();
+        } else {
+            await this.requestFullscreen();
+        }
     }
     
     // Clean up event listeners

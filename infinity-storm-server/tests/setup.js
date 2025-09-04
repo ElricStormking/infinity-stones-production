@@ -17,7 +17,7 @@ global.testUtils = {
     ['time_gem', 'space_gem', 'mind_gem', 'power_gem', 'reality_gem'],
     ['soul_gem', 'thanos_weapon', 'scarlet_witch', 'thanos', 'infinity_glove']
   ],
-  
+
   // Helper to create match-guaranteed grid
   createMatchGrid: () => [
     ['time_gem', 'time_gem', 'time_gem', 'time_gem', 'space_gem'],
@@ -27,7 +27,7 @@ global.testUtils = {
     ['power_gem', 'power_gem', 'power_gem', 'power_gem', 'space_gem'],
     ['power_gem', 'power_gem', 'power_gem', 'power_gem', 'space_gem']
   ],
-  
+
   // Helper to wait for async operations
   wait: (ms) => new Promise(resolve => setTimeout(resolve, ms))
 };
