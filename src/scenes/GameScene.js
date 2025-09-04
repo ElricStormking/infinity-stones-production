@@ -56,7 +56,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             const centerX = uiBox.x;
             const centerY = uiBox.y;
             const gridX = centerX - (gridWidth / 2) + offsetX;
-            const gridY = centerY - (gridHeight / 2) + offsetY;
+            const gridY = centerY - (gridHeight / 2) + offsetY + 30; // shift down by 10px
             this.gridManager.setPosition(gridX, gridY);
             // Ensure grid draws beneath the frame but above background
             if (this.gridManager && this.gridManager.grid) {
@@ -71,7 +71,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             const centerX = window.GameConfig.UI.UI_BOX_CENTER.x * uiScaleX;
             const centerY = window.GameConfig.UI.UI_BOX_CENTER.y * uiScaleY;
             const gridX = centerX - (gridWidth / 2) + offsetX;
-            const gridY = centerY - (gridHeight / 2) + offsetY;
+            const gridY = centerY - (gridHeight / 2) + offsetY + 30; // shift down by 10px
             this.gridManager.setPosition(gridX, gridY);
         }
         

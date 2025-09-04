@@ -1431,4 +1431,41 @@ class CascadeValidator {
     }
 }
 
+// Adapters for test expectations and route usage
+CascadeValidator.prototype.validateCascadeStep = function(cascadeStep, previousStep = null /*, gameConfig */) {
+    const result = this.validateCascadeStepIntegrity(cascadeStep, previousStep);
+    return {
+        valid: result.isValid,
+        errors: result.errors || [],
+        warnings: result.warnings || [],
+        fraudDetected: (result.warnings || []).some(w => w.code === this.ERROR_CODES?.FRAUD_DETECTED)
+    };
+};
+
+CascadeValidator.prototype.validateCascadeSequence = function(cascadeSteps = [], spinResult /* optional */) {
+    const errors = [];
+    const warnings = [];
+    let allValid = true;
+    let previous = null;
+    for (const step of cascadeSteps) {
+        const v = this.validateCascadeStep(step, previous);
+        if (!v.valid) allValid = false;
+        errors.push(...(v.errors || []));
+        warnings.push(...(v.warnings || []));
+        previous = step;
+    }
+    return { valid: allValid, errors, warnings, fraudDetected: warnings.length > 0 };
+};
+
+CascadeValidator.prototype.validateGridStateNormalized = function(gridState, options = {}) {
+    const r = this.validateGridState(gridState, options);
+    return {
+        valid: r.isValid,
+        errors: r.errors || [],
+        warnings: r.warnings || [],
+        hash: r.gridHash,
+        fraudScore: 0
+    };
+};
+
 module.exports = CascadeValidator;

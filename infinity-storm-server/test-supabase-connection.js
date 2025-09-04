@@ -54,14 +54,14 @@ async function testSupabaseConnection() {
         const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         
         // Test table access
-        const { data: tables, error: tableError } = await supabaseService
+        const { count: spinsCount, error: tableError } = await supabaseService
             .from('spins')
-            .select('count', { count: 'exact', head: true });
-            
+            .select('*', { count: 'exact', head: true });
+        
         if (tableError) {
             console.log(`   ⚠️  Table access error: ${tableError.message}`);
         } else {
-            console.log(`   ✅ Service role can access tables (spins table has ${tables.length || 0} records)`);
+            console.log(`   ✅ Service role can access tables (spins count: ${spinsCount ?? 0})`);
         }
         
         // Test 4: Database Schema Validation
@@ -69,7 +69,7 @@ async function testSupabaseConnection() {
         const pgTestClient = new Client(DATABASE_URL);
         await pgTestClient.connect();
         
-        const tables = ['users', 'spins', 'game_sessions', 'cascade_steps', 'transaction_logs'];
+        const tables = ['players', 'spins', 'sessions', 'game_states', 'spin_results', 'transactions'];
         const tableChecks = await Promise.all(tables.map(async (table) => {
             try {
                 const result = await pgTestClient.query(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = $1`, [table]);
@@ -96,14 +96,14 @@ async function testSupabaseConnection() {
             await demoClient.connect();
             
             const userResult = await demoClient.query(`
-                SELECT id, email, username, balance, active 
-                FROM users 
+                SELECT id, email, username, credits, is_demo, status 
+                FROM players 
                 WHERE email = 'demo@infinitystorm.dev'
             `);
             
             if (userResult.rows.length > 0) {
                 const user = userResult.rows[0];
-                console.log(`   ✅ Demo user found: ${user.username} (Balance: $${user.balance})`);
+                console.log(`   ✅ Demo user found: ${user.username} (Credits: $${user.credits})`);
             } else {
                 console.log(`   ⚠️  Demo user not found in database`);
             }

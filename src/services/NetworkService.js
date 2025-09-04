@@ -3,7 +3,8 @@
 
 window.NetworkService = new (class NetworkService {
     constructor() {
-        this.baseURL = 'http://localhost:3000';
+        // Use current page origin to avoid 127.0.0.1 vs localhost CORS mismatches
+        this.baseURL = window.location.origin;
         this.socket = null;
         this.authToken = null;
         this.isConnected = false;

@@ -912,7 +912,9 @@ class CascadeSync {
     async pauseStepBroadcasting(syncSessionId) {
         const stepManager = this.activeManagers.get(syncSessionId);
         if (stepManager) {
-            stepManager.status = 'paused';
+            if (stepManager.status !== 'recovering') {
+                stepManager.status = 'paused';
+            }
             stepManager.autoBroadcast = false;
             console.log(`⏸️ Step broadcasting paused for session ${syncSessionId}`);
         }

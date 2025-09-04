@@ -13,11 +13,11 @@ npm start
 
 # Alternative: Run from root with PowerShell script (Windows)
 ./run-game.ps1
-# Opens on http://localhost:3000
+# Opens on http://localhost:3000 (uses start-server.js internally)
 
 # Alternative: Simple static server (client-only, no backend features)  
 node start-server.js
-# Runs on port 3001
+# Runs on port 3000 with basic file serving only
 
 # Full development setup with Docker services
 cd infinity-storm-server
@@ -82,11 +82,9 @@ npm run test:integration:performance # Performance stress tests
 npm run test:integration:coverage  # Coverage report
 npm run test:integration:report    # Open HTML report
 
-# Mobile testing
-npm run test:mobile                # Mobile-specific test suite
-npm run test:mobile:orientation    # Orientation handling tests
-npm run test:mobile:performance    # Mobile performance validation
-npm run test:mobile:compatibility  # Cross-browser compatibility tests
+# Mobile testing (via browser console)
+# Open test-mobile.html in browser and use MobileTestSuite
+# const testSuite = new MobileTestSuite(); testSuite.init(); await testSuite.runAllTests();
 
 # Run a single test file
 cd infinity-storm-server
@@ -396,12 +394,14 @@ Key configuration in infinity-storm-server/.env:
 - **Game Settings**: MIN_BET, MAX_BET, DEFAULT_CREDITS
 - **Security**: BCRYPT_ROUNDS, RATE_LIMIT_MAX_REQUESTS
 - **Supabase**: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+- **Server**: PORT (default 3000), NODE_ENV
 
 ### MCP Database Access
 When using Cursor with MCP enabled, you can directly query the Supabase database:
-- Tables: players, sessions, game_states, spin_results, transactions, jackpots
-- Use natural language queries for data analysis
-- See infinity-storm-server/MCP_INTEGRATION_GUIDE.md for examples
+- **Connection**: Configured via .cursor/mcp.json for local Supabase at http://127.0.0.1:54321
+- **Tables**: players, sessions, game_states, spin_results, transactions, jackpots, jackpot_contributions, admin_logs, rtp_metrics
+- **Usage**: Use natural language queries for data analysis and debugging
+- **Models**: 9 Sequelize models initialized (see server startup logs for details)
 
 ## Mobile Development
 

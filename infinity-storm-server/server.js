@@ -47,6 +47,28 @@ app.use(cors({
     credentials: true
 }));
 
+// Global OPTIONS handler to satisfy preflight in dev
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        const origin = req.headers.origin;
+        if (!origin || allowedOrigins.includes(origin)) {
+            res.header('Access-Control-Allow-Origin', origin || '*');
+        }
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+        return res.sendStatus(204);
+    }
+    next();
+});
+
+// Explicit preflight handler for wallet balance in dev/playtest
+app.options('/api/wallet/balance', cors({
+    origin: allowedOrigins,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin']
+}));
+
 // Disable caching in development so updated assets appear immediately
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -97,6 +119,26 @@ console.log('⚠️  Redis disabled - using fallback authentication');
 // })();
 
 // Admin Panel routes (before other static routes)
+// In development, expose a quick dashboard without auth
+if (process.env.NODE_ENV !== 'production') {
+    app.get('/admin', (req, res, next) => {
+        try {
+            const metricsService = require('./src/services/metricsService');
+            Promise.all([
+                metricsService.getDashboardMetrics('24h'),
+                metricsService.getRealtimeMetrics()
+            ]).then(([metrics, realtime]) => {
+                res.render('admin/dashboard', {
+                    user: { username: 'demo-admin', is_admin: true },
+                    metrics,
+                    realtime
+                });
+            }).catch(next);
+        } catch (e) {
+            next(e);
+        }
+    });
+}
 app.use('/admin', adminRoutes);
 
 // Authentication routes
@@ -112,7 +154,7 @@ app.get('/api/wallet/balance', async (req, res) => {
     res.json({
         success: true,
         data: {
-            balance: 1000.00,
+            balance: 5000.00,
             currency: 'USD'
         },
         message: 'Demo balance'
@@ -1550,7 +1592,7 @@ io.on('connection', (socket) => {
                 return;
             }
             
-            console.log(`💰 Bet processed: $${betAmount}, new balance: $${betResult.newBalance}`);
+            console.log(`💰 Bet processed: $${betAmount}, new balance: $${betResult.newBalance || betResult.balance}`);
             
             // Generate complete spin result using GridEngine
             const spinResult = gridEngine.generateSpinResult({
@@ -1573,25 +1615,28 @@ io.on('connection', (socket) => {
                         spinResult.newBalance = winResult.newBalance;
                     }
                 } else {
-                    spinResult.newBalance = betResult.newBalance;
+                    spinResult.newBalance = betResult.newBalance || betResult.balance;
                 }
                 
-                // Save spin result to database
-                const saveResult = await saveSpinResult(actualPlayerId, {
-                    bet: betAmount,
-                    initialGrid: spinResult.initialGrid,
-                    cascades: spinResult.cascades,
-                    totalWin: spinResult.totalWin,
-                    multipliers: spinResult.multipliers,
-                    rngSeed: spinResult.rngSeed,
-                    freeSpinsActive: freeSpinsActive
-                });
-                
-                if (saveResult.error) {
-                    console.error('Failed to save spin result:', saveResult.error);
-                } else {
-                    console.log('📊 Spin result saved to database with ID:', saveResult.spinResultId);
-                    spinResult.spinResultId = saveResult.spinResultId;
+                // Save spin result to database (spin_results)
+                try {
+                    const saveResult = await saveSpinResult(actualPlayerId, {
+                        bet: betAmount,
+                        initialGrid: spinResult.initialGrid,
+                        cascades: spinResult.cascades || [],
+                        totalWin: spinResult.totalWin,
+                        multipliers: spinResult.multipliers || [],
+                        rngSeed: spinResult.rngSeed,
+                        freeSpinsActive: freeSpinsActive
+                    });
+                    if (saveResult && !saveResult.error) {
+                        console.log('📊 Spin result saved to spin_results with ID:', saveResult.spinResultId);
+                        spinResult.spinResultId = saveResult.spinResultId;
+                    } else if (saveResult && saveResult.error) {
+                        console.warn('saveSpinResult error:', saveResult.error);
+                    }
+                } catch (e) {
+                    console.warn('saveSpinResult exception:', e.message);
                 }
                 
                 // Also save to spins table using existing function
@@ -1602,7 +1647,7 @@ io.on('connection', (socket) => {
                     totalWin: spinResult.totalWin,
                     rngSeed: spinResult.rngSeed,
                     initialGrid: spinResult.initialGrid,
-                    cascades: spinResult.cascades
+                    cascades: spinResult.cascades || []
                 });
                 
                 if (recordResult.error) {
@@ -1911,16 +1956,21 @@ process.on('SIGINT', () => {
 const PORT = process.env.PORT || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
-server.listen(PORT, () => {
-    console.log(`🎰 Infinity Storm Server running on port ${PORT}`);
-    console.log(`🌐 Client URL: ${CLIENT_URL}`);
-    console.log(`📡 WebSocket server ready`);
-    console.log(`🎮 Game available at: http://localhost:${PORT}`);
-    console.log(`🔐 Authentication system active`);
-    console.log(`🏛️ Admin panel available at: http://localhost:${PORT}/admin`);
-    
-    // Start real-time metrics broadcasting
-    startMetricsBroadcasting();
-});
+// Avoid binding to a fixed port when running under Jest/test runner
+const isTestEnv = process.env.NODE_ENV === 'test' || typeof process.env.JEST_WORKER_ID !== 'undefined';
+
+if (!isTestEnv) {
+    server.listen(PORT, () => {
+        console.log(`🎰 Infinity Storm Server running on port ${PORT}`);
+        console.log(`🌐 Client URL: ${CLIENT_URL}`);
+        console.log(`📡 WebSocket server ready`);
+        console.log(`🎮 Game available at: http://localhost:${PORT}`);
+        console.log(`🔐 Authentication system active`);
+        console.log(`🏛️ Admin panel available at: http://localhost:${PORT}/admin`);
+        
+        // Start real-time metrics broadcasting
+        startMetricsBroadcasting();
+    });
+}
 
 module.exports = { app, server, io };

@@ -176,18 +176,12 @@ const config = {
     width: 1920,
     height: 1080,
     scale: {
+        // FIT so full game is always visible, centered; letterbox left/right in landscape
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: 1920,
         height: 1080,
-        min: {
-            width: 960,
-            height: 540
-        },
-        max: {
-            width: 1920,
-            height: 1080
-        }
+        expandParent: true
     },
     scene: [window.LoadingScene, window.LoginScene, window.MenuScene, window.GameScene],
     physics: {

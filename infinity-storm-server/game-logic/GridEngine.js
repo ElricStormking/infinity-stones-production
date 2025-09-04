@@ -297,10 +297,12 @@ class GridEngine {
         } = options;
 
         try {
+            // Normalize/validate bet
+            const safeBet = (typeof bet === 'number' && isFinite(bet) && bet > 0) ? bet : 1.00;
             // Task 2.1.4: Create recovery checkpoint
             const recoveryCheckpoint = this.createRecoveryCheckpoint({
                 spinId,
-                bet,
+                bet: safeBet,
                 quickSpinMode,
                 freeSpinsActive,
                 accumulatedMultiplier,
@@ -319,7 +321,7 @@ class GridEngine {
             // Create enhanced SpinResult with foundation model
             const spinResult = new SpinResult({
                 spinId,
-                betAmount: bet,
+                betAmount: safeBet,
                 quickSpinMode,
                 freeSpinsActive,
                 accumulatedMultiplier,
@@ -352,7 +354,7 @@ class GridEngine {
                 const timing = this.calculateEnhancedCascadeTiming(cascadeStepNumber, totalStartTime, quickSpinMode);
                 
                 // Calculate wins for this cascade
-                const cascadeWins = this.calculateCascadeWins(matches, bet);
+                const cascadeWins = this.calculateCascadeWins(matches, safeBet);
                 
                 // Apply free spins multiplier
                 const multipliedWins = cascadeWins.map(win => ({
@@ -443,10 +445,10 @@ class GridEngine {
             const freeSpinsTriggered = scatterCount >= 4;
 
             // Generate random multipliers if applicable
-            const randomMultipliers = this.generateRandomMultipliers(totalWin, bet, totalStartTime);
+            const randomMultipliers = this.generateRandomMultipliers(totalWin, safeBet, totalStartTime);
 
             // Calculate win presentation
-            const winPresentation = this.calculateWinPresentation(totalWin, bet);
+            const winPresentation = this.calculateWinPresentation(totalWin, safeBet);
 
             // Calculate total spin duration
             const totalSpinDuration = this.calculateTotalSpinDuration(cascadeSteps, randomMultipliers, winPresentation, quickSpinMode);
@@ -1186,3 +1188,9 @@ class GridEngine {
 }
 
 module.exports = GridEngine;
+
+// Async wrapper for tests that use promise style
+module.exports.generateSpinResultAsync = function(options = {}) {
+    const engine = new GridEngine();
+    return Promise.resolve(engine.generateSpinResult(options));
+};

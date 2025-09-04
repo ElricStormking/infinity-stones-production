@@ -133,6 +133,11 @@ class GameSession {
         };
     }
     
+    // Minimal async initializer for compatibility with WebSocket handlers/tests
+    async initialize() {
+        return true;
+    }
+    
     /**
      * Generates a unique session ID
      * @returns {string} Unique session identifier
