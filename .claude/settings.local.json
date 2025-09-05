@@ -126,7 +126,15 @@
       "Read(/D:\\infinity-gauntlet\\src\\managers/**)",
       "Read(/D:\\infinity-gauntlet\\src\\managers/**)",
       "Read(/D:\\infinity-gauntlet\\src\\managers/**)",
-      "Read(/D:\\infinity-gauntlet\\tests\\mobile/**)"
+      "Read(/D:\\infinity-gauntlet\\tests\\mobile/**)",
+      "Read(/D:\\infinity-storm/**)",
+      "Read(/D:\\infinity-storm/**)",
+      "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
+      "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
+      "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
+      "Read(/D:\\infinity-storm\\tests\\integration/**)",
+      "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
+      "Bash(npm update:*)"
     ],
     "deny": [],
     "additionalDirectories": [
