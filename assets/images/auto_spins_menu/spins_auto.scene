@@ -1,0 +1,119 @@
+{
+    "id": "a04a43b8-d12d-45f7-9eac-b9bd762db656",
+    "sceneType": "SCENE",
+    "settings": {
+        "exportClass": true,
+        "autoImport": true,
+        "importFileExtension": true,
+        "preloadPackFiles": [],
+        "createMethodName": "editorCreate",
+        "sceneKey": "spins_auto",
+        "borderWidth": 1280,
+        "borderHeight": 720
+    },
+    "displayList": [
+        {
+            "type": "Image",
+            "id": "d49a71ee-f7c6-4088-889f-7e3f709ca247",
+            "label": "spins_auto_bg",
+            "texture": {
+                "key": "spins_auto_bg"
+            },
+            "x": 633,
+            "y": 366,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "8235b19b-c842-4fce-bc6b-bc9469e92d18",
+            "label": "spins_auto_button1",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 493,
+            "y": 330,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "d6fbbfb9-84f8-4d84-8698-eec7c0859885",
+            "label": "spins_auto_button",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 633,
+            "y": 330,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "88675770-235e-4a9f-a3dc-d0296ca62793",
+            "label": "spins_auto_button_1",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 773,
+            "y": 330,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "a9ebfcad-b9dd-49cb-a3f1-7e2ebd5ea7ef",
+            "label": "spins_auto_button_2",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 493,
+            "y": 395,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "b4875af2-d19b-4d07-9e33-98d8e6a9fc1c",
+            "label": "spins_auto_button_3",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 633,
+            "y": 395,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "dc23aed3-12fb-4bea-af23-c69d65f1e0f0",
+            "label": "spins_auto_button_4",
+            "texture": {
+                "key": "spins_auto_button1"
+            },
+            "x": 773,
+            "y": 395,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        },
+        {
+            "type": "Image",
+            "id": "5c739fbf-db07-4195-8c3e-cc12651238b5",
+            "label": "spins_auto_button2",
+            "texture": {
+                "key": "spins_auto_button2"
+            },
+            "x": 634,
+            "y": 473,
+            "scaleX": 0.67,
+            "scaleY": 0.67
+        }
+    ],
+    "plainObjects": [],
+    "meta": {
+        "app": "Phaser Editor - Scene Editor",
+        "url": "https://phaser.io/editor",
+        "contentType": "phasereditor2d.core.scene.SceneContentType",
+        "version": 5
+    }
+}

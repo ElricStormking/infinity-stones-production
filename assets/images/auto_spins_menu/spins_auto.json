@@ -1,0 +1,29 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/spins_auto/spins_auto_bg.png",
+                "type": "image",
+                "key": "spins_auto_bg"
+            },
+            {
+                "url": "assets/spins_auto/spins_auto_button1.png",
+                "type": "image",
+                "key": "spins_auto_button1"
+            },
+            {
+                "url": "assets/spins_auto/spins_auto_button2.png",
+                "type": "image",
+                "key": "spins_auto_button2"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

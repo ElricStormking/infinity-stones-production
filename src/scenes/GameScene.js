@@ -656,41 +656,35 @@ window.GameScene = class GameScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         
         // Create overlay
-        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85);
         overlay.setDepth(1500);
         overlay.setInteractive(); // Block clicks behind it
-        
-        // Menu background
-        const menuBg = this.add.rectangle(width / 2, height / 2, 600, 400, 0x2C3E50, 1);
-        menuBg.setStrokeStyle(4, 0xFFD700);
+
+        // Menu background image
+        const menuBg = this.add.image(width / 2, height / 2, 'spins_auto_bg');
         menuBg.setDepth(1501);
-        
-        // Title
-        const title = this.add.text(width / 2, height / 2 - 150, 'SELECT AUTOPLAY SPINS', {
-            fontSize: '32px',
-            fontFamily: 'Arial Black',
-            color: '#FFD700'
-        });
-        title.setOrigin(0.5);
-        title.setDepth(1502);
-        
+        // Scale to ~67% of 1280x720 design if needed
+        const baseW = 1280; const baseH = 720;
+        const bgScale = Math.min(width / baseW, height / baseH) * 0.67;
+        menuBg.setScale(bgScale);
+
         // Store references for cleanup
-        const menuElements = [overlay, menuBg, title];
+        const menuElements = [overlay, menuBg];
         
         // Create autoplay option buttons
         const options = window.GameConfig.AUTOPLAY_OPTIONS;
         const buttonsPerRow = 3;
-        const buttonWidth = 140;
-        const buttonHeight = 50;
-        const buttonSpacing = 20;
-        const startX = width / 2 - ((buttonsPerRow * buttonWidth + (buttonsPerRow - 1) * buttonSpacing) / 2);
-        const startY = height / 2 - 50;
+        const spriteW = 210 * bgScale; // approximate visual width
+        const spriteH = 70 * bgScale;  // approximate visual height
+        const buttonSpacing = 20 * bgScale;
+        const startX = width / 2 - ((buttonsPerRow * spriteW + (buttonsPerRow - 1) * buttonSpacing) / 2);
+        const startY = height / 2 - (40 * bgScale);
         
         options.forEach((spins, index) => {
             const row = Math.floor(index / buttonsPerRow);
             const col = index % buttonsPerRow;
-            const x = startX + col * (buttonWidth + buttonSpacing) + buttonWidth / 2;
-            const y = startY + row * (buttonHeight + buttonSpacing);
+            const x = startX + col * (spriteW + buttonSpacing) + (spriteW / 2);
+            const y = startY + row * (spriteH + buttonSpacing);
             
             const button = this.createAutoplayOptionButton(
                 x, y, 
@@ -702,65 +696,44 @@ window.GameScene = class GameScene extends Phaser.Scene {
         });
         
         // Cancel button
-        const cancelBtn = this.add.container(width / 2, height / 2 + 120);
-        const cancelBg = this.add.rectangle(0, 0, 160, 50, 0xE74C3C);
-        cancelBg.setStrokeStyle(2, 0xFFFFFF);
-        cancelBg.setInteractive({ useHandCursor: true });
-        const cancelLabel = this.add.text(0, 0, 'CANCEL', {
-            fontSize: '20px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF'
-        });
-        cancelLabel.setOrigin(0.5);
-        cancelBtn.add([cancelBg, cancelLabel]);
+        const cancelBtn = this.add.container(width / 2, height / 2 + (120 * bgScale) + 40);
+        const cancelImg = this.add.image(0, 0, 'spins_auto_button2');
+        cancelImg.setScale(bgScale);
+        cancelImg.setInteractive({ useHandCursor: true });
+        cancelBtn.add([cancelImg]);
         cancelBtn.setDepth(1502);
         menuElements.push(cancelBtn);
         
         // Cancel button handler
-        cancelBg.on('pointerup', () => {
+        cancelImg.on('pointerup', () => {
             menuElements.forEach(element => element.destroy());
             window.SafeSound.play(this, 'click');
         });
         
         // Button hover effects
-        cancelBg.on('pointerover', () => cancelBg.setFillStyle(0xC0392B));
-        cancelBg.on('pointerout', () => cancelBg.setFillStyle(0xE74C3C));
+        cancelImg.on('pointerover', () => cancelImg.setTint(0xDD4444));
+        cancelImg.on('pointerout', () => cancelImg.clearTint());
         
         window.SafeSound.play(this, 'click');
     }
     
     createAutoplayOptionButton(x, y, text, spins, menuElements) {
         const button = this.add.container(x, y);
-        
-        const bg = this.add.rectangle(0, 0, 140, 50, 0x27AE60);
-        bg.setStrokeStyle(2, 0xFFFFFF);
-        bg.setInteractive({ useHandCursor: true });
-        
-        const label = this.add.text(0, 0, text, {
-            fontSize: '16px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF'
-        });
+        const scale = 0.67 * Math.min(this.cameras.main.width / 1280, this.cameras.main.height / 720);
+        const bgImg = this.add.image(0, 0, 'spins_auto_button1');
+        bgImg.setScale(scale);
+        bgImg.setInteractive({ useHandCursor: true });
+        const label = this.add.text(0, 0, text, { fontSize: Math.round(16 * scale) + 'px', fontFamily: 'Arial Black', color: '#FFFFFF' });
         label.setOrigin(0.5);
-        
-        button.add([bg, label]);
+        button.add([bgImg, label]);
         button.setDepth(1502);
-        
-        // Button click handler
-        bg.on('pointerup', () => {
-            // Close menu
+        bgImg.on('pointerup', () => {
             menuElements.forEach(element => element.destroy());
-            
-            // Start autoplay with selected number of spins
             this.startAutoplay(spins);
-            
             window.SafeSound.play(this, 'click');
         });
-        
-        // Button hover effects
-        bg.on('pointerover', () => bg.setFillStyle(0x2ECC71));
-        bg.on('pointerout', () => bg.setFillStyle(0x27AE60));
-        
+        bgImg.on('pointerover', () => bgImg.setTint(0x55FF99));
+        bgImg.on('pointerout', () => bgImg.clearTint());
         return button;
     }
     

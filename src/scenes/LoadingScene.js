@@ -328,6 +328,11 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_formula_plaque', 'assets/images/ui_formula_plaque.png', 0x888888);
         // ui_top currently unused
         
+        // Autoplay menu art (background + buttons)
+        this.loadImageWithFallback('spins_auto_bg', 'assets/images/auto_spins_menu/spins_auto_bg.png', 0x2C3E50);
+        this.loadImageWithFallback('spins_auto_button1', 'assets/images/auto_spins_menu/spins_auto_button1.png', 0x27AE60);
+        this.loadImageWithFallback('spins_auto_button2', 'assets/images/auto_spins_menu/spins_auto_button2.png', 0xE74C3C);
+        
         // Free Spins Purchase UI assets (buttons and decorations)
         this.loadImageWithFallback('fg_button01', 'assets/images/fg_button01.png', 0x27AE60);
         this.loadImageWithFallback('fg_button02', 'assets/images/fg_button02.png', 0xE74C3C);
