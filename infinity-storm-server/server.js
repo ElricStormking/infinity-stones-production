@@ -159,16 +159,59 @@ app.use('/api/auth', authRoutes);
 
 // Demo balance endpoint (no auth required)
 app.get('/api/wallet/balance', async (req, res) => {
-  // Return demo balance for non-authenticated users
-  // Real users would need proper authentication endpoints
-  res.json({
-    success: true,
-    data: {
-      balance: 5000.00,
-      currency: 'USD'
-    },
-    message: 'Demo balance'
-  });
+  try {
+    const origin = req.headers.origin || '';
+    const isDemoRequest =
+      origin.includes('localhost:3001') ||
+      origin.includes('127.0.0.1:3001') ||
+      String(req.query.demo || '').toLowerCase() === 'true';
+
+    if (isDemoRequest) {
+      // Ensure demo player exists and has at least 5000 credits
+      try {
+        const { getDemoPlayer, getPlayerBalance, updatePlayerBalance } = require('./src/db/supabaseClient');
+        const demoPlayer = await getDemoPlayer();
+        let finalBalance = 5000.00;
+        try {
+          const bal = await getPlayerBalance(demoPlayer.id);
+          if (!bal.error) {
+            if (typeof bal.balance === 'number' && bal.balance < 5000) {
+              await updatePlayerBalance(demoPlayer.id, 5000.00);
+              finalBalance = 5000.00;
+            } else if (typeof bal.balance === 'number') {
+              finalBalance = bal.balance;
+            }
+          }
+        } catch (e) {
+          // Fallback to 5000 if balance fetch fails
+          finalBalance = 5000.00;
+        }
+
+        return res.json({
+          success: true,
+          data: { balance: finalBalance, currency: 'USD' },
+          message: 'Demo balance'
+        });
+      } catch (e) {
+        // If Supabase not available, still serve demo balance
+        return res.json({
+          success: true,
+          data: { balance: 5000.00, currency: 'USD' },
+          message: 'Demo balance (fallback)'
+        });
+      }
+    }
+
+    // Non-demo request default (development): serve demo balance
+    return res.json({
+      success: true,
+      data: { balance: 5000.00, currency: 'USD' },
+      message: 'Demo balance'
+    });
+  } catch (err) {
+    console.error('Balance endpoint error:', err);
+    return res.status(500).json({ success: false, error: 'BALANCE_ERROR', message: err.message });
+  }
 });
 
 // Test Supabase connection endpoint (no auth required)
