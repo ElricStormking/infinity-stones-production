@@ -214,6 +214,166 @@ app.get('/api/wallet/balance', async (req, res) => {
   }
 });
 
+// Spin history endpoint (paginated)
+app.get('/api/history/spins', async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 200, 200);
+    const order = (req.query.order === 'asc') ? 'asc' : 'desc';
+
+    // Determine player id: prefer JWT, else demo when from client host
+    let playerId = null;
+    const origin = req.headers.origin || '';
+    const demoOrigin = (
+      origin.includes('localhost:3001') || origin.includes('127.0.0.1:3001') ||
+      origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000')
+    );
+
+    // Try JWT
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const token = authHeader.slice(7);
+        const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+        const decoded = jwt.verify(token, jwtSecret);
+        playerId = decoded.player_id || decoded.id;
+      } catch (e) {
+        // ignore, will fallback to demo if allowed
+      }
+    }
+
+    if (!playerId && demoOrigin) {
+      const { getDemoPlayer } = require('./src/db/supabaseClient');
+      const demoPlayer = await getDemoPlayer();
+      playerId = demoPlayer.id;
+    }
+
+    if (!playerId) {
+      // Fallback to demo player if no auth available
+      const { getDemoPlayer } = require('./src/db/supabaseClient');
+      const demoPlayer = await getDemoPlayer();
+      playerId = demoPlayer.id;
+    }
+
+    const { getSpinHistory } = require('./src/db/supabaseClient');
+    const offset = (page - 1) * limit;
+    const result = await getSpinHistory(playerId, limit, offset, order);
+
+    if (result.error) {
+      return res.status(500).json({ success: false, error: 'HISTORY_ERROR', message: result.error });
+    }
+
+    // Map to required fields
+    const rows = (result.rows || []).map(r => ({
+      bet_time: r.created_at || r.createdAt || r.timestamp || null,
+      spin_id: r.spin_id || r.spinId || null,
+      bet_amount: Number(r.bet_amount || r.bet || 0),
+      total_win: Number(r.total_win || r.win || 0),
+      game_mode: r.game_mode || (r.freeSpinsActive ? 'free_spins' : 'base')
+    }));
+
+    const total = Number(result.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    res.json({ success: true, page, limit, total, totalPages, data: rows });
+  } catch (error) {
+    console.error('History endpoint error:', error);
+    res.status(500).json({ success: false, error: 'HISTORY_ENDPOINT_ERROR', message: error.message });
+  }
+});
+
+// Public spin endpoint (demo/JWT). Saves results to history tables.
+app.post('/api/spin', async (req, res) => {
+  try {
+    const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body || {};
+
+    const order = 'desc';
+    // Determine player id: JWT preferred, else demo fallback
+    let playerId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const token = authHeader.slice(7);
+        const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
+        const decoded = jwt.verify(token, jwtSecret);
+        playerId = decoded.player_id || decoded.id;
+      } catch (_) {}
+    }
+    if (!playerId) {
+      const { getDemoPlayer } = require('./src/db/supabaseClient');
+      const demoPlayer = await getDemoPlayer();
+      playerId = demoPlayer.id;
+    }
+
+    const { processBet, processWin, saveSpinResult, recordSpinResult } = require('./src/db/supabaseClient');
+
+    const bet = parseFloat(betAmount) || 1.0;
+    const betResult = await processBet(playerId, bet);
+    if (betResult && betResult.error) {
+      return res.status(400).json({ success: false, error: 'INSUFFICIENT_BALANCE', message: betResult.error });
+    }
+
+    // Generate spin using GridEngine
+    const spinConfig = {
+      bet: bet,
+      quickSpinMode: !!quickSpinMode,
+      freeSpinsActive: !!freeSpinsActive,
+      accumulatedMultiplier: parseFloat(accumulatedMultiplier) || 1
+    };
+    const spinResult = gridEngine.generateSpinResult(spinConfig);
+
+    let newBalance = betResult.newBalance || betResult.balance || 0;
+    if (spinResult && spinResult.totalWin > 0) {
+      const win = await processWin(playerId, spinResult.totalWin);
+      if (!win.error) newBalance = win.newBalance || newBalance + spinResult.totalWin;
+    }
+
+    // Persist spin to both tables (best-effort)
+    try {
+      await saveSpinResult(playerId, {
+        bet: bet,
+        initialGrid: spinResult.initialGrid,
+        cascades: spinResult.cascades || spinResult.cascadeSteps || [],
+        totalWin: spinResult.totalWin || 0,
+        multipliers: spinResult.multipliers || [],
+        rngSeed: spinResult.rngSeed,
+        freeSpinsActive: !!freeSpinsActive
+      });
+    } catch (e) { console.warn('saveSpinResult error:', e.message); }
+    try {
+      await recordSpinResult({
+        spinId: spinResult.spinId,
+        playerId,
+        betAmount: bet,
+        totalWin: spinResult.totalWin || 0,
+        rngSeed: spinResult.rngSeed,
+        initialGrid: spinResult.initialGrid,
+        cascades: spinResult.cascades || spinResult.cascadeSteps || []
+      });
+    } catch (e) { console.warn('recordSpinResult error:', e.message); }
+
+    return res.json({
+      success: true,
+      player: { id: playerId, credits: newBalance },
+      spin: {
+        spinId: spinResult.spinId,
+        betAmount: bet,
+        totalWin: spinResult.totalWin || 0,
+        baseWin: spinResult.baseWin || 0,
+        initialGrid: spinResult.initialGrid,
+        finalGrid: spinResult.finalGrid || spinResult.initialGrid,
+        cascadeSteps: spinResult.cascades || spinResult.cascadeSteps || [],
+        timing: spinResult.timing || {}
+      }
+    });
+  } catch (error) {
+    console.error('Public spin error:', error);
+    res.status(500).json({ success: false, error: 'SPIN_ERROR', message: error.message });
+  }
+});
+
 // Test Supabase connection endpoint (no auth required)
 app.get('/api/test-supabase', async (req, res) => {
   try {

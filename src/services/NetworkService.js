@@ -396,6 +396,15 @@ window.NetworkService = new (class NetworkService {
     async validateBalance() {
         return this.get('/api/wallet/validate');
     }
+
+    // Spin history (game history) API
+    async getSpinHistory(page = 1, limit = 200, order = 'desc') {
+        const p = new URLSearchParams();
+        p.append('page', String(page || 1));
+        p.append('limit', String(Math.min(Math.max(1, limit || 200), 200)));
+        if (order && (order === 'asc' || order === 'desc')) p.append('order', order);
+        return this.get(`/api/history/spins?${p.toString()}`);
+    }
     
     // Cascade API Methods (for future cascade synchronization)
     async startCascadeSync(spinId, playerId, gridState) {

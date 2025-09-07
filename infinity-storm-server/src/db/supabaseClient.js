@@ -362,3 +362,53 @@ module.exports = {
   saveSpinResult,
   getDemoPlayer
 };
+
+/**
+ * Fetch paginated spin history for a player from spin_results (preferred) with fallback to spins.
+ * @param {string} playerId
+ * @param {number} limit - max 200
+ * @param {number} offset
+ * @param {'asc'|'desc'} order
+ */
+async function getSpinHistory(playerId, limit = 200, offset = 0, order = 'desc') {
+  try {
+    const cappedLimit = Math.min(Math.max(1, Number(limit) || 200), 200);
+    const start = Number(offset) || 0;
+    const end = start + cappedLimit - 1;
+
+    // Try spin_results first
+    let { data, error, count } = await supabaseAdmin
+      .from('spin_results')
+      .select('*', { count: 'exact' })
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: order === 'asc' })
+      .range(start, end);
+
+    if (error) {
+      console.warn('getSpinHistory spin_results error, falling back to spins:', error.message);
+    }
+
+    if (!error && Array.isArray(data)) {
+      return { table: 'spin_results', rows: data, total: count || data.length };
+    }
+
+    // Fallback to legacy spins table
+    const fallback = await supabaseAdmin
+      .from('spins')
+      .select('*', { count: 'exact' })
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: order === 'asc' })
+      .range(start, end);
+
+    if (fallback.error) {
+      return { error: fallback.error.message };
+    }
+
+    return { table: 'spins', rows: fallback.data || [], total: fallback.count || 0 };
+  } catch (err) {
+    console.error('getSpinHistory exception:', err);
+    return { error: err.message };
+  }
+}
+
+module.exports.getSpinHistory = getSpinHistory;

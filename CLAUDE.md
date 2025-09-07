@@ -90,6 +90,7 @@ npm run test:integration:report    # Open HTML report
 cd infinity-storm-server
 npx jest tests/cascade/CascadeLogic.test.js
 npx jest tests/smoke/smoke.test.js --verbose
+npx jest tests/history.endpoint.test.js  # Test history endpoint
 ```
 
 ### Database Operations

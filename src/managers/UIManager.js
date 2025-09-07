@@ -335,7 +335,7 @@ window.UIManager = class UIManager {
                 this.ui_spin.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
             } else {
                 // Desktop: Use default hit area
-                this.ui_spin.setInteractive();
+            this.ui_spin.setInteractive();
             }
             
             // Touch-friendly event handlers
@@ -1170,8 +1170,8 @@ window.UIManager = class UIManager {
                 if (this.defaultPlaqueText) {
                     this.winTopText.setText(this.defaultPlaqueText);
                     this.winTopText.setVisible(true);
-                } else {
-                    this.winTopText.setVisible(false);
+            } else {
+                this.winTopText.setVisible(false);
                 }
             }
         }
@@ -1574,6 +1574,14 @@ window.UIManager = class UIManager {
         if (this.transactionHistoryContainer) {
             this.transactionHistoryContainer.setVisible(true);
             this.isTransactionHistoryVisible = true;
+            // Refresh data on every open
+            const width = this.scene.cameras.main.width;
+            const height = this.scene.cameras.main.height;
+            const scaleX = width / 1280;
+            const scaleY = height / 720;
+            const panelWidth = 900 * scaleX;
+            const panelHeight = 560 * scaleY;
+            this.fetchAndRenderHistory(1, panelWidth, panelHeight, scaleX, scaleY);
             return;
         }
         
@@ -1597,8 +1605,8 @@ window.UIManager = class UIManager {
         this.transactionHistoryContainer.add(bg);
         
         // Panel
-        const panelWidth = 600 * scaleX;
-        const panelHeight = 500 * scaleY;
+        const panelWidth = 900 * scaleX;
+        const panelHeight = 560 * scaleY;
         const panel = this.scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x1F2937, 0.95);
         panel.setStrokeStyle(4, 0xFFD700);
         this.transactionHistoryContainer.add(panel);
@@ -1613,7 +1621,7 @@ window.UIManager = class UIManager {
         this.transactionHistoryContainer.add(title);
         
         // Loading text
-        const loadingText = this.scene.add.text(width / 2, height / 2, 'Loading transactions...', {
+        const loadingText = this.scene.add.text(width / 2, height / 2, 'Loading history...', {
             fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial',
             color: '#FFFFFF'
@@ -1621,23 +1629,13 @@ window.UIManager = class UIManager {
         loadingText.setOrigin(0.5);
         this.transactionHistoryContainer.add(loadingText);
         
-        // Load transactions
+        // Load spin history (page 1, 200/page)
         try {
-            if (window.WalletAPI) {
-                const result = await window.WalletAPI.getTransactions(20);
+            await this.fetchAndRenderHistory(1, panelWidth, panelHeight, scaleX, scaleY);
                 loadingText.destroy();
-                
-                if (result.success) {
-                    this.displayTransactionList(result.data.data.transactions, panelWidth, panelHeight, scaleX, scaleY);
-                } else {
-                    this.showTransactionError('Failed to load transactions');
-                }
-            } else {
-                loadingText.setText('Wallet service not available');
-            }
         } catch (error) {
-            console.error('Failed to load transactions:', error);
-            loadingText.setText('Error loading transactions');
+            console.error('Failed to load history:', error);
+            loadingText.setText('Error loading history');
         }
         
         // Close button
@@ -1661,72 +1659,135 @@ window.UIManager = class UIManager {
         });
     }
     
-    displayTransactionList(transactions, panelWidth, panelHeight, scaleX, scaleY) {
-        if (!transactions || transactions.length === 0) {
-            this.showTransactionError('No transactions found');
+    // Fetch helper to load a page and render grid
+    async fetchAndRenderHistory(page, panelWidth, panelHeight, scaleX, scaleY) {
+        const resp = await window.NetworkService.getSpinHistory(page, 200, 'desc');
+        if (!resp || !resp.success) {
+            this.showTransactionError('Failed to load history');
             return;
         }
-        
+        const payload = resp.data || resp;
+        this.historyPage = payload.page || page || 1;
+        this.historyTotalPages = payload.totalPages || 1;
+        this.displaySpinHistoryGrid(payload, panelWidth, panelHeight, scaleX, scaleY);
+    }
+
+    displaySpinHistoryGrid(historyResp, panelWidth, panelHeight, scaleX, scaleY) {
+        const rows = Array.isArray(historyResp.data) ? historyResp.data : historyResp;
+        if (!rows || rows.length === 0) {
+            this.showTransactionError('No history found');
+            return;
+        }
         const width = this.scene.cameras.main.width;
         const height = this.scene.cameras.main.height;
-        const startY = (height / 2) - (panelHeight / 2) + 80 * scaleY;
-        const itemHeight = 30 * scaleY;
-        const maxItems = Math.floor((panelHeight - 120 * scaleY) / itemHeight);
-        
-        // Display up to maxItems transactions
-        const displayTransactions = transactions.slice(0, maxItems);
-        
-        displayTransactions.forEach((transaction, index) => {
-            const formatted = window.WalletAPI.formatTransaction(transaction);
-            const y = startY + (index * itemHeight);
-            
-            // Transaction type
-            const typeText = this.scene.add.text((width / 2) - (panelWidth / 2) + 20 * scaleX, y, transaction.type.toUpperCase(), {
-                fontSize: Math.floor(14 * Math.min(scaleX, scaleY)) + 'px',
-                fontFamily: 'Arial Bold',
-                color: '#FFFFFF'
-            });
-            typeText.setOrigin(0, 0.5);
-            this.transactionHistoryContainer.add(typeText);
-            
-            // Amount
-            const amountText = this.scene.add.text(width / 2, y, formatted.formattedAmount, {
-                fontSize: Math.floor(14 * Math.min(scaleX, scaleY)) + 'px',
-                fontFamily: 'Arial Bold',
-                color: formatted.color === 'green' ? '#00ff00' : '#ff6666'
-            });
-            amountText.setOrigin(0.5, 0.5);
-            this.transactionHistoryContainer.add(amountText);
-            
-            // Date
-            const dateText = this.scene.add.text((width / 2) + (panelWidth / 2) - 20 * scaleX, y, formatted.formattedDate.split(' ')[0], {
-                fontSize: Math.floor(12 * Math.min(scaleX, scaleY)) + 'px',
-                fontFamily: 'Arial',
-                color: '#CCCCCC'
-            });
-            dateText.setOrigin(1, 0.5);
-            this.transactionHistoryContainer.add(dateText);
-            
-            // Separator line
-            if (index < displayTransactions.length - 1) {
-                const line = this.scene.add.rectangle(width / 2, y + (itemHeight / 2), panelWidth - 40 * scaleX, 1, 0x444444);
-                this.transactionHistoryContainer.add(line);
-            }
-        });
-        
-        // Summary
-        if (window.WalletAPI) {
-            const summary = window.WalletAPI.getTransactionSummary();
-            const summaryY = startY + (maxItems * itemHeight) + 20 * scaleY;
-            
-            const summaryText = this.scene.add.text(width / 2, summaryY, `Net Result (30d): ${summary.netResult >= 0 ? '+' : ''}$${summary.netResult.toFixed(2)}`, {
-                fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px',
-                fontFamily: 'Arial Bold',
-                color: summary.netResult >= 0 ? '#00ff00' : '#ff6666'
-            });
-            summaryText.setOrigin(0.5);
-            this.transactionHistoryContainer.add(summaryText);
+
+        // Clear previous rendered content (header/list/footer)
+        if (this.historyContentGroup) {
+            this.historyContentGroup.destroy();
         }
+        this.historyContentGroup = this.scene.add.container(0, 0);
+        this.transactionHistoryContainer.add(this.historyContentGroup);
+        const headerY = (height / 2) - (panelHeight / 2) + 80 * scaleY;
+        const leftX = (width / 2) - (panelWidth / 2) + 20 * scaleX;
+        const cols = [
+            { key: 'bet_time', label: 'BET TIME', width: 260 * scaleX },
+            { key: 'spin_id', label: 'SPIN ID', width: 300 * scaleX },
+            { key: 'bet_amount', label: 'BET', width: 100 * scaleX },
+            { key: 'total_win', label: 'WIN', width: 100 * scaleX },
+            { key: 'game_mode', label: 'MODE', width: 120 * scaleX }
+        ];
+
+        // Header
+        let x = leftX;
+        const paddingRight = 10 * scaleX;
+        cols.forEach(col => {
+            const isNumeric = (col.key === 'bet_amount' || col.key === 'total_win');
+            const headerX = isNumeric ? (x + col.width - paddingRight) : x;
+            const originX = isNumeric ? 1 : 0;
+            const h = this.scene.add.text(headerX, headerY, col.label, { fontSize: Math.floor(14 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial Black', color: '#FFD700' });
+            h.setOrigin(originX, 0.5);
+            this.historyContentGroup.add(h);
+            x += col.width;
+        });
+
+        // Header separator
+        const headerSep = this.scene.add.rectangle(width / 2, headerY + 14 * scaleY, panelWidth - 40 * scaleX, 2, 0x2A3340, 1);
+        headerSep.setOrigin(0.5, 0.5);
+        this.historyContentGroup.add(headerSep);
+
+        // Scrollable list container (mask)
+        const listTop = headerY + 32 * scaleY; // extra padding to avoid first row clipping
+        const listHeight = (panelHeight - 150 * scaleY);
+        const maskRect = this.scene.add.rectangle(width / 2, listTop + listHeight / 2, panelWidth - 40 * scaleX, listHeight, 0x000000, 0);
+        const mask = maskRect.createGeometryMask();
+        this.historyContentGroup.add(maskRect);
+
+        const listContainer = this.scene.add.container(0, 0);
+        listContainer.setMask(mask);
+        this.historyContentGroup.add(listContainer);
+
+        // Rows
+        const rowHeight = 30 * scaleY;
+        rows.forEach((r, idx) => {
+            const y = listTop + (idx * rowHeight) + (rowHeight / 2);
+            // zebra
+            const zebra = this.scene.add.rectangle(width / 2, y, panelWidth - 40 * scaleX, rowHeight - 2, idx % 2 ? 0x18202A : 0x1F2937, 0.8);
+            zebra.setOrigin(0.5, 0.5);
+            zebra.setInteractive(new Phaser.Geom.Rectangle(-(panelWidth - 40 * scaleX)/2, -(rowHeight - 2)/2, panelWidth - 40 * scaleX, rowHeight - 2), Phaser.Geom.Rectangle.Contains);
+            zebra.on('pointerover', () => zebra.setFillStyle(0x243040, 0.9));
+            zebra.on('pointerout', () => zebra.setFillStyle(idx % 2 ? 0x18202A : 0x1F2937, 0.8));
+            listContainer.add(zebra);
+
+            let colX = leftX;
+            const timeText = new Date(r.bet_time).toLocaleString();
+            const spinId = (r.spin_id || '').toString();
+            const spinIdShort = spinId.length > 18 ? `${spinId.slice(0, 8)}…${spinId.slice(-6)}` : spinId;
+            const betStr = r.bet_amount?.toFixed ? r.bet_amount.toFixed(2) : String(r.bet_amount);
+            const winStr = r.total_win?.toFixed ? r.total_win.toFixed(2) : String(r.total_win);
+            const values = [timeText, spinIdShort, betStr, winStr, (r.game_mode || 'base').toUpperCase()];
+            cols.forEach((col, i) => {
+                const isNumeric = (col.key === 'bet_amount' || col.key === 'total_win');
+                const textX = isNumeric ? (colX + col.width - paddingRight) : colX;
+                const originX = isNumeric ? 1 : 0;
+                const color = (col.key === 'total_win' && Number(r.total_win) > 0) ? '#FAD66A' : '#FFFFFF';
+                const t = this.scene.add.text(textX, y, values[i], { fontSize: Math.floor(13 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial', color });
+                t.setOrigin(originX, 0.5);
+                listContainer.add(t);
+                colX += col.width;
+            });
+        });
+
+        // Simple wheel scroll
+        let scrollY = 0;
+        const maxScroll = Math.max(0, rows.length * rowHeight - listHeight);
+        if (this._historyWheelHandler) {
+            this.scene.input.off('wheel', this._historyWheelHandler);
+        }
+        const onWheel = (pointer, gameObjects, deltaX, deltaY) => {
+            scrollY = Phaser.Math.Clamp(scrollY + (deltaY > 0 ? 20 : -20), 0, maxScroll);
+            listContainer.y = -scrollY;
+        };
+        this._historyWheelHandler = onWheel;
+        this.scene.input.on('wheel', onWheel);
+        // Clean handler when closing
+        this.transactionHistoryContainer.once('destroy', () => this.scene.input.off('wheel', onWheel));
+
+        // Footer pagination controls
+        const footerY = (height / 2) + (panelHeight / 2) - 70 * scaleY;
+        const btnStyle = { fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial Black', color: '#000000', backgroundColor: '#FFD700', padding: { x: 10, y: 6 } };
+        const prevBtn = this.scene.add.text((width / 2) - 120 * scaleX, footerY, 'PREV', btnStyle).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        const nextBtn = this.scene.add.text((width / 2) + 120 * scaleX, footerY, 'NEXT', btnStyle).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        const pageText = this.scene.add.text(width / 2, footerY, `${this.historyPage || 1} / ${this.historyTotalPages || 1}`, { fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px', fontFamily: 'Arial Black', color: '#FFD700' }).setOrigin(0.5);
+        this.historyContentGroup.add(prevBtn);
+        this.historyContentGroup.add(nextBtn);
+        this.historyContentGroup.add(pageText);
+
+        const canPrev = (this.historyPage || 1) > 1;
+        const canNext = (this.historyPage || 1) < (this.historyTotalPages || 1);
+        prevBtn.setAlpha(canPrev ? 1 : 0.5);
+        nextBtn.setAlpha(canNext ? 1 : 0.5);
+        if (canPrev) prevBtn.on('pointerup', () => this.fetchAndRenderHistory((this.historyPage || 1) - 1, panelWidth, panelHeight, scaleX, scaleY));
+        if (canNext) nextBtn.on('pointerup', () => this.fetchAndRenderHistory((this.historyPage || 1) + 1, panelWidth, panelHeight, scaleX, scaleY));
     }
     
     showTransactionError(message) {
