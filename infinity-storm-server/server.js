@@ -2143,6 +2143,14 @@ function startMetricsBroadcasting() {
   console.log('📡 Real-time metrics broadcasting started');
 }
 
+// Serve client static files from repo root so API and client share origin
+// This avoids CORS and port conflicts while developing.
+const clientRoot = path.resolve(__dirname, '..');
+app.use(express.static(clientRoot));
+
+// Healthcheck for static server
+app.get('/healthz', (_req, res) => res.json({ ok: true }));
+
 function stopMetricsBroadcasting() {
   if (metricsInterval) {
     clearInterval(metricsInterval);
