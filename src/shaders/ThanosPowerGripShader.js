@@ -1,4 +1,4 @@
-// Thanos Power Grip Magic Circle Shader (replaced with ShaderSample/thanos_power_grip.txt)
+// Thanos Power Grip Purple Blackhole Shader
 window.ThanosPowerGripShader = class ThanosPowerGripShader extends Phaser.Renderer.WebGL.Pipelines.SinglePipeline {
     constructor(game) {
         super({
@@ -9,228 +9,237 @@ precision mediump float;
 uniform float iTime;
 uniform vec3 iResolution;
 
-// ---- BEGIN: ShaderSample/thanos_power_grip.txt (verbatim) ----
-const float PI = acos(-1.);
-const float TAU = PI * 2.;
-
-#define saturate(x) clamp(x,0.,1.)
-#define _tail2x(p,n) (mod(p,2.)-1.)
-#define time iTime
-#define resolution iResolution.xy
-float Hash( vec2 p, in float s ){
-    return fract(sin(dot(vec3(p.xy,10.0 * abs(sin(s))),vec3(27.1,61.7, 12.4)))*273758.5453123);
+// Noise function for turbulence
+float noise(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-float noise(in vec2 p, in float s){
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  return mix(
-    mix(Hash(i + vec2(0.,0.), s), Hash(i + vec2(1.,0.), s),f.x),
-    mix(Hash(i + vec2(0.,1.), s), Hash(i + vec2(1.,1.), s),f.x),f.y) * s;
+// Fractal Brownian Motion for organic swirling patterns
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * noise(p * frequency);
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    return value;
 }
 
-float fbm(vec2 p){
-  float v = 0.0;
-  v += noise(p*34., .1);
-  v += noise(p*20., .04);
-  return v;
+// Rotation matrix
+mat2 rotate(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat2(c, -s, s, c);
 }
 
-vec2 mPolar(vec2 p){
-  float a = atan(p.y, p.x);
-  float r = length(p);
-  return vec2(a, r);
+// Hash function for particle generation
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
-vec2 tailY2x(vec2 p,float n){p*=n;return vec2(p.x,_tail2x(p.y,n));}
-mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
-
-highp float rand(vec2 p){
-  highp float a = 12.9898;
-  highp float b = 78.233;
-  highp float c = 43758.5453;
-  highp float dt= dot(p ,vec2(a,b));
-  highp float sn= mod(dt,3.14);
-  return fract(sin(sn) * c);
+// Generate energy particles being sucked into blackhole
+float energyParticles(vec2 uv, float time) {
+    float particles = 0.0;
+    
+    // Grid for particle spawning
+    vec2 grid = floor(uv * 20.0);
+    vec2 cellPos = fract(uv * 20.0) - 0.5;
+    
+    // Random seed for this cell
+    float seed = hash(grid);
+    
+    // Particle animation - spiral inward with time
+    float particleTime = time + seed * 6.28; // Different start times
+    float spiralSpeed = 2.0 + seed * 3.0;    // Different spiral speeds
+    
+    // Calculate particle position in spiral
+    float dist = length(uv);
+    float angle = atan(uv.y, uv.x);
+    
+    // Create spiral path toward center
+    float spiralAngle = angle + particleTime * spiralSpeed;
+    float spiralRadius = 0.8 - fract(particleTime * 0.3) * 0.6; // Moves from outer to inner
+    
+    // Particle position on spiral
+    vec2 particlePos = vec2(cos(spiralAngle), sin(spiralAngle)) * spiralRadius;
+    
+    // Distance to particle
+    float particleDist = length(uv - particlePos);
+    
+    // Particle size and intensity
+    float particleSize = 0.015 + seed * 0.01;
+    float intensity = 1.0 - smoothstep(0.0, particleSize, particleDist);
+    
+    // Fade out as particle approaches center
+    intensity *= smoothstep(0.0, 0.2, spiralRadius);
+    
+    // Multiple particle layers
+    particles += intensity;
+    
+    return particles;
 }
 
-// signed distance
-float sd(float d,float r){return r-d;}
-float sd(float d){return 1.-d;}
-
-// ease
-float o2(float t){t=1.-t;return 1.-t*t;}
-float oN(float t,float n){return 1.-pow(1.-t,n);} 
-
-float dot2(vec2 p){return dot(p,p);} 
-
-float ring(vec2 p,float t){
-  float alpha = fract(-t);
-  float l =saturate(.02/abs(sd(length(p),1.1+fract(t)))*alpha);
-  vec2 p4=mPolar(p*(.57-oN(t,1.3)*.28)).yx;
-  p4.x-=.65;
-  l+= saturate(abs(1./((p4.x + fbm( p4 + vec2(sin(t*.2),t*0.1))) * 50.0))*sd(dot2(tailY2x(p4+vec2(.1,0.),12.)),.9)*alpha);
-  return l;
+// Create energy drain streams
+float drainStreams(vec2 uv, float time) {
+    float streams = 0.0;
+    float dist = length(uv);
+    float angle = atan(uv.y, uv.x);
+    
+    // Multiple drain streams at different angles
+    for (int i = 0; i < 8; i++) {
+        float streamAngle = float(i) * 0.785398; // 45 degree intervals
+        float angleDiff = abs(angle - streamAngle);
+        angleDiff = min(angleDiff, 6.28318 - angleDiff); // Wrap around
+        
+        // Stream width based on distance
+        float streamWidth = 0.1 + dist * 0.05;
+        float stream = 1.0 - smoothstep(0.0, streamWidth, angleDiff);
+        
+        // Animate stream intensity
+        float pulse = sin(time * 5.0 + float(i)) * 0.5 + 0.5;
+        stream *= pulse * 0.3;
+        
+        // Fade with distance
+        stream *= (1.0 - smoothstep(0.2, 0.8, dist));
+        
+        streams += stream;
+    }
+    
+    return streams;
 }
 
-float render(vec2 p){
-  p*=rot(time);
-  p*=2.;
-  float tt = time*.75;
-  float l2 = ring(p,o2(fract(tt)));
-  l2+=ring(p*rot(PI/3.),o2(fract(tt+.5)));
-  return l2;
-}
-
-float happy_star(vec2 uv, float anim)
-{
-    uv = abs(uv);
-    vec2 pos = min(uv.xy/uv.yx, anim);
-    float p = (2.0 - pos.x - pos.y);
-    return (2.0+p*(p*p-1.5)) / (uv.x+uv.y);      
-}
- 
-
-// glow + fill
-float gf(float d,float r){return r/d;}
-float gf(float d){return 1./d;}
-
-float fill_na(float d){return step(0.,d);} 
-float fill(float d){return smoothstep(0.,0.01,d);} 
-float stroke(float d,float w){return 1.-smoothstep(w,w+0.01,abs(d));}
-float strokeInner(float d,float w){return stroke(d-w,w);} 
-float strokeOuter(float d,float w){return stroke(d+w,w);} 
-
-float lSquare(vec2 p){p = abs(p);return max(p.x,p.y);}    
-
-float lPoly(vec2 p,float n){
-  float a = atan(p.x,p.y)+PI;
-  float r = TAU/n;
-  return cos(floor(.5+a/r)*r-a)*length(p)/cos(r*.5);
-}
-
-float strokeStar(vec2 p,float n,float w){
-  float l =strokeInner(sd(lPoly(p,n*.5)),w);
-  l+=strokeInner(sd(lPoly(mod(n,2.)!=0.?vec2(-p.x,p.y):p*rot(TAU/n),n*.5)),w);
-  return l;
-}
-
-vec2 mPoly(vec2 p,float n,float s){
-  float r = TAU / n;
-  float a = floor(atan(p.y,p.x)/r)*r+r*.5;
-  return (vec2(cos(a),sin(a))*s-p)*rot(-a-PI*.5);
-}
-
-float wsaw(float x){return fract(x*.5+.5)*2.-1.;}
-float wtri(float x){return abs(2.*fract(x*.5-.25)-1.)*2.-1.;} 
-float utri(float x){return abs(2.*fract(x*.5-.5)-1.);} 
-float wtrz(float x,float w){return clamp(wtri(x*2.)*w,-1.,1.);} // 台形波 trapezoidal wave
-
-// ease
-
-vec2 mSimplePerspective(vec2 p){p.y+=.2;p.y*=3.;return p;}
-
-float ring2(vec2 p,float t){
-  float alpha =    fract(-t);
-  float l = 0.;
-  vec2 p3=mPoly(p*rot(PI*.5),10.,1.);
-  l+=saturate(gf(abs(p3.x),.03)*fill(sd(length(p),1.1+fract(t)))*(1.-fill(sd(length(p),.9+fract(t))))*alpha);
- 
-  l+=saturate(.02/abs(sd(length(p),1.1+fract(t)))*alpha);
-  vec2 p4=mPolar(p*(.57-oN(t,1.3)*.28)).yx;
-  p4.x-=.65;
-  l+= saturate(abs(1./((p4.x + fbm( p4 + vec2(sin(t*.2),t*0.1))) * 50.0))*sd(dot2(tailY2x(p4+vec2(.1,0.),12.)),.9)*alpha);
-  return l;
-}
-
-float summoningCircle(vec2 p){
-  float l=0.;
-  l+=fill(sd(lSquare(p*rot(PI/3.*1.5)*vec2(100.,1.)),1.));
-  l+=fill(sd(lSquare(p*rot(PI/3.*2.5)*vec2(100.,1.)),1.));
-  l+=fill(sd(lSquare(p*rot(PI/3.*3.5)*vec2(100.,1.)),1.));
-  l=saturate(l);
-  l-=fill(sd(lPoly(p,3.)));
-  l=saturate(l);
-  float r = atan(p.y,p.x);
-  l+=strokeOuter(sd(length(p),.98),.008+wtrz(r/TAU*3.,12.)*.005);
-  l+=strokeInner(sd(length(p),.95),.005);
-  l+=strokeInner(sd(lPoly(p,3.)),.01);
-  l+=strokeInner(sd(lPoly(p,3.),.88),.02);
-  l+=strokeInner(sd(lPoly(p,6.),.53),.01);
-  vec2 q=mPoly(p*rot(PI*.5),3.,.5);
-  l+=fill(sd(lPoly(q,3.),.3));
-  vec2 q2=mPoly(p*rot(PI/3.+PI*.5),3.,.7);
-  l+=fill(sd(lPoly(q2,3.),.1));
-  l+=strokeInner(sd(lPoly(p*rot(PI),3.),.5),.02);
-  l+=fill(sd(length(p),.05));
-  vec2 q3=mPoly(p*rot(PI*.5),3.,1.);
-  l=saturate(l);
-  l-=fill(sd(length(q3),.2));
-  l=saturate(l);
-  l+=strokeInner(sd(length(q3),.18),.005);
-  l+=strokeInner(sd(length(q3),.15),.005);
-  l+=strokeStar(q3*rot(PI)*7.,6.,.1);
-  return l;
-}
-
-float render2(vec2 p){
-  //p=mSimplePerspective(p);
-  p*=rot(-time);
-  p*=2.;
-  float tt = -time*.75;
-  float l2 = ring(p,o2(fract(tt)));
-  l2+=ring(p*-rot(PI/3.),o2(fract(tt+.5)));
-  float l=0.;
-  l = summoningCircle(p*=rot(floor(time*12.)/3.));
-  return l2;
-}
-#define white vec4(1.0)
-#define black vec4(0.0, 0.0, 0.0, 1.0)
-#define blue  vec4(0.0, 0.3, 1.0, 1.0)
-
-#define edge 0.01
-
-
-uniform vec2 mouse;
-
-
-
-
-float inCircle(vec2 pt, vec2 center, float radius, float line)
-{
-return smoothstep(radius + line/2., radius, distance(pt, center)) -
-      smoothstep(radius, radius - line/2., distance(pt, center));
-}
-
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-  vec2 p = (gl_FragCoord.xy * 2.0 - resolution) / max(resolution.x, resolution.y);
-  vec4 color = black;
-vec2 p3 = (2. * gl_FragCoord.xy - resolution.xy) / resolution.x;
-float t = time*0.5;
-for (int i = 0; i < 8; i ++){
-float offset = sin(t+sin(t));
-p *= rot(sin(t+offset));
-float a = atan(p3.y, p3.x);
-float f = sin(sin(t*0.1)+1.0 * a);
-vec2 center = vec2(0.0, offset*0.5);
-color += blue * inCircle(p, center, 0.35 + 0.05 * f, edge);
-}
-  float l=0.;
-  l = (render(p)+render(p+vec2(0.,1./min(resolution.x, resolution.y))))*.5;
-  vec2 p2 = (gl_FragCoord.xy * 2.0 - resolution) / 200.;
-  float l2=0.;
-  l2 = (render2(p2)+render2(p2+vec2(0.,1./min(resolution.x, resolution.y))))*.5;
-  fragColor= vec4(l2*vec3( 0.75, 0.5, .5 )*2.+color.xyz, 1.0);
-  fragColor+= vec4(l*vec3( 0.75, 0.5, .05 )*2., 1.0);
-  p *= 2.0 * ( cos(iTime * 2.0) -2.5); // scale
-    float anim = sin(iTime * 12.0) * 0.1 + 1.0;  // anim between 0.9 - 1.1
-    fragColor+= vec4(happy_star(p, anim) * vec3(0.55,0.5,0.55)*0.2, 1.0);
-}
-
-// ---- END: ShaderSample/thanos_power_grip.txt ----
-
-void main(){
-    mainImage(gl_FragColor, gl_FragCoord.xy);
+void main() {
+    // Normalize coordinates to center
+    vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / min(iResolution.x, iResolution.y);
+    
+    // Distance from center
+    float dist = length(uv);
+    
+    // Angle for spiral effects
+    float angle = atan(uv.y, uv.x);
+    
+    // Time-based rotation
+    float time = iTime * 0.5;
+    
+    // Create swirling coordinates
+    vec2 swirlUV = uv * rotate(time + dist * 3.0);
+    
+    // Blackhole event horizon (very dark center)
+    float eventHorizon = smoothstep(0.0, 0.15, dist);
+    
+    // Accretion disk - bright swirling matter
+    float accretionDisk = 0.0;
+    
+    // Multiple layers of swirling energy
+    for (int i = 0; i < 3; i++) {
+        float layer = float(i) + 1.0;
+        float radius = 0.2 + layer * 0.1;
+        float thickness = 0.05;
+        
+        // Spiral pattern
+        vec2 spiralUV = uv * rotate(time * layer + angle * 2.0);
+        float spiral = fbm(spiralUV * 8.0 + time * 2.0);
+        
+        // Ring of energy
+        float ring = 1.0 - smoothstep(radius - thickness, radius + thickness, dist);
+        ring *= smoothstep(0.0, 0.02, dist); // Don't show in center
+        
+        // Add turbulence
+        ring *= (0.7 + 0.3 * spiral);
+        
+        accretionDisk += ring / layer; // Dimmer outer layers
+    }
+    
+    // Gravitational lensing effect - distort space around blackhole
+    vec2 lensedUV = uv;
+    float lensStrength = 1.0 / (dist * dist + 0.01);
+    lensedUV += normalize(uv) * lensStrength * 0.02;
+    
+    // Energy jets from poles
+    float jetEffect = 0.0;
+    if (abs(uv.x) < 0.02 && dist > 0.1) {
+        jetEffect = (1.0 - abs(uv.x) / 0.02) * smoothstep(0.1, 0.6, dist);
+        jetEffect *= (0.8 + 0.2 * sin(time * 10.0 + dist * 20.0));
+    }
+    
+    // Hawking radiation glow
+    float hawkingGlow = exp(-dist * 8.0) * (0.3 + 0.1 * sin(time * 15.0));
+    
+    // ENHANCED: Energy draining particles
+    float particles = 0.0;
+    
+    // Reduced particle systems for better performance
+    particles += energyParticles(uv, iTime * 2.0) * 0.6;
+    particles += energyParticles(uv * 1.3, iTime * 1.8) * 0.3;
+    
+    // Energy drain streams
+    float streams = drainStreams(uv, iTime);
+    
+    // Reduced pulsing energy waves for better performance
+    float waves = 0.0;
+    for (int w = 0; w < 3; w++) {
+        float waveTime = iTime * 2.5 + float(w) * 1.5; // Fewer, slower waves
+        float waveRadius = 0.7 - fract(waveTime * 0.3) * 0.5;
+        float waveDist = abs(dist - waveRadius);
+        float wave = exp(-waveDist * 40.0) * 0.2;
+        waves += wave;
+    }
+    
+    // Purple color palette
+    vec3 deepPurple = vec3(0.2, 0.0, 0.4);      // Dark purple for outer regions
+    vec3 brightPurple = vec3(0.8, 0.2, 1.0);    // Bright purple for energy
+    vec3 magenta = vec3(1.0, 0.1, 0.8);         // Hot magenta for inner disk
+    vec3 white = vec3(1.0, 0.9, 1.0);           // White-hot center
+    vec3 electricBlue = vec3(0.3, 0.7, 1.0);    // Electric blue for particles
+    
+    // Combine all elements
+    vec3 color = vec3(0.0);
+    
+    // Background space distortion
+    color += deepPurple * (1.0 - eventHorizon) * 0.1;
+    
+    // Accretion disk coloring based on temperature (distance)
+    if (accretionDisk > 0.0) {
+        if (dist < 0.25) {
+            color += mix(white, magenta, dist * 4.0) * accretionDisk;
+        } else if (dist < 0.4) {
+            color += mix(magenta, brightPurple, (dist - 0.25) * 6.67) * accretionDisk;
+        } else {
+            color += mix(brightPurple, deepPurple, (dist - 0.4) * 2.5) * accretionDisk;
+        }
+    }
+    
+    // ENHANCED: Add energy particles with bright colors
+    color += particles * mix(electricBlue, brightPurple, 0.7) * 2.0;
+    
+    // ENHANCED: Add drain streams
+    color += streams * brightPurple * 1.5;
+    
+    // ENHANCED: Add pulsing waves
+    color += waves * mix(magenta, brightPurple, 0.5) * 1.2;
+    
+    // Energy jets
+    color += brightPurple * jetEffect;
+    
+    // Hawking radiation
+    color += deepPurple * hawkingGlow;
+    
+    // Event horizon - pure black with purple rim
+    color *= eventHorizon;
+    color += brightPurple * (1.0 - eventHorizon) * smoothstep(0.12, 0.18, dist) * 0.5;
+    
+    // ENHANCED: Extra intensity and dramatic glow
+    color *= 1.5;
+    color += color * color * 0.5; // Stronger self-glow
+    
+    // Add screen-space glow effect
+    float screenGlow = exp(-dist * 3.0) * 0.2;
+    color += brightPurple * screenGlow;
+    
+    gl_FragColor = vec4(color, 1.0);
 }
             `
         });
@@ -238,7 +247,9 @@ void main(){
 
     onPreRender() {
         this.set1f('iTime', this.game.loop.time / 1000.0);
-        this.set3f('iResolution', this.game.config.width, this.game.config.height, 1.0);
+        // Increased resolution for larger, more detailed shader effect
+        const symbolSize = 96; // Increased resolution for 1.5x larger size
+        this.set3f('iResolution', symbolSize, symbolSize, 1.0);
     }
 };
 

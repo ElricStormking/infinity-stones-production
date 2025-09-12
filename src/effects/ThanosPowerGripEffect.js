@@ -74,36 +74,35 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
         const container = this.scene.add.container(x, y);
         container.setDepth(window.GameConfig.UI_DEPTHS.FX);
         
-        // Create the magic circle using graphics (no shader dependencies)
-        this.createMagicCircleGraphics(container);
+        // Use the new purple blackhole shader instead of graphics
+        this.createBlackholeShader(container);
         
-        // Animate the magic circle
-        container.setScale(0.1);
+        // Animate the blackhole effect
+        container.setScale(0.2);
         container.setAlpha(0);
         
-        // Phase 1: Expand to full size
+        // Phase 1: Expand to full size (keep it contained to grid cell)
         this.scene.tweens.add({
             targets: container,
-            scaleX: 1.5,
-            scaleY: 1.5,
+            scaleX: 1.0, // Stay at 1.0 to maintain grid cell size
+            scaleY: 1.0,
             alpha: 1,
-            duration: 300,
+            duration: 400,
             ease: 'Power2',
             onComplete: () => {
-                // Phase 2: Spin twice faster for 1.5 seconds (720 degrees in 1500ms)
+                // Phase 2: Hold blackhole effect for dramatic impact
                 this.scene.tweens.add({
                     targets: container,
-                    angle: 1440, // Two full rotations (twice faster)
-                    duration: 1800, // 1.8 seconds
+                    angle: 720, // Rotate for extra effect
+                    duration: 2000, // Hold longer for more dramatic effect
                     ease: 'Linear',
                     onComplete: () => {
-                        // Phase 3: Shrink and spin faster then disappear
+                        // Phase 3: Shrink and disappear
                         this.scene.tweens.add({
                             targets: container,
                             scaleX: 0,
                             scaleY: 0,
                             alpha: 0,
-                            angle: 1080, // Additional 360 degrees while shrinking (faster spin)
                             duration: 600,
                             ease: 'Power2.in',
                             onComplete: () => {
@@ -115,12 +114,136 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             }
         });
         
-        // Add particle effects
-        this.createMagicParticles(x, y);
+        // Add extra particle effects around the blackhole
+        this.createEnhancedParticles(x, y);
         
         this.activeEffects.push(container);
     }
     
+    createBlackholeShader(container) {
+        try {
+            // Use grid cell size - get from GameConfig or use fallback
+            const gridCellSize = window.GameConfig.SYMBOL_SIZE || 80;
+            const effectSize = gridCellSize * 0.9; // Increased to 90% of cell size (1.5x larger than 60%)
+            
+            console.log('🌌 Creating blackhole shader effect, grid cell size:', gridCellSize, 'effect size:', effectSize);
+            
+            // Create shader pipeline if it doesn't exist
+            if (!this.scene.game.renderer.pipelines.get('ThanosPowerGrip')) {
+                const shader = new window.ThanosPowerGripShader(this.scene.game);
+                
+                // Try different pipeline registration methods
+                if (typeof this.scene.game.renderer.addPipeline === 'function') {
+                    this.scene.game.renderer.addPipeline('ThanosPowerGrip', shader);
+                } else if (typeof this.scene.game.renderer.pipelines.add === 'function') {
+                    this.scene.game.renderer.pipelines.add('ThanosPowerGrip', shader);
+                } else if (this.scene.game.renderer.pipelines.set) {
+                    this.scene.game.renderer.pipelines.set('ThanosPowerGrip', shader);
+                } else {
+                    this.scene.game.renderer.pipelines['ThanosPowerGrip'] = shader;
+                }
+                console.log('✅ Blackhole shader pipeline created successfully');
+            }
+            
+            // Create shader quad at proper grid cell size
+            const shaderQuad = this.scene.add.image(0, 0, null);
+            shaderQuad.setDisplaySize(effectSize, effectSize);
+            shaderQuad.setOrigin(0.5);
+            
+            // Create base texture for the shader at the correct size
+            const graphics = this.scene.add.graphics();
+            graphics.fillStyle(0xffffff);
+            graphics.fillRect(0, 0, effectSize, effectSize);
+            const textureKey = `blackhole_base_${Date.now()}`;
+            graphics.generateTexture(textureKey, effectSize, effectSize);
+            graphics.destroy();
+            
+            shaderQuad.setTexture(textureKey);
+            shaderQuad.setPipeline('ThanosPowerGrip');
+            
+            // Set higher depth to ensure visibility
+            shaderQuad.setDepth(window.GameConfig.UI_DEPTHS.FX + 10);
+            
+            // Add blend mode for more dramatic effect
+            shaderQuad.setBlendMode(Phaser.BlendModes.ADD);
+            
+            container.add(shaderQuad);
+            
+            console.log('✅ Blackhole shader quad created at grid size:', effectSize);
+            
+        } catch (error) {
+            console.error('❌ Failed to create blackhole shader:', error);
+            // Fallback to graphics if shader fails
+            this.createMagicCircleGraphics(container);
+        }
+    }
+
+    createEnhancedParticles(x, y) {
+        try {
+            // Create optimized particle systems with fewer particles for better performance
+            const particleConfigs = [
+                {
+                    texture: 'power_gem',
+                    config: {
+                        speed: { min: 40, max: 100 },
+                        scale: { start: 0.25, end: 0 },
+                        blendMode: 'ADD',
+                        lifespan: 1000,
+                        quantity: 12, // Increased for larger shader size
+                        angle: { min: 0, max: 360 },
+                        tint: [0x9932cc, 0xff00ff, 0x8a2be2], // Added back third color
+                        gravityY: -80 // Slightly increased gravity
+                    }
+                }
+            ];
+
+            particleConfigs.forEach((particleConfig, index) => {
+                const particleTexture = this.scene.textures.exists(particleConfig.texture) ? 
+                                       particleConfig.texture : 
+                                       (this.scene.textures.exists('power_gem') ? 'power_gem' : null);
+
+                if (particleTexture) {
+                    let emitter;
+                    try {
+                        emitter = this.scene.add.particles(x, y, particleTexture, particleConfig.config);
+                        emitter.setDepth(window.GameConfig.UI_DEPTHS.FX + 5);
+                    } catch (e) {
+                        // Fallback for older Phaser versions
+                        const particles = this.scene.add.particles(particleTexture);
+                        if (particles && particles.createEmitter) {
+                            emitter = particles.createEmitter({
+                                x, y,
+                                ...particleConfig.config
+                            });
+                            emitter.setDepth(window.GameConfig.UI_DEPTHS.FX + 5);
+                            emitter._managerRef = particles;
+                        }
+                    }
+
+                    if (emitter) {
+                        // Stop emitting after initial burst
+                        this.scene.time.delayedCall(300, () => {
+                            try { emitter && emitter.stop && emitter.stop(); } catch {}
+                        });
+
+                        // Clean up after animation
+                        this.scene.time.delayedCall(3000, () => {
+                            try {
+                                const manager = (emitter && (emitter.manager || emitter._managerRef));
+                                if (manager && manager.destroy) manager.destroy();
+                            } catch {}
+                        });
+                    }
+                }
+            });
+
+            console.log('✅ Enhanced particle systems created');
+            
+        } catch (error) {
+            console.warn('Could not create enhanced particles:', error);
+        }
+    }
+
     createMagicCircleGraphics(container) {
         // Create multiple layers for sophisticated pattern
         this.createOuterRings(container);

@@ -134,7 +134,8 @@
       "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
       "Read(/D:\\infinity-storm\\tests\\integration/**)",
       "Read(/D:\\infinity-storm\\infinity-storm-server/**)",
-      "Bash(npm update:*)"
+      "Bash(npm update:*)",
+      "Bash(git clean:*)"
     ],
     "deny": [],
     "additionalDirectories": [
