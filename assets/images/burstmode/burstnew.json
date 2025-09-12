@@ -12,6 +12,11 @@
                 "key": "ui_bn_box"
             },
             {
+                "url": "assets/burstnew/ui_burst_magic/ui_bn_magic.json",
+                "type": "animation",
+                "key": "ui_bn_magic"
+            },
+            {
                 "url": "assets/burstnew/ui_burst_magic/ui_bn_magic-an_00.png",
                 "type": "image",
                 "key": "ui_bn_magic-an_00"

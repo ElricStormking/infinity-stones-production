@@ -203,41 +203,42 @@ window.BurstModeManager = class BurstModeManager {
         bg.setScale(0.68 * scaleX, 0.68 * scaleY);
         this.burstModeUI.add(bg);
         
-        // Under panel - ui_bn_under
-        const underPanel = this.scene.add.image(639 * scaleX, 664 * scaleY, 'ui_bn_under');
+        // Under panel - ui_bn_under (match burstnew.scene y:679)
+        const underPanel = this.scene.add.image(639 * scaleX, 679 * scaleY, 'ui_bn_under');
         underPanel.setScale(uiScale * scaleX, uiScale * scaleY);
         this.burstModeUI.add(underPanel);
         
-        // Four info boxes - ui_bn_box
-        const box1 = this.scene.add.image(335 * scaleX, 480 * scaleY, 'ui_bn_box');
-        box1.setScale(uiScale * scaleX, uiScale * scaleY);
+        // Four info boxes - ui_bn_box (match burstnew.scene vertical stack at x:140)
+        const box1 = this.scene.add.image(140 * scaleX, 220 * scaleY, 'ui_bn_box');
+        box1.setScale(0.6 * scaleX, 0.5 * scaleY);
         this.burstModeUI.add(box1);
         
-        const box2 = this.scene.add.image(535 * scaleX, 480 * scaleY, 'ui_bn_box');
-        box2.setScale(uiScale * scaleX, uiScale * scaleY);
+        const box2 = this.scene.add.image(140 * scaleX, 320 * scaleY, 'ui_bn_box');
+        box2.setScale(0.6 * scaleX, 0.5 * scaleY);
         this.burstModeUI.add(box2);
         
-        const box3 = this.scene.add.image(735 * scaleX, 480 * scaleY, 'ui_bn_box');
-        box3.setScale(uiScale * scaleX, uiScale * scaleY);
+        const box3 = this.scene.add.image(140 * scaleX, 420 * scaleY, 'ui_bn_box');
+        box3.setScale(0.6 * scaleX, 0.5 * scaleY);
         this.burstModeUI.add(box3);
         
-        const box4 = this.scene.add.image(935 * scaleX, 480 * scaleY, 'ui_bn_box');
-        box4.setScale(uiScale * scaleX, uiScale * scaleY);
+        const box4 = this.scene.add.image(140 * scaleX, 520 * scaleY, 'ui_bn_box');
+        box4.setScale(0.6 * scaleX, 0.5 * scaleY);
         this.burstModeUI.add(box4);
         
-        // Magic animation sprite in the center
+        // Magic animation sprite in the center (match burstnew.scene x:652, y:293, scale ~0.95)
         if (this.scene.textures.exists('ui_bn_magic-an_00')) {
-            this.magicAnimation = this.scene.add.sprite(632 * scaleX, 215 * scaleY, 'ui_bn_magic-an_00');
-            this.magicAnimation.setScale(uiScale * scaleX, uiScale * scaleY);
+            this.magicAnimation = this.scene.add.sprite(652 * scaleX, 293 * scaleY, 'ui_bn_magic-an_00');
+            this.magicAnimation.setScale(0.95 * scaleX, 0.95 * scaleY);
             this.burstModeUI.add(this.magicAnimation);
         } else {
             console.warn('Magic animation frame not found, creating placeholder');
-            this.magicAnimation = this.scene.add.rectangle(632 * scaleX, 215 * scaleY, 100, 100, 0x6a6a6a);
+            this.magicAnimation = this.scene.add.rectangle(652 * scaleX, 293 * scaleY, 100, 100, 0x6a6a6a);
             this.burstModeUI.add(this.magicAnimation);
         }
 
         // Add blackhole shader effect in the center of the magic portal
-        this.createBlackholeEffect(632 * scaleX, 165 * scaleY, scaleX, scaleY);
+        // Note: createBlackholeEffect internally offsets Y by +50 to align center
+        this.createBlackholeEffect(652 * scaleX, 243 * scaleY, scaleX, scaleY);
         
         // Disable normal scrolling results list; keep only winning feed
         this.burstResultsContainer = null;
@@ -256,6 +257,39 @@ window.BurstModeManager = class BurstModeManager {
         this.burstWinsContainer = this.scene.add.container(width / 2, height / 2 - 150 * scaleY);
         this.burstWinsContainer.setDepth(2005);
         this.burstModeUI.add(this.burstWinsContainer);
+        
+        // Add game logo at upper-right corner
+        try {
+            const hasLogo = this.scene.textures.exists('game_logo');
+            const margin = 16 * Math.min(scaleX, scaleY);
+            const logoX = (width - margin);
+            const logoY = (margin + 60 * scaleY - 135 * scaleY); // move 100px up
+            if (hasLogo) {
+                const logo = this.scene.add.image(logoX, logoY, 'game_logo');
+                // Fit logo roughly into a 220x120 box relative to 1280x720
+                const targetW = 220 * scaleX;
+                const targetH = 120 * scaleY;
+                const tw = logo.width || 440;
+                const th = logo.height || 220;
+                const s = Math.min(targetW / tw, targetH / th);
+                // Scale up 3x as requested
+                logo.setScale(s * 3);
+                logo.setOrigin(1, 0); // top-right anchor
+                logo.setDepth(2012);
+                this.burstModeUI.add(logo);
+            } else {
+                const placeholder = this.scene.add.text(logoX, 20 * scaleY, 'LOGO', {
+                    fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFFFFF',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                });
+                placeholder.setOrigin(1, 0);
+                placeholder.setDepth(2012);
+                this.burstModeUI.add(placeholder);
+            }
+        } catch (_) {}
         
         // Play magic animation
         if (this.magicAnimation && this.scene.anims.exists('burst_magic_animation')) {
@@ -296,8 +330,8 @@ window.BurstModeManager = class BurstModeManager {
             }
         });
         
-        // Auto spin toggle button - stop button
-        this.autoToggleBtn = this.scene.add.image(1055 * scaleX, 556 * scaleY, 'ui_bn_small_stop');
+        // Auto spin toggle button - stop button (match burstnew.scene x:1181, y:246)
+        this.autoToggleBtn = this.scene.add.image(1181 * scaleX, 246 * scaleY, 'ui_bn_small_stop');
         this.autoToggleBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         this.autoToggleBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(this.autoToggleBtn);
@@ -317,8 +351,8 @@ window.BurstModeManager = class BurstModeManager {
             this.autoToggleBtn.clearTint();
         });
         
-        // Exit/Burst button
-        const exitBtn = this.scene.add.image(1114 * scaleX, 497 * scaleY, 'ui_bn_small_burst');
+        // Exit/Burst button (match burstnew.scene x:1178, y:359)
+        const exitBtn = this.scene.add.image(1178 * scaleX, 359 * scaleY, 'ui_bn_small_burst');
         exitBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         exitBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(exitBtn);
@@ -338,8 +372,8 @@ window.BurstModeManager = class BurstModeManager {
             exitBtn.clearTint();
         });
         
-        // Menu button 
-        const menuBtn = this.scene.add.image(1201 * scaleX, 487 * scaleY, 'ui_bn_small_menu');
+        // Menu button (match burstnew.scene x:1178, y:468)
+        const menuBtn = this.scene.add.image(1178 * scaleX, 468 * scaleY, 'ui_bn_small_menu');
         menuBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         menuBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(menuBtn);
@@ -393,21 +427,21 @@ window.BurstModeManager = class BurstModeManager {
             color: '#FFD700'
         };
         
-        // Win amount
-        this.burstWinText = this.scene.add.text(125 * scaleX, 658 * scaleY, '$0.00', {
+        // Win amount (centered on plate at x:254)
+        this.burstWinText = this.scene.add.text(254 * scaleX, 658 * scaleY, '$0.00', {
             ...valueStyle,
             color: '#00FF00'
         });
-        this.burstWinText.setOrigin(0, 0.5);
+        this.burstWinText.setOrigin(0.5, 0.5);
         this.burstModeUI.add(this.burstWinText);
         
-        // Balance/Score
-        this.burstBalanceText = this.scene.add.text(450 * scaleX, 658 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
-        this.burstBalanceText.setOrigin(0, 0.5);
+        // Balance/Score (centered on plate at x:576)
+        this.burstBalanceText = this.scene.add.text(576 * scaleX, 658 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
+        this.burstBalanceText.setOrigin(0.5, 0.5);
         this.burstModeUI.add(this.burstBalanceText);
         
-        // Bet amount2
-        this.burstBetText = this.scene.add.text(950 * scaleX, 662 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
+        // Bet amount (centered on plate at x:929)
+        this.burstBetText = this.scene.add.text(929 * scaleX, 662 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
             ...valueStyle,
             color: '#FFFFFF'
         });
@@ -518,39 +552,39 @@ window.BurstModeManager = class BurstModeManager {
             color: '#FFD700'
         };
         
-        // Box 1 - Biggest Win
-        const biggestWinLabel = this.scene.add.text(335 * scaleX, 444 * scaleY, 'Biggest Win', labelStyle);
+        // Box 1 - Biggest Win (left column stack x:140)
+        const biggestWinLabel = this.scene.add.text(140 * scaleX, 192 * scaleY, 'Biggest Win', labelStyle);
         biggestWinLabel.setOrigin(0.5);
         this.burstModeUI.add(biggestWinLabel);
         
-        this.biggestWinText = this.scene.add.text(335 * scaleX, 480 * scaleY, '$0.00', valueStyle);
+        this.biggestWinText = this.scene.add.text(140 * scaleX, 220 * scaleY, '$0.00', valueStyle);
         this.biggestWinText.setOrigin(0.5);
         this.burstModeUI.add(this.biggestWinText);
         
         // Box 2 - Bonus Rounds
-        const bonusRoundsLabel = this.scene.add.text(535 * scaleX, 444 * scaleY, 'Bonus Rounds', labelStyle);
+        const bonusRoundsLabel = this.scene.add.text(140 * scaleX, 293 * scaleY, 'Bonus Rounds', labelStyle);
         bonusRoundsLabel.setOrigin(0.5);
         this.burstModeUI.add(bonusRoundsLabel);
         
-        this.bonusRoundsText = this.scene.add.text(535 * scaleX, 480 * scaleY, '0', valueStyle);
+        this.bonusRoundsText = this.scene.add.text(140 * scaleX, 320 * scaleY, '0', valueStyle);
         this.bonusRoundsText.setOrigin(0.5);
         this.burstModeUI.add(this.bonusRoundsText);
         
         // Box 3 - Bonus Wins
-        const bonusWinsLabel = this.scene.add.text(735 * scaleX, 444 * scaleY, 'Bonus Wins', labelStyle);
+        const bonusWinsLabel = this.scene.add.text(140 * scaleX, 393 * scaleY, 'Bonus Wins', labelStyle);
         bonusWinsLabel.setOrigin(0.5);
         this.burstModeUI.add(bonusWinsLabel);
         
-        this.bonusWinsText = this.scene.add.text(735 * scaleX, 480 * scaleY, '$0.00', valueStyle);
+        this.bonusWinsText = this.scene.add.text(140 * scaleX, 420 * scaleY, '$0.00', valueStyle);
         this.bonusWinsText.setOrigin(0.5);
         this.burstModeUI.add(this.bonusWinsText);
         
         // Box 4 - Rounds Played
-        const roundsPlayedLabel = this.scene.add.text(935 * scaleX, 444 * scaleY, 'Rounds played', labelStyle);
+        const roundsPlayedLabel = this.scene.add.text(140 * scaleX, 493 * scaleY, 'Rounds played', labelStyle);
         roundsPlayedLabel.setOrigin(0.5);
         this.burstModeUI.add(roundsPlayedLabel);
         
-        this.roundsPlayedText = this.scene.add.text(935 * scaleX, 480 * scaleY, '0', valueStyle);
+        this.roundsPlayedText = this.scene.add.text(140 * scaleX, 520 * scaleY, '0', valueStyle);
         this.roundsPlayedText.setOrigin(0.5);
         this.burstModeUI.add(this.roundsPlayedText);
         
@@ -1127,7 +1161,7 @@ window.BurstModeManager = class BurstModeManager {
             
             if (this.blackholeShader) {
                 // Create a circular container for the blackhole effect
-                const radius = Math.min(100 * scaleX, 100 * scaleY); // Radius of the circular effect
+                const radius = Math.min(145 * scaleX, 145 * scaleY); // Radius of the circular effect
                 
                 // Adjust position to center the black hole in the portal
                 // Previously offset pushed it too low; lift it slightly so the center sits fully in the mask
@@ -1171,7 +1205,7 @@ window.BurstModeManager = class BurstModeManager {
                 // Move shader content up a bit within the circle without moving the mask
                 // Tweak 0.05-0.12 as needed; value is in normalized screen units (relative to height)
                 if (this.blackholeShader.setCenterOffset) {
-                    this.blackholeShader.setCenterOffset(0.0, 0.38);
+                    this.blackholeShader.setCenterOffset(0.04, 0.18);
                 }
                 
                 // Add to burst mode UI with higher depth to appear in center

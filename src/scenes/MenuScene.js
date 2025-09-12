@@ -165,37 +165,31 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         }
         bg.setDepth(-1000);
         
+        // Add top-centered logo on menu
+        const logoY = Math.max(10, Math.floor(height * 0.05));
+        if (this.textures && this.textures.exists('game_logo')) {
+            try {
+                const logo = this.add.image(width / 2, logoY - 100, 'game_logo');
+                const targetW = Math.min(width * 0.38, 640);
+                const tw = logo.width || 560;
+                const s = targetW / tw;
+                logo.setScale(s);
+                logo.setOrigin(0.5, 0);
+                logo.setDepth(-800); // behind text but above bg shade
+            } catch (e) {}
+        }
+        
         // Darken overlay to improve text contrast
         const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
         shade.setDepth(-900);
         
         // Calculate responsive positions for mobile
-        const titleY = isMobileDevice ? height * 0.25 : height / 3;
+        const titleY = isMobileDevice ? height * 0.30 : height * 0.38;
         const subtitleSpacing = isMobileDevice ? 100 * spacingMultiplier : 80;
         const playButtonSpacing = isMobileDevice ? 120 * spacingMultiplier : 50;
         const balanceSpacing = isMobileDevice ? 120 * spacingMultiplier : 100;
         
-        // Title - adjust size for mobile readability
-        const titleFontSize = isMobileDevice ? this.getResponsiveFontSize(72, width, { category: 'large' }) : 72;
-        const title = this.add.text(width / 2, titleY, 'INFINITY STORM', {
-            fontSize: `${titleFontSize}px`,
-            fontFamily: 'Arial Black',
-            color: '#ffffff',
-            stroke: '#6B46C1',
-            strokeThickness: 8
-        });
-        title.setOrigin(0.5);
-        
-        // Add glow effect to title
-        this.tweens.add({
-            targets: title,
-            scaleX: 1.05,
-            scaleY: 1.05,
-            duration: 2000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
+        // Remove textual title; logo acts as the title
         
         // Subtitle - improved mobile spacing and sizing
         const subtitleFontSize = isMobileDevice ? this.getResponsiveFontSize(24, width, { category: 'medium' }) : 24;

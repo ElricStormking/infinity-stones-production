@@ -47,15 +47,44 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Error queueing scarlet_witch_loading.png:', e);
         }
         
-        // Title
-        const title = this.add.text(width / 2, height / 2 - 100, 'INFINITY STORM', {
-            fontSize: '48px',
-            fontFamily: 'Arial Black',
-            color: '#ffffff',
-            stroke: '#6B46C1',
-            strokeThickness: 6
-        });
-        title.setOrigin(0.5);
+        // Top-centered game logo (appears when loaded)
+        const logoY = Math.max(10, Math.floor(height * 0.06));
+        let loadingLogoPlaceholder = null;
+        if (this.textures && this.textures.exists('game_logo')) {
+            try {
+                const logo = this.add.image(width / 2, logoY - 50, 'game_logo');
+                const targetW = Math.min(width * 0.35, 560);
+                const tw = logo.width || 560;
+                const s = targetW / tw;
+                logo.setScale(s);
+                logo.setOrigin(0.5, 0);
+                logo.setDepth(20);
+            } catch (e) {}
+        } else {
+            // Placeholder until logo loads
+            loadingLogoPlaceholder = this.add.text(width / 2, logoY + 10, 'INFINITY STONES', {
+                font: '28px Arial Black',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4
+            });
+            loadingLogoPlaceholder.setOrigin(0.5, 0);
+            loadingLogoPlaceholder.setDepth(20);
+            this.load.once('filecomplete-image-game_logo', () => {
+                try { if (loadingLogoPlaceholder) loadingLogoPlaceholder.destroy(); } catch (_) {}
+                try {
+                    const logo = this.add.image(width / 2, logoY, 'game_logo');
+                    const targetW = Math.min(width * 0.35, 560);
+                    const tw = logo.width || 560;
+                    const s = targetW / tw;
+                    logo.setScale(s);
+                    logo.setOrigin(0.5, 0);
+                    logo.setDepth(20);
+                } catch (e) {}
+            });
+        }
+
+        // Title text removed (logo serves as title)
         
         // Progress bar background
         const progressBox = this.add.graphics();
@@ -289,6 +318,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_box', 'assets/images/ui_box.png', 0x4a4a4a);
         this.loadImageWithFallback('ui_boxBG', 'assets/images/ui_boxBG.png', 0x333333);
         this.loadImageWithFallback('random_multiplier_frame', 'assets/images/random_multiplier_frame.png', 0x2f2f2f);
+        // Game logo for Burst Mode UI (upper-right)
+        this.loadImageWithFallback('game_logo', 'assets/images/LOGO.png', 0x223344);
         // Animated random multiplier frame (bonus) spritesheet
         try {
             this.load.spritesheet('random_multiplier_frame_bonus_sprite', 'assets/images/sprites/random_multiplier_frame/random_multiplier_frame_bonus_sprite.png', {

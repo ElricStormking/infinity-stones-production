@@ -32,7 +32,7 @@
                 "key": "ui_bn_under"
             },
             "x": 639,
-            "y": 664,
+            "y": 679,
             "scaleX": 0.67,
             "scaleY": 0.67
         },
@@ -43,10 +43,10 @@
             "texture": {
                 "key": "ui_bn_box"
             },
-            "x": 335,
-            "y": 480,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 140,
+            "y": 220,
+            "scaleX": 0.6,
+            "scaleY": 0.5
         },
         {
             "type": "Image",
@@ -55,10 +55,10 @@
             "texture": {
                 "key": "ui_bn_box"
             },
-            "x": 535,
-            "y": 480,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 140,
+            "y": 320,
+            "scaleX": 0.6,
+            "scaleY": 0.5
         },
         {
             "type": "Image",
@@ -67,10 +67,10 @@
             "texture": {
                 "key": "ui_bn_box"
             },
-            "x": 735,
-            "y": 480,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 140,
+            "y": 420,
+            "scaleX": 0.6,
+            "scaleY": 0.5
         },
         {
             "type": "Image",
@@ -79,10 +79,10 @@
             "texture": {
                 "key": "ui_bn_box"
             },
-            "x": 935,
-            "y": 480,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 140,
+            "y": 520,
+            "scaleX": 0.6,
+            "scaleY": 0.5
         },
         {
             "type": "Image",
@@ -151,10 +151,10 @@
             "texture": {
                 "key": "ui_bn_small_stop"
             },
-            "x": 1055,
-            "y": 556,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 1181,
+            "y": 246,
+            "scaleX": 0.9,
+            "scaleY": 0.9
         },
         {
             "type": "Image",
@@ -163,10 +163,10 @@
             "texture": {
                 "key": "ui_bn_small_menu"
             },
-            "x": 1201,
-            "y": 487,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 1178,
+            "y": 468,
+            "scaleX": 0.9,
+            "scaleY": 0.9
         },
         {
             "type": "Image",
@@ -175,10 +175,10 @@
             "texture": {
                 "key": "ui_bn_small_burst"
             },
-            "x": 1114,
-            "y": 497,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 1178,
+            "y": 359,
+            "scaleX": 0.9,
+            "scaleY": 0.9
         },
         {
             "type": "Image",
@@ -196,32 +196,32 @@
             "type": "Text",
             "id": "016bf4a1-f328-4581-98f5-861fdee1a7dc",
             "label": "text_1",
-            "x": 285,
-            "y": 444,
+            "x": 89,
+            "y": 192,
             "text": "Biggest Win"
         },
         {
             "type": "Text",
             "id": "08df4827-7e5b-421a-87f0-24d4a70fa5b7",
             "label": "text",
-            "x": 479,
-            "y": 444,
+            "x": 82,
+            "y": 293,
             "text": "Bonus Rounds"
         },
         {
             "type": "Text",
             "id": "48e95afe-d514-4d26-9124-84e3c0e94c28",
             "label": "text_2",
-            "x": 688,
-            "y": 444,
+            "x": 93,
+            "y": 393,
             "text": "Bonus Wins"
         },
         {
             "type": "Text",
             "id": "c76b5c3a-cb4b-4d55-a8ec-77e94973c772",
             "label": "text_3",
-            "x": 874,
-            "y": 444,
+            "x": 77,
+            "y": 493,
             "text": "Rounds played"
         },
         {
@@ -231,10 +231,10 @@
             "texture": {
                 "key": "ui_bn_magic-an_02"
             },
-            "x": 632,
-            "y": 215,
-            "scaleX": 0.67,
-            "scaleY": 0.67
+            "x": 652,
+            "y": 293,
+            "scaleX": 0.95,
+            "scaleY": 0.95
         }
     ],
     "plainObjects": [],

@@ -25,29 +25,29 @@ export default class burstnew extends Phaser.Scene {
 		ui_bn_bg.scaleY = 0.68;
 
 		// ui_bn_under
-		const ui_bn_under = this.add.image(639, 664, "ui_bn_under");
+		const ui_bn_under = this.add.image(639, 679, "ui_bn_under");
 		ui_bn_under.scaleX = 0.67;
 		ui_bn_under.scaleY = 0.67;
 
 		// ui_bn_box
-		const ui_bn_box = this.add.image(335, 480, "ui_bn_box");
-		ui_bn_box.scaleX = 0.67;
-		ui_bn_box.scaleY = 0.67;
+		const ui_bn_box = this.add.image(140, 220, "ui_bn_box");
+		ui_bn_box.scaleX = 0.6;
+		ui_bn_box.scaleY = 0.5;
 
 		// ui_bn_box_1
-		const ui_bn_box_1 = this.add.image(535, 480, "ui_bn_box");
-		ui_bn_box_1.scaleX = 0.67;
-		ui_bn_box_1.scaleY = 0.67;
+		const ui_bn_box_1 = this.add.image(140, 320, "ui_bn_box");
+		ui_bn_box_1.scaleX = 0.6;
+		ui_bn_box_1.scaleY = 0.5;
 
 		// ui_bn_box_2
-		const ui_bn_box_2 = this.add.image(735, 480, "ui_bn_box");
-		ui_bn_box_2.scaleX = 0.67;
-		ui_bn_box_2.scaleY = 0.67;
+		const ui_bn_box_2 = this.add.image(140, 420, "ui_bn_box");
+		ui_bn_box_2.scaleX = 0.6;
+		ui_bn_box_2.scaleY = 0.5;
 
 		// ui_bn_box_3
-		const ui_bn_box_3 = this.add.image(935, 480, "ui_bn_box");
-		ui_bn_box_3.scaleX = 0.67;
-		ui_bn_box_3.scaleY = 0.67;
+		const ui_bn_box_3 = this.add.image(140, 520, "ui_bn_box");
+		ui_bn_box_3.scaleX = 0.6;
+		ui_bn_box_3.scaleY = 0.5;
 
 		// ui_bn_number_score
 		const ui_bn_number_score = this.add.image(576, 658, "ui_bn_number_score");
@@ -75,19 +75,19 @@ export default class burstnew extends Phaser.Scene {
 		ui_bn_number_bet.scaleY = 0.67;
 
 		// ui_bn_small_stop
-		const ui_bn_small_stop = this.add.image(1055, 556, "ui_bn_small_stop");
-		ui_bn_small_stop.scaleX = 0.67;
-		ui_bn_small_stop.scaleY = 0.67;
+		const ui_bn_small_stop = this.add.image(1181, 246, "ui_bn_small_stop");
+		ui_bn_small_stop.scaleX = 0.9;
+		ui_bn_small_stop.scaleY = 0.9;
 
 		// ui_bn_small_menu
-		const ui_bn_small_menu = this.add.image(1201, 487, "ui_bn_small_menu");
-		ui_bn_small_menu.scaleX = 0.67;
-		ui_bn_small_menu.scaleY = 0.67;
+		const ui_bn_small_menu = this.add.image(1178, 468, "ui_bn_small_menu");
+		ui_bn_small_menu.scaleX = 0.9;
+		ui_bn_small_menu.scaleY = 0.9;
 
 		// ui_bn_small_burst
-		const ui_bn_small_burst = this.add.image(1114, 497, "ui_bn_small_burst");
-		ui_bn_small_burst.scaleX = 0.67;
-		ui_bn_small_burst.scaleY = 0.67;
+		const ui_bn_small_burst = this.add.image(1178, 359, "ui_bn_small_burst");
+		ui_bn_small_burst.scaleX = 0.9;
+		ui_bn_small_burst.scaleY = 0.9;
 
 		// ui_burst_spin1
 		const ui_burst_spin1 = this.add.image(1179, 616, "ui_burst_spin1");
@@ -95,29 +95,29 @@ export default class burstnew extends Phaser.Scene {
 		ui_burst_spin1.scaleY = 0.67;
 
 		// text_1
-		const text_1 = this.add.text(285, 444, "", {});
+		const text_1 = this.add.text(89, 192, "", {});
 		text_1.text = "Biggest Win";
 		text_1.setStyle({  });
 
 		// text
-		const text = this.add.text(479, 444, "", {});
+		const text = this.add.text(82, 293, "", {});
 		text.text = "Bonus Rounds";
 		text.setStyle({  });
 
 		// text_2
-		const text_2 = this.add.text(688, 444, "", {});
+		const text_2 = this.add.text(93, 393, "", {});
 		text_2.text = "Bonus Wins";
 		text_2.setStyle({  });
 
 		// text_3
-		const text_3 = this.add.text(874, 444, "", {});
+		const text_3 = this.add.text(77, 493, "", {});
 		text_3.text = "Rounds played";
 		text_3.setStyle({  });
 
 		// ui_bn_magic_an_02
-		const ui_bn_magic_an_02 = this.add.image(632, 215, "ui_bn_magic-an_02");
-		ui_bn_magic_an_02.scaleX = 0.67;
-		ui_bn_magic_an_02.scaleY = 0.67;
+		const ui_bn_magic_an_02 = this.add.image(652, 293, "ui_bn_magic-an_02");
+		ui_bn_magic_an_02.scaleX = 0.95;
+		ui_bn_magic_an_02.scaleY = 0.95;
 
 		this.events.emit("scene-awake");
 	}

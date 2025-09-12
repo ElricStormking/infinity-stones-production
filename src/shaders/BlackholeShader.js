@@ -159,16 +159,16 @@ window.BlackholeShader = class BlackholeShader extends Phaser.Renderer.WebGL.Pip
                     noiseColorLength *= 4.2;
                     noiseColorLength = pow(noiseColorLength, 1.0);
                     
-                    // Purple-tinted emission (R,G,B)
-                    vec3 emissionColor = emission(vec3(0.55, 0.20, 0.85), noiseColorLength * 0.2);
+                    // Aqua-green emission (shifted slightly towards green)
+                    vec3 emissionColor = emission(vec3(0.15, 0.95, 0.70), noiseColorLength * 0.22);
                     
                     float fac = length(uv) - facture(color + 0.32);
                     fac += 0.1;
                     fac *= 3.0;
                     
                     color = mix(emissionColor, vec3(fac), fac + 1.2);
-                    // Apply an overall purple tint to the final color
-                    color *= vec3(0.75, 0.45, 0.95);
+                    // Apply an overall aqua-green tint to the final color
+                    color *= vec3(0.35, 0.95, 0.75);
                     
                     // Apply intensity for fade in/out control
                     color *= intensity;
