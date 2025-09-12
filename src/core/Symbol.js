@@ -341,48 +341,8 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         }
         
         if (hasDestructionAnim) {
-            // Create a sprite for the destruction animation at the same position
-            const destructionSprite = this.scene.add.sprite(this.x, this.y, destructionAnimKey);
-            destructionSprite.setDisplaySize(window.GameConfig.SYMBOL_SIZE * 1.5, window.GameConfig.SYMBOL_SIZE * 1.5);
-            destructionSprite.setDepth(window.GameConfig.UI_DEPTHS.FX); // Above UI and symbols
-            
-            // Play the destruction animation
-            destructionSprite.play(destructionAnimKey);
-            
-            // Play destruction sound
-            window.SafeSound.play(this.scene, 'cascade');
-            
-            // Hide the original symbol immediately
-            this.setAlpha(0);
-            if (this.shadowEffect) {
-                this.shadowEffect.setAlpha(0);
-            }
-            
-            // Clean up after animation completes
-            destructionSprite.once('animationcomplete', () => {
-                destructionSprite.destroy();
-                
-                // Clean up the symbol and its effects
-                if (this.shadowEffect) {
-                    this.shadowEffect.destroy();
-                }
-                if (this.glowEffect) {
-                    this.glowEffect.destroy();
-                }
-                
-                // Nullify references to prevent memory leaks
-                this.shadowEffect = null;
-                this.glowEffect = null;
-                this.multiplierText = null;
-                this.scene = null;
-                
-                super.destroy();
-            });
-            
-            // Still create explosion effect for high value symbols
-            if (this.symbolType === 'thanos' || this.symbolType === 'scarlet_witch') {
-                this.createExplosion();
-            }
+            // First play gem light effect, then destruction animation
+            this.playGemLightEffectThenDestruction(destructionAnimKey);
         } else {
             // Fallback to original destruction animation if no sprite animation exists
             // Destruction animation
@@ -605,5 +565,79 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         this.removeGlow();
         this.setScale(1);
         this.setAlpha(1);
+    }
+    
+    playGemLightEffectThenDestruction(destructionAnimKey) {
+        // Check if gem light effect is available (only for gem symbols)
+        const isGemSymbol = this.symbolType.includes('gem');
+        const hasLightEffect = isGemSymbol && this.scene.anims.exists('ui_gem_light');
+        
+        if (hasLightEffect) {
+            console.log(`✨ Playing gem light effect before destruction for ${this.symbolType}`);
+            
+            // Create light effect sprite at the same position as the symbol
+            const lightEffectSprite = this.scene.add.sprite(this.x, this.y, 'ui_gem_light_sprite');
+            lightEffectSprite.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
+            lightEffectSprite.setDepth(window.GameConfig.UI_DEPTHS.FX); // Above UI and symbols
+            
+            // Play the light effect animation
+            lightEffectSprite.play('ui_gem_light');
+            
+            // When light effect completes, play destruction animation
+            lightEffectSprite.once('animationcomplete', () => {
+                console.log(`🔥 Light effect complete, starting destruction animation for ${this.symbolType}`);
+                lightEffectSprite.destroy();
+                this.playDestructionAnimation(destructionAnimKey);
+            });
+        } else {
+            // No light effect available, play destruction animation directly
+            console.log(`⚡ No light effect available, playing destruction directly for ${this.symbolType}`);
+            this.playDestructionAnimation(destructionAnimKey);
+        }
+    }
+    
+    playDestructionAnimation(destructionAnimKey) {
+        // Create a sprite for the destruction animation at the same position
+        const destructionSprite = this.scene.add.sprite(this.x, this.y, destructionAnimKey);
+        destructionSprite.setDisplaySize(window.GameConfig.SYMBOL_SIZE * 1.5, window.GameConfig.SYMBOL_SIZE * 1.5);
+        destructionSprite.setDepth(window.GameConfig.UI_DEPTHS.FX); // Above UI and symbols
+        
+        // Play the destruction animation
+        destructionSprite.play(destructionAnimKey);
+        
+        // Play destruction sound
+        window.SafeSound.play(this.scene, 'cascade');
+        
+        // Hide the original symbol immediately
+        this.setAlpha(0);
+        if (this.shadowEffect) {
+            this.shadowEffect.setAlpha(0);
+        }
+        
+        // Clean up after animation completes
+        destructionSprite.once('animationcomplete', () => {
+            destructionSprite.destroy();
+            
+            // Clean up the symbol and its effects
+            if (this.shadowEffect) {
+                this.shadowEffect.destroy();
+            }
+            if (this.glowEffect) {
+                this.glowEffect.destroy();
+            }
+            
+            // Nullify references to prevent memory leaks
+            this.shadowEffect = null;
+            this.glowEffect = null;
+            this.multiplierText = null;
+            this.scene = null;
+            
+            super.destroy();
+        });
+        
+        // Still create explosion effect for high value symbols
+        if (this.symbolType === 'thanos' || this.symbolType === 'scarlet_witch') {
+            this.createExplosion();
+        }
     }
 } 

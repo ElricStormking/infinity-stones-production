@@ -264,13 +264,8 @@ window.BonusManager = class BonusManager {
             // Place overlay right away so it survives any later animations
             this.placeRandomMultiplierOverlay(col, row, multiplier);
 
-            // STEP 3: Show Scarlet Witch power effect and multiplier
-            // Create Scarlet Witch power effect
-            const scarletWitch = this.scene.add.image(symbolX, symbolY, 'scarlet_witch');
-            scarletWitch.setScale(0.3);
-            scarletWitch.setAlpha(0);
-            scarletWitch.setDepth(1000);
-            scarletWitch.setTint(0xFF1493); // Pink tint for chaos magic
+            // STEP 3: Show multiplier effect (Scarlet Witch face FX removed)
+            // Skip the Scarlet Witch face effect - just show multiplier directly
             
             // Create multiplier text
             const multiplierText = this.scene.add.text(symbolX, symbolY - 50, `x${multiplier}`, {
@@ -296,49 +291,37 @@ window.BonusManager = class BonusManager {
             });
             particles.setDepth(999);
             
-            // Animation sequence
+            // Animation sequence - only show multiplier text without Scarlet Witch face
             this.scene.tweens.add({
-                targets: scarletWitch,
-                alpha: 0.8,
-                scaleX: 0.5,
-                scaleY: 0.5,
-                duration: 300,
-                ease: 'Power2',
+                targets: multiplierText,
+                scaleX: 1,
+                scaleY: 1,
+                duration: 400,
+                ease: 'Back.out',
                 onComplete: () => {
-                    // Show multiplier text
+                    // Pulsing effect
                     this.scene.tweens.add({
                         targets: multiplierText,
-                        scaleX: 1,
-                        scaleY: 1,
-                        duration: 400,
-                        ease: 'Back.out',
+                        scaleX: 1.2,
+                        scaleY: 1.2,
+                        duration: 200,
+                        yoyo: true,
+                        repeat: 2,
+                        ease: 'Sine.easeInOut',
                         onComplete: () => {
-                            // Pulsing effect
+                            // Fade out
+                            particles.stop();
                             this.scene.tweens.add({
-                                targets: [scarletWitch, multiplierText],
-                                scaleX: 1.2,
-                                scaleY: 1.2,
-                                duration: 200,
-                                yoyo: true,
-                                repeat: 2,
-                                ease: 'Sine.easeInOut',
+                                targets: multiplierText,
+                                alpha: 0,
+                                scaleX: 0,
+                                scaleY: 0,
+                                duration: 500,
+                                ease: 'Power2',
                                 onComplete: () => {
-                                    // Fade out
-                                    particles.stop();
-                                    this.scene.tweens.add({
-                                        targets: [scarletWitch, multiplierText],
-                                        alpha: 0,
-                                        scaleX: 0,
-                                        scaleY: 0,
-                                        duration: 500,
-                                        ease: 'Power2',
-                                        onComplete: () => {
-                                            scarletWitch.destroy();
-                                            multiplierText.destroy();
-                                            particles.destroy();
-                                            resolve();
-                                        }
-                                    });
+                                    multiplierText.destroy();
+                                    particles.destroy();
+                                    resolve();
                                 }
                             });
                         }
@@ -531,12 +514,7 @@ window.BonusManager = class BonusManager {
                     // Add targeted lightning effect for Scarlet Witch
                     this.createRedLightningEffect(symbolX, symbolY);
                     
-                    // Create character power effect
-                    const character = this.scene.add.image(symbolX, symbolY, characterKey);
-                    character.setScale(0.25);
-                    character.setAlpha(0);
-                    character.setDepth(1000);
-                    character.setTint(characterTint);
+                    // Skip character power effect - removed Scarlet Witch face FX
                     
                     // Create multiplier text
                     const multiplierText = this.scene.add.text(symbolX, symbolY - 60, `x${multiplier}`, {
@@ -562,49 +540,37 @@ window.BonusManager = class BonusManager {
                     });
                     particles.setDepth(999);
                     
-                    // Animation sequence
+                    // Animation sequence - only show multiplier text
                     this.scene.tweens.add({
-                        targets: character,
-                        alpha: 0.7,
-                        scaleX: 0.4,
-                        scaleY: 0.4,
-                        duration: 250,
-                        ease: 'Power2',
+                        targets: multiplierText,
+                        scaleX: 1,
+                        scaleY: 1,
+                        duration: 300,
+                        ease: 'Back.out',
                         onComplete: () => {
-                            // Show multiplier text
+                            // Brief pulsing effect
                             this.scene.tweens.add({
                                 targets: multiplierText,
-                                scaleX: 1,
-                                scaleY: 1,
-                                duration: 300,
-                                ease: 'Back.out',
+                                scaleX: 1.1,
+                                scaleY: 1.1,
+                                duration: 150,
+                                yoyo: true,
+                                repeat: 1,
+                                ease: 'Sine.easeInOut',
                                 onComplete: () => {
-                                    // Brief pulsing effect
+                                    // Fade out
+                                    particles.stop();
                                     this.scene.tweens.add({
-                                        targets: [character, multiplierText],
-                                        scaleX: 1.1,
-                                        scaleY: 1.1,
-                                        duration: 150,
-                                        yoyo: true,
-                                        repeat: 1,
-                                        ease: 'Sine.easeInOut',
+                                        targets: multiplierText,
+                                        alpha: 0,
+                                        scaleX: 0,
+                                        scaleY: 0,
+                                        duration: 400,
+                                        ease: 'Power2',
                                         onComplete: () => {
-                                            // Fade out
-                                            particles.stop();
-                                            this.scene.tweens.add({
-                                                targets: [character, multiplierText],
-                                                alpha: 0,
-                                                scaleX: 0,
-                                                scaleY: 0,
-                                                duration: 400,
-                                                ease: 'Power2',
-                                                onComplete: () => {
-                                                    character.destroy();
-                                                    multiplierText.destroy();
-                                                    particles.destroy();
-                                                    resolve();
-                                                }
-                                            });
+                                            multiplierText.destroy();
+                                            particles.destroy();
+                                            resolve();
                                         }
                                     });
                                 }

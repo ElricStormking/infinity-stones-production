@@ -151,6 +151,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             } catch (e) {
                 console.warn('Failed to create random multiplier frame animation:', e);
             }
+
+            // Create gem light effect animation if spritesheet is present
+            try {
+                if (this.textures && this.textures.exists('ui_gem_light_sprite') && !this.anims.exists('ui_gem_light')) {
+                    this.anims.create({
+                        key: 'ui_gem_light',
+                        frames: this.anims.generateFrameNumbers('ui_gem_light_sprite', { start: 0, end: 15 }),
+                        frameRate: 14,
+                        repeat: 0 // Play once before destruction
+                    });
+                    console.log('✅ Gem light effect animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create gem light effect animation:', e);
+            }
             
             progressBar.destroy();
             progressBox.destroy();
@@ -469,6 +484,17 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load burst mode assets:', error);
         }
         
+        // Load gem light effect spritesheet (plays before destruction)
+        try {
+            this.load.spritesheet('ui_gem_light_sprite', 'assets/images/sprites/gem_destruction/ui_gem_light/ui_gem_light_sprite.png', {
+                frameWidth: 150,
+                frameHeight: 150
+            });
+            console.log('✅ Gem light effect spritesheet loaded');
+        } catch (e) {
+            console.warn('Failed to load gem light effect:', e);
+        }
+
         // Load gem destruction animations - updated to use individual animation files
         try {
             // Load gem destruction sprite sheets with updated frame size (240x240)
