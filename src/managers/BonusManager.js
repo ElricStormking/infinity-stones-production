@@ -851,7 +851,7 @@ window.BonusManager = class BonusManager {
                     // Delay impact effects so they occur when the bolt reaches the lower edge
                     const impactDelayMs = 420;
                     this.scene.time.delayedCall(impactDelayMs, () => {
-                        try { this.scene.cameras.main.shake(100, 0.012); } catch {}
+                        try { this.scene.cameras.main.shake(100, 0.006); } catch {}
                         const flash = this.scene.add.graphics();
                         try { flash.setDepth((window.GameConfig.UI_DEPTHS.FX_UNDERLAY || (window.GameConfig.UI_DEPTHS.FX - 1))); } catch {}
                         flash.fillStyle(0xFFFFFF, 0);
