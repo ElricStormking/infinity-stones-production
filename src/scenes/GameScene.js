@@ -1387,6 +1387,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
         matches.forEach(group => {
             group.forEach(({ symbol }) => {
                 if (!symbol) return;
+                // Start the UI gem light effect at shake start (only for gems)
+                if (typeof symbol.startGemLightEffect === 'function') {
+                    symbol.startGemLightEffect();
+                }
                 const tween = new Promise(resolve => {
                     // Randomized shake around current position
                     this.tweens.add({

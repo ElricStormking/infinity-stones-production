@@ -231,42 +231,32 @@ window.BonusManager = class BonusManager {
             const symbolX = this.scene.gridManager.getSymbolScreenX(col);
             const symbolY = this.scene.gridManager.getSymbolScreenY(row);
             
-            console.log(`🔥 SEQUENCE: Lightning strikes symbol at (${col}, ${row}) then shows multiplier ${multiplier}x`);
+            console.log(`🔥 SEQUENCE: Thunder strikes symbol at (${col}, ${row}) then shows multiplier ${multiplier}x`);
             
-            // STEP 1: Lightning strikes the symbol first
-            await this.createRedLightningEffect(symbolX, symbolY);
+            // STEP 1: Thunder strike FX (replaces previous red lightning shader)
+            const thunderPromise = this.playThunderStrikeAt(symbolX, symbolY);
             
-            // STEP 2: Destroy the original symbol with dramatic effect and clear grid cell
+            // STEP 2: Destroy the original symbol and clear grid cell, then place overlay
             const originalSymbol = this.scene.gridManager.grid[col][row];
             if (originalSymbol) {
-                console.log(`💥 Destroying original symbol at (${col}, ${row})`);
-                // Flash the symbol white before destroying
-                originalSymbol.setTint(0xFFFFFF);
-                this.scene.tweens.add({
-                    targets: originalSymbol,
-                    alpha: 0,
-                    scaleX: 0.5,
-                    scaleY: 0.5,
-                    duration: 200,
-                    ease: 'Power2',
-                    onComplete: () => {
-                        // remove from grid and destroy fully
-                        this.scene.gridManager.grid[col][row] = null;
-                        if (originalSymbol.destroy) {
-                            originalSymbol.destroy();
-                        } else {
-                            originalSymbol.setVisible(false);
-                        }
-                    }
-                });
+                console.log(`💥 Destroying original symbol at (${col}, ${row}) via thunder strike`);
+                // Hide immediately for snappy feedback
+                originalSymbol.setAlpha(0);
+                // Remove from grid and destroy fully
+                this.scene.gridManager.grid[col][row] = null;
+                if (originalSymbol.destroy) {
+                    originalSymbol.destroy();
+                } else {
+                    originalSymbol.setVisible(false);
+                }
             }
-            
             // Place overlay right away so it survives any later animations
             this.placeRandomMultiplierOverlay(col, row, multiplier);
-
-            // STEP 3: Show multiplier effect (Scarlet Witch face FX removed)
-            // Skip the Scarlet Witch face effect - just show multiplier directly
             
+            // Wait for thunder FX to complete before continuing
+            await thunderPromise;
+            
+            // STEP 3: Show multiplier effect (Scarlet Witch face FX removed)
             // Create multiplier text
             const multiplierText = this.scene.add.text(symbolX, symbolY - 50, `x${multiplier}`, {
                 fontSize: '48px',
@@ -509,14 +499,11 @@ window.BonusManager = class BonusManager {
                     // Play Thanos power sound
                     window.SafeSound.play(this.scene, 'thanos_power');
                 } else {
-                    // Scarlet Witch effect (keep existing implementation)
+                    // Scarlet Witch branch uses Thunder FX instead of shader lightning
                     this.triggerScarletWitchAttack();
-                    // Add targeted lightning effect for Scarlet Witch
-                    this.createRedLightningEffect(symbolX, symbolY);
+                    const thunderPromise = this.playThunderStrikeAt(symbolX, symbolY);
                     
-                    // Skip character power effect - removed Scarlet Witch face FX
-                    
-                    // Create multiplier text
+                    // Create multiplier text (keep existing visual)
                     const multiplierText = this.scene.add.text(symbolX, symbolY - 60, `x${multiplier}`, {
                         fontSize: '36px',
                         fontFamily: 'Arial Black',
@@ -539,6 +526,14 @@ window.BonusManager = class BonusManager {
                         tint: characterTint
                     });
                     particles.setDepth(999);
+                    
+                    // Immediately remove/replace symbol as part of thunder effect
+                    const existing = this.scene.gridManager.grid[col][row];
+                    if (existing) {
+                        this.scene.gridManager.grid[col][row] = null;
+                        if (existing.destroy) existing.destroy();
+                    }
+                    this.placeRandomMultiplierOverlay(col, row, multiplier);
                     
                     // Animation sequence - only show multiplier text
                     this.scene.tweens.add({
@@ -570,21 +565,14 @@ window.BonusManager = class BonusManager {
                                         onComplete: () => {
                                             multiplierText.destroy();
                                             particles.destroy();
-                                            resolve();
+                                            // Ensure thunder FX completed before resolving
+                                            Promise.resolve(thunderPromise).then(resolve);
                                         }
                                     });
                                 }
                             });
                         }
                     });
-
-                    // Ensure replacement happens even if animations are interrupted
-                    const existing = this.scene.gridManager.grid[col][row];
-                    if (existing) {
-                        this.scene.gridManager.grid[col][row] = null;
-                        if (existing.destroy) existing.destroy();
-                    }
-                    this.placeRandomMultiplierOverlay(col, row, multiplier);
                 }
                 
                 // Play bonus sound
@@ -838,354 +826,65 @@ window.BonusManager = class BonusManager {
     }
     
     createRedLightningEffect(targetX, targetY) {
-        console.log('🔥 Creating TARGETED red lightning effect for Scarlet Witch');
-        console.log(`🎯 Target position: X=${targetX}, Y=${targetY}`);
-        
-        // Play lightning sound effect with fallback
-        console.log('🔊 Attempting to play lightning_struck sound effect');
-        let soundResult = window.SafeSound.play(this.scene, 'lightning_struck');
-        
-        // If lightning sound doesn't play, try symbol_shattering as fallback
-        if (!soundResult) {
-            console.log('🔊 Lightning sound failed, trying symbol_shattering as fallback');
-            soundResult = window.SafeSound.play(this.scene, 'symbol_shattering');
-        }
-        
-        console.log('🔊 Sound play result:', soundResult);
-        
-        // Create single targeted lightning bolt
-        const graphics = this.scene.add.graphics();
-        graphics.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY); // Just below particles
-        
-        const screenTop = 0;
-        
-        console.log(`⚡ Creating THICKER lightning from top (${targetX}, ${screenTop}) to target (${targetX}, ${targetY})`);
-        
-        // Create single targeted lightning bolt with 3 variants for 3x thickness
-        const lightningBolts = [];
-        
-        for (let variant = 0; variant < 3; variant++) {
-            lightningBolts.push({
-                segments: this.generateVerticalLightningPath(
-                    targetX + (variant - 1) * 12, // Increased horizontal offset for 3x thickness
-                    screenTop, 
-                    targetX + (variant - 1) * 12, 
-                    targetY
-                ),
-                alpha: 0,
-                width: 24 - variant * 6, // MUCH thicker strokes (24px, 18px, 12px) - 3x original
-                delay: variant * 50, // Small stagger for thickness effect
-                variant: variant
-            });
-        }
-        
-        console.log(`⚡ Created ${lightningBolts.length} THICK lightning bolts targeting single position`);
-        
-        // Return a promise for proper sequencing
+        // Deprecated: replaced with sprite-based thunder FX
+        console.warn('createRedLightningEffect is deprecated. Redirecting to ui_gem_thunder FX.');
+        return this.playThunderStrikeAt(targetX, targetY);
+    }
+    
+    // New: Play ui_gem_thunder FX at a target position; fallback to red lightning if animation is missing
+    playThunderStrikeAt(targetX, targetY) {
+        console.log('⚡ Playing ui_gem_thunder FX');
         return new Promise((resolve) => {
-            // Track when explosion should trigger
-            let explosionTriggered = false;
-            
-            // Animate lightning strike sequence with extended duration
-            lightningBolts.forEach((bolt, index) => {
-                this.scene.time.delayedCall(bolt.delay, () => {
-                    console.log(`⚡ Animating THICK targeted bolt ${index} variant ${bolt.variant}`);
+            try {
+                if (this.scene.anims && this.scene.anims.exists('ui_gem_thunder')) {
+                    const thunder = this.scene.add.sprite(targetX, targetY, 'ui_gem_thunder', 0);
+                    // Make it bigger and anchor to the strike point (bottom of the bolt on the cell)
+                    const displayW = window.GameConfig.SYMBOL_SIZE * 2.4; // wider
+                    const displayH = window.GameConfig.SYMBOL_SIZE * 4.0; // much taller
+                    thunder.setDisplaySize(displayW, displayH);
+                    // Land near the bottom edge of the symbol grid cell
+                    thunder.setOrigin(0.5, 1);
+                    thunder.y = targetY + window.GameConfig.SYMBOL_SIZE * 0.45;
+                    thunder.setDepth(window.GameConfig.UI_DEPTHS.FX);
+                    thunder.setBlendMode(Phaser.BlendModes.ADD);
                     
-                    // Fade in quickly for dramatic strike
-                    this.scene.tweens.add({
-                        targets: bolt,
-                        alpha: 1,
-                        duration: 60, // Half duration - was 120
-                        ease: 'Power2',
-                        onUpdate: () => {
-                            this.drawVerticalLightning(graphics, lightningBolts);
-                        },
-                        onComplete: () => {
-                            // Shorter flicker effect for lightning strike
-                            this.scene.tweens.add({
-                                targets: bolt,
-                                alpha: 0.3,
-                                duration: 25, // Half duration - was 50
-                                yoyo: true,
-                                repeat: 10, // Half repeats - was 20
-                                onUpdate: () => {
-                                    this.drawVerticalLightning(graphics, lightningBolts);
-                                },
-                                onComplete: () => {
-                                    // Trigger explosion effect when main bolt completes flickering
-                                    if (index === 0 && !explosionTriggered) {
-                                        explosionTriggered = true;
-                                        this.createLightningExplosion(targetX, targetY);
-                                    }
-                                    
-                                    // Faster fade out after strike
-                                    this.scene.tweens.add({
-                                        targets: bolt,
-                                        alpha: 0,
-                                        duration: 150, // Half duration - was 300
-                                        onUpdate: () => {
-                                            this.drawVerticalLightning(graphics, lightningBolts);
-                                        },
-                                        onComplete: () => {
-                                            if (index === lightningBolts.length - 1) {
-                                                console.log('⚡ THICK targeted lightning strike complete, destroying graphics');
-                                                graphics.destroy();
-                                                resolve(); // Resolve promise when lightning is complete
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                        }
+                    // Delay impact effects so they occur when the bolt reaches the lower edge
+                    const impactDelayMs = 420;
+                    this.scene.time.delayedCall(impactDelayMs, () => {
+                        try { this.scene.cameras.main.shake(100, 0.012); } catch {}
+                        const flash = this.scene.add.graphics();
+                        try { flash.setDepth((window.GameConfig.UI_DEPTHS.FX_UNDERLAY || (window.GameConfig.UI_DEPTHS.FX - 1))); } catch {}
+                        flash.fillStyle(0xFFFFFF, 0);
+                        flash.fillCircle(targetX, targetY + window.GameConfig.SYMBOL_SIZE * 0.45, window.GameConfig.SYMBOL_SIZE * 1.0);
+                        this.scene.tweens.add({
+                            targets: flash,
+                            alpha: 0.55,
+                            duration: 100,
+                            yoyo: true,
+                            repeat: 1,
+                            onComplete: () => { try { flash.destroy(); } catch {} }
+                        });
                     });
-                });
-            });
-            
-            // Add enhanced targeted red flash effect around the impact point
-            const flash = this.scene.add.graphics();
-            flash.setDepth(window.GameConfig.UI_DEPTHS.FX_UNDERLAY);
-            flash.fillStyle(0xff1493, 0);
-            // Create larger circular flash around target
-            flash.fillCircle(targetX, targetY, 120); // Larger radius flash
-            
-            console.log('🔥 Adding enhanced targeted flash effect');
-            
-            this.scene.time.delayedCall(40, () => { // Half delay - was 80
-                this.scene.tweens.add({
-                    targets: flash,
-                    alpha: 0.6, // Brighter flash
-                    duration: 50, // Half duration - was 100
-                    yoyo: true,
-                    repeat: 1, // Fewer flash pulses - was 2
-                    onComplete: () => {
-                        flash.destroy();
-                        console.log('🔥 Enhanced targeted flash complete');
-                    }
-                });
-            });
-        });
-    }
-    
-    createLightningExplosion(x, y) {
-        console.log(`⚡ Creating subtle lightning sparks at (${x}, ${y})`);
-        
-        // Create subtle lightning spark particles that spill around the impact point
-        
-        // Small electric sparks that scatter around
-        const lightningSparkParticles = this.scene.add.particles(x, y, 'reality_gem', {
-            speed: { min: 50, max: 150 },
-            scale: { start: 0.4, end: 0 },
-            lifespan: 600,
-            quantity: 8,
-            blendMode: 'ADD',
-            tint: [0xFF1493, 0xFFB6C1], // Pink to light pink
-            emitZone: {
-                type: 'circle',
-                source: new Phaser.Geom.Circle(0, 0, 5),
-                quantity: 8
+                    
+                    // Sound
+                    window.SafeSound.play(this.scene, 'lightning_struck');
+                    
+                    thunder.play('ui_gem_thunder');
+                    // Keep FX visible ~1.5s before cleanup
+                    this.scene.time.delayedCall(750, () => {
+                        try { thunder.destroy(); } catch {}
+                        resolve();
+                    });
+                } else {
+                    // No sprite anim available; soft-fail without fallback to deprecated shader
+                    console.warn('ui_gem_thunder animation not found; skipping thunder FX');
+                    resolve();
+                }
+            } catch (error) {
+                console.error('Error playing ui_gem_thunder FX:', error);
+                // Soft-fail to keep game flow
+                resolve();
             }
-        });
-        lightningSparkParticles.setDepth(1002);
-        
-        // Tiny electric sparks that fall with gravity
-        const fallingSparkParticles = this.scene.add.particles(x, y, 'power_gem', {
-            speed: { min: 30, max: 80 },
-            scale: { start: 0.3, end: 0.1 },
-            lifespan: 800,
-            quantity: 5,
-            frequency: 100,
-            blendMode: 'ADD',
-            tint: 0xFF1493, // Pink
-            gravityY: 150,
-            angle: { min: -30, max: 30 } // Mostly downward
-        });
-        fallingSparkParticles.setDepth(1002);
-        
-        // Small electric crackles radiating outward
-        const crackleParticles = this.scene.add.particles(x, y, 'mind_gem', {
-            speed: { min: 80, max: 120 },
-            scale: { start: 0.25, end: 0 },
-            lifespan: 400,
-            quantity: 6,
-            blendMode: 'ADD',
-            tint: [0xFF1493, 0xFFFFFF], // Pink to white
-            angle: { min: 0, max: 360 }
-        });
-        crackleParticles.setDepth(1002);
-        
-        // Stop emitting after initial burst and clean up
-        this.scene.time.delayedCall(100, () => {
-            lightningSparkParticles.stop();
-            crackleParticles.stop();
-        });
-        
-        this.scene.time.delayedCall(300, () => {
-            fallingSparkParticles.stop();
-        });
-        
-        this.scene.time.delayedCall(1500, () => {
-            lightningSparkParticles.destroy();
-            fallingSparkParticles.destroy();
-            crackleParticles.destroy();
-            console.log('⚡ Lightning spark particles cleaned up');
-        });
-        
-        // Very subtle screen shake for impact
-        this.scene.cameras.main.shake(100, 0.005);
-        
-        // Play a subtle electric spark sound effect
-        window.SafeSound.play(this.scene, 'bonus');
-    }
-    
-    generateVerticalLightningPath(x1, y1, x2, y2) {
-        const segments = [];
-        const numSegments = 12; // More segments for smoother vertical lightning
-        const horizontalVariance = 25; // Horizontal zigzag variance
-        const verticalVariance = 10; // Small vertical variance
-        
-        segments.push({ x: x1, y: y1 });
-        
-        for (let i = 1; i < numSegments; i++) {
-            const progress = i / numSegments;
-            const x = x1 + (x2 - x1) * progress;
-            const y = y1 + (y2 - y1) * progress;
-            
-            // Add horizontal zigzag for lightning effect (more dramatic)
-            // Use controlled RNG for visual effect variations
-            const effectRng = new window.RNG();
-            const horizontalOffset = (effectRng.random() - 0.5) * horizontalVariance * (1 - progress * 0.3); // Reduce variance as it goes down
-            const verticalOffset = (effectRng.random() - 0.5) * verticalVariance;
-            
-            segments.push({
-                x: x + horizontalOffset,
-                y: y + verticalOffset
-            });
-        }
-        
-        segments.push({ x: x2, y: y2 });
-        
-        return segments;
-    }
-    
-    generateLightningPath(x1, y1, x2, y2) {
-        const segments = [];
-        const numSegments = 8;
-        const variance = 30;
-        
-        segments.push({ x: x1, y: y1 });
-        
-        for (let i = 1; i < numSegments; i++) {
-            const progress = i / numSegments;
-            const x = x1 + (x2 - x1) * progress;
-            const y = y1 + (y2 - y1) * progress;
-            
-            // Add random offset for jagged effect
-            // Use controlled RNG for visual effect variations
-            const effectRng = new window.RNG();
-            const offsetX = (effectRng.random() - 0.5) * variance;
-            const offsetY = (effectRng.random() - 0.5) * variance;
-            
-            segments.push({
-                x: x + offsetX,
-                y: y + offsetY
-            });
-        }
-        
-        segments.push({ x: x2, y: y2 });
-        
-        return segments;
-    }
-    
-    drawVerticalLightning(graphics, bolts) {
-        graphics.clear();
-        
-        bolts.forEach(bolt => {
-            if (bolt.alpha <= 0) return;
-            
-            // Draw outer glow (thicker for vertical lightning)
-            graphics.lineStyle(bolt.width + 12, 0xff1493, bolt.alpha * 0.25); // Doubled glow thickness
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-            
-            // Draw middle glow (thicker)
-            graphics.lineStyle(bolt.width + 6, 0xff69b4, bolt.alpha * 0.5); // Doubled glow thickness
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-            
-            // Draw bright core (thicker)
-            graphics.lineStyle(bolt.width + 2, 0xffffff, bolt.alpha * 0.9); // Brighter white core
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-            
-            // Draw inner core for extra intensity
-            graphics.lineStyle(bolt.width, 0xfff5f5, bolt.alpha); // Near-white core
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-        });
-    }
-    
-    drawLightning(graphics, bolts) {
-        graphics.clear();
-        
-        bolts.forEach(bolt => {
-            if (bolt.alpha <= 0) return;
-            
-            // Draw outer glow
-            graphics.lineStyle(bolt.width + 6, 0xff1493, bolt.alpha * 0.3);
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-            
-            // Draw middle glow
-            graphics.lineStyle(bolt.width + 2, 0xff69b4, bolt.alpha * 0.6);
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
-            
-            // Draw core
-            graphics.lineStyle(bolt.width, 0xffffff, bolt.alpha);
-            graphics.beginPath();
-            graphics.moveTo(bolt.segments[0].x, bolt.segments[0].y);
-            
-            for (let i = 1; i < bolt.segments.length; i++) {
-                graphics.lineTo(bolt.segments[i].x, bolt.segments[i].y);
-            }
-            
-            graphics.strokePath();
         });
     }
 }; 

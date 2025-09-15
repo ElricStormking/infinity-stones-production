@@ -27,6 +27,8 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         // Effects
         this.glowEffect = null;
         this.shadowEffect = null;
+        this.gemLightSprite = null;
+        this.gemLightUpdateHandler = null;
         
         // Ensure symbols render above bottom UI panel
         // Depth is chosen to be higher than UI panel (depth 2) and most UI images (depth 3)
@@ -346,6 +348,8 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         } else {
             // Fallback to original destruction animation if no sprite animation exists
             // Destruction animation
+            // Ensure any running gem light is cleaned up
+            this.stopGemLightEffect();
             this.scene.tweens.add({
                 targets: this,
                 scaleX: 0,
@@ -441,6 +445,43 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         if (this.glowEffect) {
             this.glowEffect.clear();
         }
+    }
+    
+    // Start the UI gem light effect immediately and have it follow the symbol while active
+    startGemLightEffect() {
+        // Start if animation exists
+        if (!this.scene || !this.scene.anims || !this.scene.anims.exists('ui_gem_light')) {
+            return;
+        }
+        if (this.gemLightSprite && this.gemLightSprite.scene) {
+            return; // already active
+        }
+        const light = this.scene.add.sprite(this.x, this.y, 'ui_gem_light_sprite');
+        light.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
+        light.setDepth(window.GameConfig.UI_DEPTHS.FX);
+        light.play('ui_gem_light');
+        this.gemLightSprite = light;
+        
+        // Keep the light effect aligned with the symbol while it shakes/moves
+        this.gemLightUpdateHandler = () => {
+            if (!this.scene || !this.gemLightSprite) return;
+            this.gemLightSprite.x = this.x;
+            this.gemLightSprite.y = this.y;
+        };
+        this.scene.events.on('update', this.gemLightUpdateHandler, this);
+    }
+    
+    stopGemLightEffect() {
+        if (this.scene && this.gemLightUpdateHandler) {
+            this.scene.events.off('update', this.gemLightUpdateHandler, this);
+        }
+        this.gemLightUpdateHandler = null;
+        if (this.gemLightSprite) {
+            try {
+                this.gemLightSprite.destroy();
+            } catch (_) {}
+        }
+        this.gemLightSprite = null;
     }
     
     showMultiplier(value) {
@@ -565,35 +606,17 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
         this.removeGlow();
         this.setScale(1);
         this.setAlpha(1);
+        // Ensure light effect is not left running across states
+        this.stopGemLightEffect && this.stopGemLightEffect();
     }
     
     playGemLightEffectThenDestruction(destructionAnimKey) {
-        // Check if gem light effect is available (only for gem symbols)
-        const isGemSymbol = this.symbolType.includes('gem');
-        const hasLightEffect = isGemSymbol && this.scene.anims.exists('ui_gem_light');
-        
-        if (hasLightEffect) {
-            console.log(`✨ Playing gem light effect before destruction for ${this.symbolType}`);
-            
-            // Create light effect sprite at the same position as the symbol
-            const lightEffectSprite = this.scene.add.sprite(this.x, this.y, 'ui_gem_light_sprite');
-            lightEffectSprite.setDisplaySize(window.GameConfig.SYMBOL_SIZE, window.GameConfig.SYMBOL_SIZE);
-            lightEffectSprite.setDepth(window.GameConfig.UI_DEPTHS.FX); // Above UI and symbols
-            
-            // Play the light effect animation
-            lightEffectSprite.play('ui_gem_light');
-            
-            // When light effect completes, play destruction animation
-            lightEffectSprite.once('animationcomplete', () => {
-                console.log(`🔥 Light effect complete, starting destruction animation for ${this.symbolType}`);
-                lightEffectSprite.destroy();
-                this.playDestructionAnimation(destructionAnimKey);
-            });
-        } else {
-            // No light effect available, play destruction animation directly
-            console.log(`⚡ No light effect available, playing destruction directly for ${this.symbolType}`);
-            this.playDestructionAnimation(destructionAnimKey);
-        }
+        // If a gem light effect is running (started at shake time), stop it and proceed
+        try {
+            this.stopGemLightEffect();
+        } catch (_) {}
+        // Go straight to destruction; the light already ran during shake
+        this.playDestructionAnimation(destructionAnimKey);
     }
     
     playDestructionAnimation(destructionAnimKey) {
@@ -625,6 +648,8 @@ window.Symbol = class Symbol extends Phaser.GameObjects.Sprite {
             if (this.glowEffect) {
                 this.glowEffect.destroy();
             }
+            // Safety: ensure gem light is removed
+            this.stopGemLightEffect();
             
             // Nullify references to prevent memory leaks
             this.shadowEffect = null;

@@ -1,0 +1,27 @@
+{
+    "section1": {
+        "files": [
+            {
+                "url": "assets/ui_gem_thunder/ui_gem_thunder.png",
+                "frameConfig": {
+                    "frameWidth": 242,
+                    "frameHeight": 823,
+                    "startFrame": 0,
+                    "endFrame": -1,
+                    "spacing": 0,
+                    "margin": 0
+                },
+                "type": "spritesheet",
+                "key": "ui_gem_thunder"
+            }
+        ]
+    },
+    "meta": {
+        "app": "Phaser Editor 2D - Asset Pack Editor",
+        "contentType": "phasereditor2d.pack.core.AssetContentType",
+        "url": "https://phasereditor2d.com",
+        "version": 2,
+        "showAllFilesInBlocks": false,
+        "visible": true
+    }
+}

@@ -195,6 +195,22 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             } catch (e) {
                 console.warn('Failed to create gem light effect animation:', e);
             }
+
+            // Create thunder strike animation if spritesheet is present
+            try {
+                if (this.textures && this.textures.exists('ui_gem_thunder') && !this.anims.exists('ui_gem_thunder')) {
+                    // The asset has 11 frames (0..10) per asset JSON; loop for a short while
+                    this.anims.create({
+                        key: 'ui_gem_thunder',
+                        frames: this.anims.generateFrameNumbers('ui_gem_thunder', { start: 0, end: 10 }),
+                        frameRate: 14,
+                        repeat: -1 // We manually destroy after 500ms when played
+                    });
+                    console.log('✅ Gem thunder FX animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create gem thunder FX animation:', e);
+            }
             
             progressBar.destroy();
             progressBox.destroy();
@@ -524,6 +540,17 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.log('✅ Gem light effect spritesheet loaded');
         } catch (e) {
             console.warn('Failed to load gem light effect:', e);
+        }
+
+        // Load thunder strike FX spritesheet for random multiplier (Scarlet Witch replacement)
+        try {
+            this.load.spritesheet('ui_gem_thunder', 'assets/images/sprites/ui_gem_thunder/ui_gem_thunder.png', {
+                frameWidth: 242,
+                frameHeight: 823
+            });
+            console.log('✅ Gem thunder FX spritesheet loaded');
+        } catch (e) {
+            console.warn('Failed to load gem thunder FX:', e);
         }
 
         // Load gem destruction animations - updated to use individual animation files
