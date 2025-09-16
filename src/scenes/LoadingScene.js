@@ -704,6 +704,7 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             // Load multiple format fallbacks for better browser compatibility
             this.load.audio('bgm_infinity_storm', 'assets/audio/BGM_infinity_storm.mp3');
             this.load.audio('bgm_free_spins', 'assets/audio/BGM_free_spins.mp3');
+            this.load.audio('burstmode_bgm', 'assets/audio/burstmode_bgm.mp3');
             this.load.audio('lightning_struck', 'assets/audio/lightning_struck.mp3');
             this.load.audio('symbol_shattering', 'assets/audio/symbol_shattering.mp3');
             this.load.audio('thanos_power', 'assets/audio/thanos_power.mp3');
@@ -711,10 +712,12 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.audio('winning_big', 'assets/audio/winning_big.mp3');
             this.load.audio('spin_drop_finish', 'assets/audio/spin_drop_finish.mp3');
             this.load.audio('kaching', 'assets/audio/kaching.mp3');
-            // Burst mode winning SFX
-            this.load.audio('burst_winning', 'assets/audio/burst_winning.mp3');
+            // Burst mode winning SFX (differentiated by win size)
+            this.load.audio('burst_winning1', 'assets/audio/burst_winning1.mp3');
+            this.load.audio('burst_winning2', 'assets/audio/burst_winning2.mp3');
+            this.load.audio('burst_winning3', 'assets/audio/burst_winning3.mp3');
             
-            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big, spin_drop_finish, kaching');
+            console.log('🔊 Audio files queued for loading: bgm_infinity_storm, bgm_free_spins, burstmode_bgm, lightning_struck, symbol_shattering, thanos_power, thanos_finger_snap, winning_big, spin_drop_finish, kaching, burst_winning1, burst_winning2, burst_winning3');
             
             // Set up comprehensive error handlers
             this.load.once('fileerror-audio-bgm_infinity_storm', (error) => {
@@ -722,6 +725,9 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             });
             this.load.once('fileerror-audio-bgm_free_spins', (error) => {
                 console.log('❌ Free spins BGM failed to load:', error);
+            });
+            this.load.once('fileerror-audio-burstmode_bgm', (error) => {
+                console.log('❌ Burst mode BGM failed to load:', error);
             });
             this.load.once('fileerror-audio-lightning_struck', (error) => {
                 console.log('❌ Lightning sound effect failed to load:', error);
@@ -744,13 +750,13 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             this.load.once('fileerror-audio-kaching', (error) => {
                 console.log('❌ Kaching sound effect failed to load:', error);
             });
-            this.load.once('fileerror-audio-burst_winning', (error) => {
-                console.log('❌ Burst mode winning sound failed to load:', error);
-            });
             
             // Success handlers to confirm loading
             this.load.once('filecomplete-audio-bgm_free_spins', () => {
                 console.log('✅ Free spins BGM loaded successfully!');
+            });
+            this.load.once('filecomplete-audio-burstmode_bgm', () => {
+                console.log('✅ Burst mode BGM loaded successfully!');
             });
             this.load.once('filecomplete-audio-lightning_struck', () => {
                 console.log('✅ Lightning sound effect loaded successfully!');
@@ -772,9 +778,6 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             });
             this.load.once('filecomplete-audio-kaching', () => {
                 console.log('✅ Kaching sound effect loaded successfully!');
-            });
-            this.load.once('filecomplete-audio-burst_winning', () => {
-                console.log('✅ Burst mode winning sound loaded successfully!');
             });
             
             // General audio loading complete handler

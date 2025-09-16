@@ -19,6 +19,10 @@ window.BurstModeManager = class BurstModeManager {
         this.blackholeShader = null;
         this.blackholeEffect = null;
         this.blackholeMask = null;
+        
+        // BGM references
+        this.burstBGM = null;
+        this.previousBGM = null;
 
         // Cached scale for dynamic text sizing
         this._scaleX = 1;
@@ -62,6 +66,9 @@ window.BurstModeManager = class BurstModeManager {
         this.scene.quickSpinEnabled = true;
         this.scene.setQuickSpin(true);
         
+        // Switch to burst mode BGM
+        this.switchToBurstModeBGM();
+        
         this.scene.showMessage('BURST MODE ACTIVATED!');
         window.SafeSound.play(this.scene, 'bonus');
     }
@@ -99,6 +106,10 @@ window.BurstModeManager = class BurstModeManager {
         }
         this.blackholeShader = null;
         
+        // Clean up BGM references
+        this.burstBGM = null;
+        this.previousBGM = null;
+        
         // Stop burst auto spinning
         this.burstAutoSpinning = false;
         
@@ -108,6 +119,9 @@ window.BurstModeManager = class BurstModeManager {
         
         // Clear results
         this.burstSpinResults = [];
+        
+        // Restore normal game BGM
+        this.restoreNormalBGM();
         
         this.scene.showMessage('BURST MODE DEACTIVATED');
         window.SafeSound.play(this.scene, 'click');
@@ -983,16 +997,42 @@ window.BurstModeManager = class BurstModeManager {
         const scaleX = this._scaleX || 1;
         const scaleY = this._scaleY || 1;
 
-        // Play burst winning SFX when a winning entry is displayed
+        // Trigger purple lightning explosion effect when win is displayed
+        this.createLightningExplosion();
+
+        // Play burst winning SFX based on win size (matching WinPresentationManager categories)
         try {
             if (result && result.win > 0) {
+                // Calculate win multiplier to determine win category
+                const winMultiplier = result.bet > 0 ? result.win / result.bet : 0;
+                
+                // Determine which sound to play based on exact win categories from WinCalculator
+                let soundToPlay = 'burst_winning1'; // Default for SMALL wins
+                
+                // Match exact win categories:
+                // SMALL: 0x to <10x → burst_winning1
+                // MEDIUM: 10x to <50x → burst_winning2
+                // BIG/MEGA/EPIC/LEGENDARY: 50x+ → burst_winning3
+                
+                if (winMultiplier >= 50) {
+                    // BIG (50-100x), MEGA (100-250x), EPIC (250-500x), LEGENDARY (500x+)
+                    soundToPlay = 'burst_winning3';
+                } else if (winMultiplier >= 10) {
+                    // MEDIUM (10-50x)
+                    soundToPlay = 'burst_winning2';
+                }
+                // SMALL (0-10x) uses burst_winning1 (default)
+                
                 const played = window.SafeSound && window.SafeSound.play
-                    ? window.SafeSound.play(this.scene, 'burst_winning')
+                    ? window.SafeSound.play(this.scene, soundToPlay)
                     : null;
+                    
                 if (!played) {
-                    // Fallbacks if burst_winning is not loaded
+                    // Fallbacks if burst_winning sounds are not loaded
+                    const fallbackSound = winMultiplier >= 50 ? 'winning_big' : 
+                                         winMultiplier >= 10 ? 'bonus' : 'kaching';
                     const altPlayed = window.SafeSound && window.SafeSound.play
-                        ? (window.SafeSound.play(this.scene, 'winning_big') || window.SafeSound.play(this.scene, 'kaching'))
+                        ? window.SafeSound.play(this.scene, fallbackSound)
                         : null;
                 }
             }
@@ -1151,6 +1191,151 @@ window.BurstModeManager = class BurstModeManager {
         }
     }
     
+    createLightningExplosion() {
+        if (!this.blackholeEffect) return;
+        
+        try {
+            // Create lightning explosion effect at the blackhole center
+            const x = this.blackholeEffect.x;
+            const y = this.blackholeEffect.y;
+            const width = this.scene.cameras.main.width;
+            const height = this.scene.cameras.main.height;
+            
+            // Create a simple particle-based lightning effect instead of shader
+            // This avoids shader compilation issues
+            
+            // Create lightning ring sprites
+            const numRings = 3;
+            for (let i = 0; i < numRings; i++) {
+                const ring = this.scene.add.graphics();
+                ring.lineStyle(5 - i, 0xFF00FF, 1); // Purple color with increased thickness
+                
+                const startRadius = 20;
+                const endRadius = 200 + i * 50;
+                
+                // Draw initial small circle
+                ring.strokeCircle(0, 0, startRadius);
+                ring.setPosition(x, y);
+                ring.setDepth(2011 + i);
+                ring.setAlpha(0);
+                this.burstModeUI.add(ring);
+                
+                // Animate the ring expansion
+                this.scene.tweens.add({
+                    targets: ring,
+                    alpha: 1,
+                    duration: 100,
+                    delay: i * 50,
+                    ease: 'Power2'
+                });
+                
+                // Expand and fade
+                this.scene.tweens.add({
+                    targets: ring,
+                    scaleX: endRadius / startRadius,
+                    scaleY: endRadius / startRadius,
+                    alpha: 0,
+                    duration: 600 + i * 100,
+                    delay: i * 50,
+                    ease: 'Cubic.Out',
+                    onComplete: () => ring.destroy()
+                });
+            }
+            
+            // Create lightning bolts radiating outward
+            const numBolts = 8;
+            for (let i = 0; i < numBolts; i++) {
+                const angle = (i / numBolts) * Math.PI * 2;
+                const bolt = this.scene.add.graphics();
+                
+                // Draw jagged lightning line with increased thickness
+                bolt.lineStyle(6, 0xFFFFFF, 1);
+                bolt.beginPath();
+                bolt.moveTo(0, 0);
+                
+                const segments = 5;
+                const length = 150;
+                for (let j = 1; j <= segments; j++) {
+                    const segLength = (length / segments) * j;
+                    const offsetX = (Math.random() - 0.5) * 20;
+                    const offsetY = (Math.random() - 0.5) * 20;
+                    const boltX = Math.cos(angle) * segLength + offsetX;
+                    const boltY = Math.sin(angle) * segLength + offsetY;
+                    bolt.lineTo(boltX, boltY);
+                }
+                
+                bolt.strokePath();
+                bolt.setPosition(x, y);
+                bolt.setDepth(2012);
+                bolt.setAlpha(0);
+                bolt.setBlendMode(Phaser.BlendModes.ADD);
+                this.burstModeUI.add(bolt);
+                
+                // Animate the bolt
+                this.scene.tweens.add({
+                    targets: bolt,
+                    alpha: 1,
+                    duration: 50,
+                    ease: 'Power2'
+                });
+                
+                this.scene.tweens.add({
+                    targets: bolt,
+                    alpha: 0,
+                    scaleX: 1.5,
+                    scaleY: 1.5,
+                    duration: 300,
+                    delay: 50,
+                    ease: 'Power2',
+                    onComplete: () => bolt.destroy()
+                });
+            }
+            
+            // Create purple particle explosions
+            const numParticles = 20;
+            for (let i = 0; i < numParticles; i++) {
+                const particle = this.scene.add.circle(
+                    x + (Math.random() - 0.5) * 50,
+                    y + (Math.random() - 0.5) * 50,
+                    3 + Math.random() * 5,
+                    0xFF00FF
+                );
+                particle.setDepth(2013);
+                particle.setAlpha(0);
+                particle.setBlendMode(Phaser.BlendModes.ADD);
+                this.burstModeUI.add(particle);
+                
+                const destX = x + (Math.random() - 0.5) * 400;
+                const destY = y + (Math.random() - 0.5) * 400;
+                
+                // Animate particle
+                this.scene.tweens.add({
+                    targets: particle,
+                    alpha: 1,
+                    duration: 100,
+                    ease: 'Power2'
+                });
+                
+                this.scene.tweens.add({
+                    targets: particle,
+                    x: destX,
+                    y: destY,
+                    alpha: 0,
+                    duration: 500 + Math.random() * 300,
+                    delay: Math.random() * 100,
+                    ease: 'Cubic.Out',
+                    onComplete: () => particle.destroy()
+                });
+            }
+            
+            // Play thunder sound if available
+            window.SafeSound.play(this.scene, 'ui_gem_thunder');
+            
+        } catch (error) {
+            console.error('Failed to create lightning explosion:', error);
+        }
+    }
+    
     createBlackholeEffect(x, y, scaleX, scaleY) {
         try {
             // Load the blackhole shader if not already loaded
@@ -1222,6 +1407,71 @@ window.BurstModeManager = class BurstModeManager {
             }
         } catch (error) {
             console.error('🕳️ Failed to create blackhole effect:', error);
+        }
+    }
+    
+    switchToBurstModeBGM() {
+        try {
+            console.log('🎵 BURST: Switching to burst mode BGM...');
+            
+            // Stop current BGM if playing
+            if (window.SafeSound && window.SafeSound.currentBGM) {
+                window.SafeSound.currentBGM.stop();
+                this.previousBGM = window.SafeSound.currentBGM;
+                console.log('🎵 BURST: Stopped current BGM');
+            }
+            
+            // Check if burst BGM audio exists
+            if (this.scene.sound && this.scene.cache.audio.exists('burstmode_bgm')) {
+                console.log('🎵 BURST: Burst BGM audio cache exists');
+                
+                // Create and play burst mode BGM
+                const burstBGM = this.scene.sound.add('burstmode_bgm', { loop: true, volume: 0.7 });
+                burstBGM.play();
+                
+                // Store reference for stopping later
+                window.SafeSound.currentBGM = burstBGM;
+                this.burstBGM = burstBGM;
+                
+                console.log('🎵 BURST: Burst mode BGM started successfully!');
+            } else {
+                console.error('🎵 BURST: Burst mode BGM not in audio cache');
+                console.log('🎵 BURST: Available audio:', this.scene.cache.audio.entries.keys);
+            }
+        } catch (error) {
+            console.error('🎵 BURST: Failed to switch to burst mode BGM:', error);
+        }
+    }
+    
+    restoreNormalBGM() {
+        try {
+            console.log('🎵 BURST: Restoring normal BGM...');
+            
+            // Stop burst mode BGM
+            if (this.burstBGM && this.burstBGM.isPlaying) {
+                this.burstBGM.stop();
+                console.log('🎵 BURST: Burst mode BGM stopped');
+            }
+            
+            // Determine which BGM to restore
+            let bgmKey = 'bgm_infinity_storm'; // Default
+            
+            // Check if we're in free spins and should use free spins BGM
+            if (this.scene.stateManager && this.scene.stateManager.freeSpinsData && this.scene.stateManager.freeSpinsData.active) {
+                bgmKey = 'bgm_free_spins';
+            }
+            
+            // Create and play the appropriate BGM
+            if (this.scene.sound && this.scene.cache.audio.exists(bgmKey)) {
+                const bgm = this.scene.sound.add(bgmKey, { loop: true, volume: 0.5 });
+                bgm.play();
+                window.SafeSound.currentBGM = bgm;
+                console.log(`🎵 BURST: Restored BGM: ${bgmKey}`);
+            } else {
+                console.warn(`🎵 BURST: BGM ${bgmKey} not available for restoration`);
+            }
+        } catch (error) {
+            console.error('🎵 BURST: Failed to restore normal BGM:', error);
         }
     }
     
