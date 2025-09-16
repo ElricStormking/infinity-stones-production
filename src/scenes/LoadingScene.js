@@ -211,6 +211,33 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             } catch (e) {
                 console.warn('Failed to create gem thunder FX animation:', e);
             }
+
+            // Create EXLight FX animation (used to replace ThanosPowerGrip shader)
+            try {
+                if (this.textures && this.textures.exists('ui_gem_exlight_sprite') && !this.anims.exists('ui_gem_exlight')) {
+                    // Prefer all frames; fall back to range if names unavailable
+                    let frames;
+                    try {
+                        const tex = this.textures.get('ui_gem_exlight_sprite');
+                        const names = tex && tex.getFrameNames ? tex.getFrameNames().filter(function(n){ return n !== '__BASE'; }) : [];
+                        frames = (names && names.length > 0)
+                          ? names.map(function(n){ return { key: 'ui_gem_exlight_sprite', frame: n }; })
+                          : this.anims.generateFrameNumbers('ui_gem_exlight_sprite', { start: 0, end: 15 });
+                    } catch (_) {
+                        frames = this.anims.generateFrameNumbers('ui_gem_exlight_sprite', { start: 0, end: 15 });
+                    }
+
+                    this.anims.create({
+                        key: 'ui_gem_exlight',
+                        frames: frames,
+                        frameRate: 20,
+                        repeat: 0
+                    });
+                    console.log('✅ Gem EXLight FX animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create gem EXLight FX animation:', e);
+            }
             
             progressBar.destroy();
             progressBox.destroy();
@@ -540,6 +567,20 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.log('✅ Gem light effect spritesheet loaded');
         } catch (e) {
             console.warn('Failed to load gem light effect:', e);
+        }
+
+        // Load new EXLight FX for replacing ThanosPowerGrip shader
+        try {
+            // Frame size from provided asset pack JSON
+            this.load.spritesheet('ui_gem_exlight_sprite', 'assets/images/sprites/ui_gem_exlight/ui_gem_exlight.png', {
+                frameWidth: 914,
+                frameHeight: 491
+            });
+            // Optional animation data (not required if using sequential frames)
+            try { this.load.json('ui_gem_exlight_anim_json', 'assets/images/sprites/ui_gem_exlight/ui_gem_exlight_an.json'); } catch (_) {}
+            console.log('✅ Gem EXLight FX spritesheet queued');
+        } catch (e) {
+            console.warn('Failed to queue gem EXLight FX:', e);
         }
 
         // Load thunder strike FX spritesheet for random multiplier (Scarlet Witch replacement)

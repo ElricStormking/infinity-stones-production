@@ -74,8 +74,8 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
         const container = this.scene.add.container(x, y);
         container.setDepth(window.GameConfig.UI_DEPTHS.FX);
         
-        // Use the new purple blackhole shader instead of graphics
-        this.createBlackholeShader(container);
+        // Use the new EXLight sprite animation instead of the shader
+        this.createExLightFX(container);
         
         // Animate the blackhole effect
         container.setScale(0.2);
@@ -114,66 +114,46 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             }
         });
         
-        // Add extra particle effects around the blackhole
+        // Add extra particle effects around the FX
         this.createEnhancedParticles(x, y);
         
         this.activeEffects.push(container);
     }
     
-    createBlackholeShader(container) {
+    createExLightFX(container) {
         try {
-            // Use grid cell size - get from GameConfig or use fallback
             const gridCellSize = window.GameConfig.SYMBOL_SIZE || 80;
-            const effectSize = gridCellSize * 0.9; // Increased to 90% of cell size (1.5x larger than 60%)
-            
-            console.log('🌌 Creating blackhole shader effect, grid cell size:', gridCellSize, 'effect size:', effectSize);
-            
-            // Create shader pipeline if it doesn't exist
-            if (!this.scene.game.renderer.pipelines.get('ThanosPowerGrip')) {
-                const shader = new window.ThanosPowerGripShader(this.scene.game);
-                
-                // Try different pipeline registration methods
-                if (typeof this.scene.game.renderer.addPipeline === 'function') {
-                    this.scene.game.renderer.addPipeline('ThanosPowerGrip', shader);
-                } else if (typeof this.scene.game.renderer.pipelines.add === 'function') {
-                    this.scene.game.renderer.pipelines.add('ThanosPowerGrip', shader);
-                } else if (this.scene.game.renderer.pipelines.set) {
-                    this.scene.game.renderer.pipelines.set('ThanosPowerGrip', shader);
-                } else {
-                    this.scene.game.renderer.pipelines['ThanosPowerGrip'] = shader;
-                }
-                console.log('✅ Blackhole shader pipeline created successfully');
+            // Maintain ~square fit; EXLight art is wide, so scale to fit height then clamp width
+            const targetSize = gridCellSize * 0.9;
+
+            // Use sprite-based FX
+            const sprite = this.scene.add.sprite(0, 0, 'ui_gem_exlight_sprite');
+            sprite.setOrigin(0.5, 0.5);
+            sprite.setDepth(window.GameConfig.UI_DEPTHS.FX + 10);
+            sprite.setBlendMode(Phaser.BlendModes.ADD);
+
+            // Scale to fit target height; keep aspect ratio
+            const fw = sprite.frame ? sprite.frame.width : 914;
+            const fh = sprite.frame ? sprite.frame.height : 491;
+            const scale = targetSize / fh;
+            sprite.setScale(scale * 2);
+
+            container.add(sprite);
+
+            // Play once then cleanup
+            if (this.scene.anims && this.scene.anims.exists('ui_gem_exlight')) {
+                sprite.play('ui_gem_exlight');
             }
-            
-            // Create shader quad at proper grid cell size
-            const shaderQuad = this.scene.add.image(0, 0, null);
-            shaderQuad.setDisplaySize(effectSize, effectSize);
-            shaderQuad.setOrigin(0.5);
-            
-            // Create base texture for the shader at the correct size
-            const graphics = this.scene.add.graphics();
-            graphics.fillStyle(0xffffff);
-            graphics.fillRect(0, 0, effectSize, effectSize);
-            const textureKey = `blackhole_base_${Date.now()}`;
-            graphics.generateTexture(textureKey, effectSize, effectSize);
-            graphics.destroy();
-            
-            shaderQuad.setTexture(textureKey);
-            shaderQuad.setPipeline('ThanosPowerGrip');
-            
-            // Set higher depth to ensure visibility
-            shaderQuad.setDepth(window.GameConfig.UI_DEPTHS.FX + 10);
-            
-            // Add blend mode for more dramatic effect
-            shaderQuad.setBlendMode(Phaser.BlendModes.ADD);
-            
-            container.add(shaderQuad);
-            
-            console.log('✅ Blackhole shader quad created at grid size:', effectSize);
-            
+
+            // Ensure destruction after animation (~ frames/frameRate + buffer)
+            this.scene.time.delayedCall(1200, () => {
+                try { sprite.destroy(); } catch (_) {}
+            });
+
+            console.log('✅ EXLight FX sprite created at target size:', targetSize);
         } catch (error) {
-            console.error('❌ Failed to create blackhole shader:', error);
-            // Fallback to graphics if shader fails
+            console.error('❌ Failed to create EXLight FX sprite:', error);
+            // Fallback to graphics
             this.createMagicCircleGraphics(container);
         }
     }

@@ -862,45 +862,80 @@ window.GameScene = class GameScene extends Phaser.Scene {
             }
 
             const fireOneStarTo = (target) => {
-                // Create star sprite or a small graphics circle if texture missing
+                // Create comet head (sprite) with additive glow, elongated look
                 let star;
-                if (this.textures.exists('reality_gem')) {
+                if (this.textures.exists('mind_gem')) {
+                    star = this.add.image(startX, startY, 'mind_gem');
+                    star.setScale(0.34, 0.58);
+                } else if (this.textures.exists('reality_gem')) {
                     star = this.add.image(startX, startY, 'reality_gem');
-                    star.setScale(0.25);
+                    star.setScale(0.32, 0.52);
                 } else {
                     const g = this.add.graphics({ x: startX, y: startY });
                     g.fillStyle(0xFFD700, 1);
-                    g.fillCircle(0, 0, 6);
+                    g.fillCircle(0, 0, 8);
                     star = g;
                 }
                 star.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
                 if (star.setBlendMode) star.setBlendMode(Phaser.BlendModes.ADD);
 
-                // Trail particles (optional)
+                // Trail particles (comet tail)
                 let trail;
                 try {
-                    trail = this.add.particles(startX, startY, 'mind_gem', {
-                        speed: { min: 50, max: 100 },
-                        lifespan: 300,
-                        scale: { start: 0.25, end: 0 },
-                        alpha: { start: 0.9, end: 0 },
-                        quantity: 1,
-                        frequency: 40,
+                    const trailKey = this.textures.exists('particle') ? 'particle' : (this.textures.exists('mind_gem') ? 'mind_gem' : 'reality_gem');
+                    trail = this.add.particles(startX, startY, trailKey, {
+                        speed: { min: 60, max: 120 },
+                        lifespan: 700,
+                        scale: { start: 1.1, end: 0 },
+                        alpha: { start: 1.0, end: 0 },
+                        quantity: 4,
+                        frequency: 10,
                         gravityY: 0,
+                        tint: [0xFFFFFF, 0xFFF2B6, 0xD6ECFF],
+                        angle: { min: -10, max: 10 },
                         blendMode: 'ADD'
                     });
                     trail.setDepth((window.GameConfig.UI_DEPTHS.FX_UNDERLAY || 2400));
                 } catch (_) {}
 
-                // Arc-like tween control points
-                const ctrlX = (startX + target.pos.x) / 2 + Phaser.Math.Between(-80, 80);
-                const ctrlY = Math.min(startY, target.pos.y) - Phaser.Math.Between(60, 140);
-                const duration = 550;
+                // Ribbon trail (drawn) to emphasize comet tail
+                const ribbon = this.add.graphics();
+                ribbon.setBlendMode(Phaser.BlendModes.ADD);
+                ribbon.setDepth((window.GameConfig.UI_DEPTHS.FX_UNDERLAY || 2400) + 1);
+                const ribbonPoints = [];
+
+                // Arc-like tween control points (slightly randomized arc)
+                const ctrlX = (startX + target.pos.x) / 2 + Phaser.Math.Between(-60, 60);
+                const ctrlY = Math.min(startY, target.pos.y) - Phaser.Math.Between(80, 160);
+                const duration = 380; // faster comet
+
+                // Keep previous position to orient the comet and tail
+                let prevX = startX, prevY = startY;
                 const updatePos = (t) => {
                     const x = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * ctrlX + t * t * target.pos.x;
                     const y = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * ctrlY + t * t * target.pos.y;
+                    const dx = x - prevX;
+                    const dy = y - prevY;
+                    const ang = Math.atan2(dy, dx);
                     if (star.setPosition) star.setPosition(x, y); else { star.x = x; star.y = y; }
-                    if (trail) trail.setPosition(x, y);
+                    if (star.setRotation) star.setRotation(ang);
+                    if (trail) {
+                        trail.setPosition(x, y);
+                        try { trail.setAngle(Phaser.Math.RadToDeg(ang) + 180); } catch (_) {}
+                    }
+                    // Update ribbon tail
+                    ribbonPoints.push({ x, y });
+                    if (ribbonPoints.length > 18) ribbonPoints.shift();
+                    ribbon.clear();
+                    for (let i = ribbonPoints.length - 1, j = 0; i >= 0; i--, j++) {
+                        const p = ribbonPoints[i];
+                        const tFade = ribbonPoints.length > 1 ? (j / (ribbonPoints.length - 1)) : 0;
+                        const radius = Math.max(1, 12 * (1 - tFade));
+                        const alpha = 0.35 * (1 - tFade);
+                        ribbon.fillStyle(0xFFF8D0, alpha);
+                        ribbon.fillCircle(p.x, p.y, radius);
+                    }
+                    prevX = x; prevY = y;
                 };
 
                 let elapsed = 0;
@@ -912,6 +947,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         this.events.off('update', onUpdate);
                         if (star.destroy) star.destroy(); else if (star.clear) star.clear();
                         if (trail) { try { trail.destroy(); } catch (_) {} }
+                        try { ribbon.destroy(); } catch (_) {}
 
                         if (target.type === 'plaque') {
                             // Base game or FS: update plaque formula sum ONLY on arrival
@@ -920,10 +956,27 @@ window.GameScene = class GameScene extends Phaser.Scene {
                             const base = Math.max(0, this.baseWinForFormula || 0);
                             const shownFinal = this.totalWin;
                             this.uiManager.setWinFormula(base, this.spinAccumulatedRM, shownFinal);
+
+                            // Impact pulse on plaque text
+                            const text = this.uiManager && this.uiManager.winTopText;
+                            if (text) {
+                                const ox = text.originalScaleX || text.scaleX || 1;
+                                const oy = text.originalScaleY || text.scaleY || 1;
+                                text.setScale(ox, oy);
+                                this.tweens.add({ targets: text, scaleX: ox * 1.25, scaleY: oy * 1.25, duration: 140, yoyo: true, ease: 'Back.out' });
+                            }
                         } else if (target.type === 'fsAccum') {
                             // Free Spins: increment the visible accumulator ONLY on arrival
                             this.stateManager.accumulateMultiplier(multiplierValue);
                             this.uiManager.updateAccumulatedMultiplierDisplay();
+                            // Impact pulse on FS accumulated multiplier text
+                            const aText = this.uiManager && this.uiManager.accumulatedMultiplierText;
+                            if (aText) {
+                                const ox = aText.originalScaleX || aText.scaleX || 1;
+                                const oy = aText.originalScaleY || aText.scaleY || 1;
+                                aText.setScale(ox, oy);
+                                this.tweens.add({ targets: aText, scaleX: ox * 1.3, scaleY: oy * 1.3, duration: 140, yoyo: true, ease: 'Back.out' });
+                            }
                             this.fsPendingRMStars = Math.max(0, (this.fsPendingRMStars || 0) - 1);
                             if ((this.fsPendingRMStars || 0) === 0) {
                                 const fsMult = Math.max(1, (this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.multiplierAccumulator) || 1);
@@ -933,19 +986,22 @@ window.GameScene = class GameScene extends Phaser.Scene {
                             }
                         }
 
-                        // Tiny sparkle at target
+                        // Impact burst at target
                         try {
-                            const spark = this.add.particles(target.pos.x, target.pos.y, 'space_gem', {
-                                speed: { min: 60, max: 140 },
-                                scale: { start: 0.25, end: 0 },
-                                lifespan: 300,
-                                quantity: 8,
+                            const burst = this.add.particles(target.pos.x, target.pos.y, (this.textures.exists('particle') ? 'particle' : 'space_gem'), {
+                                speed: { min: 160, max: 320 },
+                                lifespan: 500,
+                                scale: { start: 0.7, end: 0 },
+                                quantity: 20,
                                 angle: { min: 0, max: 360 },
                                 blendMode: 'ADD'
                             });
-                            spark.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
-                            this.time.delayedCall(350, () => { try { spark.destroy(); } catch (_) {} });
+                            burst.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
+                            this.time.delayedCall(420, () => { try { burst.destroy(); } catch (_) {} });
                         } catch (_) {}
+
+                        // Softer camera shake to sell the impact
+                        try { this.cameras.main.shake(70, 0.0035); } catch (_) {}
                     }
                 };
                 this.events.on('update', onUpdate);

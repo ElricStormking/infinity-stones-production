@@ -1193,144 +1193,49 @@ window.BurstModeManager = class BurstModeManager {
     
     createLightningExplosion() {
         if (!this.blackholeEffect) return;
-        
         try {
-            // Create lightning explosion effect at the blackhole center
             const x = this.blackholeEffect.x;
             const y = this.blackholeEffect.y;
-            const width = this.scene.cameras.main.width;
-            const height = this.scene.cameras.main.height;
-            
-            // Create a simple particle-based lightning effect instead of shader
-            // This avoids shader compilation issues
-            
-            // Create lightning ring sprites
-            const numRings = 3;
-            for (let i = 0; i < numRings; i++) {
-                const ring = this.scene.add.graphics();
-                ring.lineStyle(5 - i, 0xFF00FF, 1); // Purple color with increased thickness
-                
-                const startRadius = 20;
-                const endRadius = 200 + i * 50;
-                
-                // Draw initial small circle
-                ring.strokeCircle(0, 0, startRadius);
-                ring.setPosition(x, y);
-                ring.setDepth(2011 + i);
-                ring.setAlpha(0);
-                this.burstModeUI.add(ring);
-                
-                // Animate the ring expansion
-                this.scene.tweens.add({
-                    targets: ring,
-                    alpha: 1,
-                    duration: 100,
-                    delay: i * 50,
-                    ease: 'Power2'
-                });
-                
-                // Expand and fade
-                this.scene.tweens.add({
-                    targets: ring,
-                    scaleX: endRadius / startRadius,
-                    scaleY: endRadius / startRadius,
-                    alpha: 0,
-                    duration: 600 + i * 100,
-                    delay: i * 50,
-                    ease: 'Cubic.Out',
-                    onComplete: () => ring.destroy()
-                });
+
+            // Ensure WebGL and pipeline
+            if (!this.scene.game.renderer || this.scene.game.renderer.type !== Phaser.WEBGL) {
+                console.warn('LightningCircleExplosion requires WebGL; skipping.');
+                return;
             }
-            
-            // Create lightning bolts radiating outward
-            const numBolts = 8;
-            for (let i = 0; i < numBolts; i++) {
-                const angle = (i / numBolts) * Math.PI * 2;
-                const bolt = this.scene.add.graphics();
-                
-                // Draw jagged lightning line with increased thickness
-                bolt.lineStyle(6, 0xFFFFFF, 1);
-                bolt.beginPath();
-                bolt.moveTo(0, 0);
-                
-                const segments = 5;
-                const length = 150;
-                for (let j = 1; j <= segments; j++) {
-                    const segLength = (length / segments) * j;
-                    const offsetX = (Math.random() - 0.5) * 20;
-                    const offsetY = (Math.random() - 0.5) * 20;
-                    const boltX = Math.cos(angle) * segLength + offsetX;
-                    const boltY = Math.sin(angle) * segLength + offsetY;
-                    bolt.lineTo(boltX, boltY);
-                }
-                
-                bolt.strokePath();
-                bolt.setPosition(x, y);
-                bolt.setDepth(2012);
-                bolt.setAlpha(0);
-                bolt.setBlendMode(Phaser.BlendModes.ADD);
-                this.burstModeUI.add(bolt);
-                
-                // Animate the bolt
-                this.scene.tweens.add({
-                    targets: bolt,
-                    alpha: 1,
-                    duration: 50,
-                    ease: 'Power2'
-                });
-                
-                this.scene.tweens.add({
-                    targets: bolt,
-                    alpha: 0,
-                    scaleX: 1.5,
-                    scaleY: 1.5,
-                    duration: 300,
-                    delay: 50,
-                    ease: 'Power2',
-                    onComplete: () => bolt.destroy()
-                });
+            const pipelines = this.scene.game.renderer.pipelines || this.scene.game.renderer;
+            const existing = pipelines.get ? pipelines.get('LightningCircleExplosion') : (pipelines.getPipeline ? pipelines.getPipeline('LightningCircleExplosion') : null);
+            if (!existing) {
+                window.createLightningCircleExplosionShader && window.createLightningCircleExplosionShader(this.scene);
             }
-            
-            // Create purple particle explosions
-            const numParticles = 20;
-            for (let i = 0; i < numParticles; i++) {
-                const particle = this.scene.add.circle(
-                    x + (Math.random() - 0.5) * 50,
-                    y + (Math.random() - 0.5) * 50,
-                    3 + Math.random() * 5,
-                    0xFF00FF
-                );
-                particle.setDepth(2013);
-                particle.setAlpha(0);
-                particle.setBlendMode(Phaser.BlendModes.ADD);
-                this.burstModeUI.add(particle);
-                
-                const destX = x + (Math.random() - 0.5) * 400;
-                const destY = y + (Math.random() - 0.5) * 400;
-                
-                // Animate particle
-                this.scene.tweens.add({
-                    targets: particle,
-                    alpha: 1,
-                    duration: 100,
-                    ease: 'Power2'
-                });
-                
-                this.scene.tweens.add({
-                    targets: particle,
-                    x: destX,
-                    y: destY,
-                    alpha: 0,
-                    duration: 500 + Math.random() * 300,
-                    delay: Math.random() * 100,
-                    ease: 'Cubic.Out',
-                    onComplete: () => particle.destroy()
-                });
+
+            // Create a quad at the explosion center using the pipeline
+            const size = 400;
+            const quad = this.scene.add.graphics();
+            quad.fillStyle(0x000000, 0.0);
+            quad.fillRect(-size / 2, -size / 2, size, size);
+            quad.setPosition(x, y);
+            quad.setDepth(2013);
+            quad.setBlendMode(Phaser.BlendModes.ADD);
+            quad.setPipeline('LightningCircleExplosion');
+            this.burstModeUI.add(quad);
+
+            // Mask the quad with the same circular bitmap mask used by the blackhole
+            if (this.blackholeMask && this.blackholeMask.createBitmapMask) {
+                const circleMask = this.blackholeMask.createBitmapMask();
+                quad.setMask(circleMask);
             }
-            
-            // Play thunder sound if available
+
+            // Animate a quick pulse fade-out
+            quad.setAlpha(1);
+            this.scene.tweens.add({
+                targets: quad,
+                alpha: 0,
+                duration: 600,
+                ease: 'Cubic.Out',
+                onComplete: () => quad.destroy()
+            });
+
             window.SafeSound.play(this.scene, 'ui_gem_thunder');
-            
         } catch (error) {
             console.error('Failed to create lightning explosion:', error);
         }

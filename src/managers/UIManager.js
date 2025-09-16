@@ -3,6 +3,8 @@ window.UIManager = class UIManager {
     constructor(scene) {
         this.scene = scene;
         this.uiElements = {};
+        // Avoid dimming the Free Spins purchase button before wallet/balance is ready
+        this.purchaseAffordabilityReady = false;
         
         // Initialize wallet integration
         this.initializeWalletIntegration();
@@ -150,7 +152,7 @@ window.UIManager = class UIManager {
             console.log(`Scarlet Witch setup - Idle animation exists: ${hasIdleAnimation}, Attack animation exists: ${hasAttackAnimation}, First frame exists: ${hasFirstFrame}`);
             
             if (hasIdleAnimation && hasFirstFrame) {
-                this.portrait_scarlet_witch = this.scene.add.sprite(1123 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
+                this.portrait_scarlet_witch = this.scene.add.sprite(1153 * scaleX, 320 * scaleY, 'redwitch-idle2_32');
                 this.portrait_scarlet_witch.setScale(0.4464 * scaleX * 1.05, 0.4464 * scaleY * 1.05);
                 this.portrait_scarlet_witch.setDepth(window.GameConfig.UI_DEPTHS.PORTRAIT);
                 
@@ -546,6 +548,9 @@ window.UIManager = class UIManager {
         if (this.ui_freegame_purchase) {
             this.ui_freegame_purchase.setDepth(window.GameConfig.UI_DEPTHS.BUTTON);
             setupSmallButton(this.ui_freegame_purchase);
+            // Ensure fully opaque on initial scene create
+            this.ui_freegame_purchase.setAlpha(1.0);
+            this.ui_freegame_purchase.clearTint && this.ui_freegame_purchase.clearTint();
             
             this.ui_freegame_purchase.on('pointerup', () => {
                 // Reset visual state
@@ -844,21 +849,31 @@ window.UIManager = class UIManager {
     createTextOverlays(scaleX, scaleY) {
         // Text overlays for values - initialize with server balance if available
         const initialBalance = window.WalletAPI ? window.WalletAPI.getCurrentBalance() : this.scene.stateManager.gameData.balance;
-        this.balanceText = this.scene.add.text(250 * scaleX, 675 * scaleY, `$${initialBalance.toFixed(2)}`, {
-            fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
-            fontFamily: 'Arial Bold',
-            color: '#FFD700',
-            align: 'center'
-        });
+        {
+            const fs = Math.floor(24 * Math.min(scaleX, scaleY));
+            this.balanceText = this.scene.add.text(250 * scaleX, 675 * scaleY, `$${initialBalance.toFixed(2)}`, {
+                fontSize: fs + 'px',
+                fontFamily: 'Arial Black',
+                color: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: Math.max(3, Math.floor(fs * 0.18)),
+                align: 'center'
+            });
+        }
         this.balanceText.setOrigin(0.5);
         this.balanceText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
         
-        this.winText = this.scene.add.text(561 * scaleX, 675 * scaleY, '$0.00', {
-            fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
-            fontFamily: 'Arial Bold',
-            color: '#00FF00',
-            align: 'center'
-        });
+        {
+            const fs = Math.floor(24 * Math.min(scaleX, scaleY));
+            this.winText = this.scene.add.text(561 * scaleX, 675 * scaleY, '$0.00', {
+                fontSize: fs + 'px',
+                fontFamily: 'Arial Black',
+                color: '#00FF00',
+                stroke: '#000000',
+                strokeThickness: Math.max(3, Math.floor(fs * 0.18)),
+                align: 'center'
+            });
+        }
         this.winText.setOrigin(0.5);
         this.winText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
 
@@ -904,12 +919,17 @@ window.UIManager = class UIManager {
             });
         }
         
-        this.betText = this.scene.add.text(931 * scaleX, 675 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
-            fontSize: Math.floor(18 * Math.min(scaleX, scaleY)) + 'px',
-            fontFamily: 'Arial Bold',
-            color: '#FFFFFF',
-            align: 'center'
-        });
+        {
+            const fs = Math.floor(24 * Math.min(scaleX, scaleY));
+            this.betText = this.scene.add.text(931 * scaleX, 675 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
+                fontSize: fs + 'px',
+                fontFamily: 'Arial Black',
+                color: '#FFFFFF',
+                stroke: '#000000',
+                strokeThickness: Math.max(3, Math.floor(fs * 0.18)),
+                align: 'center'
+            });
+        }
         this.betText.setOrigin(0.5);
         this.betText.setDepth(window.GameConfig.UI_DEPTHS.TEXT_OVERLAY);
         
@@ -1091,9 +1111,15 @@ window.UIManager = class UIManager {
                 await window.WalletAPI.getBalance();
                 this.updateBalanceFromServer();
                 console.log('✅ Wallet UI initialized with server balance');
+                // Now affordability checks are reliable
+                this.purchaseAffordabilityReady = true;
+                // Re-evaluate purchase button once wallet is ready
+                this.updatePurchaseButtonCost();
             } catch (error) {
                 console.warn('⚠️ Failed to initialize wallet balance from server:', error);
                 this.handleWalletError({ error: 'Failed to connect to wallet service' });
+                // Still allow gameplay but don't dim purchase button
+                this.purchaseAffordabilityReady = false;
             }
         }
     }
@@ -1260,20 +1286,32 @@ window.UIManager = class UIManager {
             }
             
             // Create or update free spins text overlay
+            const width = this.scene.cameras.main.width;
+            const height = this.scene.cameras.main.height;
+            const scaleX = width / 1280;
+            const scaleY = height / 720;
+            const fsPlaque = Math.floor(18 * Math.min(scaleX, scaleY));
             if (!this.freeSpinsText) {
-                const width = this.scene.cameras.main.width;
-                const height = this.scene.cameras.main.height;
-                const scaleX = width / 1280;
-                const scaleY = height / 720;
-                
                 this.freeSpinsText = this.scene.add.text(168 * scaleX, 549 * scaleY, '', {
-                    fontSize: Math.floor(16 * Math.min(scaleX, scaleY)) + 'px',
-                    fontFamily: 'Arial Bold',
+                    fontSize: fsPlaque + 'px',
+                    fontFamily: 'Arial Black',
                     color: '#FFD700',
+                    stroke: '#000000',
+                    strokeThickness: Math.max(3, Math.floor(fsPlaque * 0.18)),
                     align: 'center'
                 });
                 this.freeSpinsText.setOrigin(0.5);
                 this.freeSpinsText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 1);
+            } else {
+                // Ensure style matches plaque font each time FS UI is shown
+                this.freeSpinsText.setStyle({
+                    fontSize: fsPlaque + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFD700',
+                    stroke: '#000000',
+                    strokeThickness: Math.max(3, Math.floor(fsPlaque * 0.18)),
+                    align: 'center'
+                });
             }
             
             this.freeSpinsText.setText(`FREE SPINS: ${freeSpinsData.count}`);
@@ -1420,6 +1458,15 @@ window.UIManager = class UIManager {
                 if (this.ui_freegame_purchase_text) this.ui_freegame_purchase_text.setVisible(false);
                 return;
             }
+            // If affordability not ready yet, ensure fully opaque and skip dimming logic
+            if (!this.purchaseAffordabilityReady) {
+                this.ui_freegame_purchase.setAlpha(1.0);
+                this.ui_freegame_purchase.clearTint && this.ui_freegame_purchase.clearTint();
+                if (this.ui_freegame_purchase_text) {
+                    this.ui_freegame_purchase_text.setVisible(true);
+                }
+                return;
+            }
             const bet = (this.scene && this.scene.stateManager && this.scene.stateManager.gameData)
                 ? this.scene.stateManager.gameData.currentBet
                 : 0;
@@ -1428,8 +1475,19 @@ window.UIManager = class UIManager {
                 : 100;
             const cost = bet * costMult;
             
-            // Check if player can afford the purchase using server balance
-            const canAfford = window.WalletAPI ? window.WalletAPI.canAffordBet(cost) : true;
+            // Check if player can afford the purchase using a safe, non-dimming default during init
+            let canAfford = true;
+            try {
+                if (window.WalletAPI && typeof window.WalletAPI.getCurrentBalance === 'function') {
+                    const balance = Number(window.WalletAPI.getCurrentBalance());
+                    if (!Number.isNaN(balance)) {
+                        canAfford = balance >= cost;
+                    }
+                }
+            } catch (_) {
+                // Default to true until wallet is ready to avoid half-transparent on load
+                canAfford = true;
+            }
             
             if (this.ui_freegame_purchase_text) {
                 this.ui_freegame_purchase_text.setText(`$${cost.toFixed(2)}`);
