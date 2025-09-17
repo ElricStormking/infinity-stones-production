@@ -269,7 +269,8 @@ window.BurstModeManager = class BurstModeManager {
         // Center feed that shows only winning spins (exciting style)
         // Move the winning-only feed up by 130px (scaled)
         this.burstWinsContainer = this.scene.add.container(width / 2, height / 2 - 150 * scaleY);
-        this.burstWinsContainer.setDepth(2005);
+        // Ensure win text appears above shader FX
+        this.burstWinsContainer.setDepth(3000);
         this.burstModeUI.add(this.burstWinsContainer);
         
         // Add game logo at upper-right corner
@@ -1058,6 +1059,7 @@ window.BurstModeManager = class BurstModeManager {
         text.setScale(0.6);
         text.setAlpha(0);
         this.burstWinsContainer.add(text);
+        text.setDepth(3001);
 
         // Animate: pop-in, slight float up, then fade out
         this.scene.tweens.add({
@@ -1210,20 +1212,39 @@ window.BurstModeManager = class BurstModeManager {
 
             // Create a quad at the explosion center using the pipeline
             const size = 400;
-            const quad = this.scene.add.graphics();
-            quad.fillStyle(0x000000, 0.0);
-            quad.fillRect(-size / 2, -size / 2, size, size);
+            // Use an ellipse GameObject so its bounds are circular and do not introduce a rectangular alpha box
+            const quad = this.scene.add.ellipse(0, 0, size, size, 0x000000, 0);
             quad.setPosition(x, y);
             quad.setDepth(2013);
             quad.setBlendMode(Phaser.BlendModes.ADD);
             quad.setPipeline('LightningCircleExplosion');
             this.burstModeUI.add(quad);
 
-            // Mask the quad with the same circular bitmap mask used by the blackhole
-            if (this.blackholeMask && this.blackholeMask.createBitmapMask) {
-                const circleMask = this.blackholeMask.createBitmapMask();
+            // Create a soft circular bitmap mask with half-transparent edge for the explosion FX
+            let explosionMaskImage = null;
+            try {
+                const maskSize = Math.max(64, Math.round(this.blackholeMask ? this.blackholeMask.width : size));
+                const maskKey = `explosion_mask_${Math.floor(Math.random() * 1e9)}`;
+                const maskCanvas = this.scene.textures.createCanvas(maskKey, maskSize, maskSize);
+                const ctx = maskCanvas.getContext();
+                const cx = maskSize / 2;
+                const cy = maskSize / 2;
+                const radius = maskSize / 2;
+                const softEdge = Math.max(8, radius * 0.3);
+                const gradient = ctx.createRadialGradient(cx, cy, Math.max(0, radius - softEdge), cx, cy, radius);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');     // fully opaque center
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');     // fully transparent edge to avoid square border
+                ctx.clearRect(0, 0, maskSize, maskSize);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, maskSize, maskSize);
+                maskCanvas.refresh();
+                explosionMaskImage = this.scene.add.image(x, y, maskKey);
+                explosionMaskImage.setOrigin(0.5, 0.5);
+                explosionMaskImage.setVisible(false);
+                const circleMask = explosionMaskImage.createBitmapMask();
                 quad.setMask(circleMask);
-            }
+                this.burstModeUI.add(explosionMaskImage);
+            } catch (_) {}
 
             // Animate a quick pulse fade-out
             quad.setAlpha(1);
@@ -1232,7 +1253,10 @@ window.BurstModeManager = class BurstModeManager {
                 alpha: 0,
                 duration: 600,
                 ease: 'Cubic.Out',
-                onComplete: () => quad.destroy()
+                onComplete: () => {
+                    try { quad.destroy(); } catch (_) {}
+                    try { if (explosionMaskImage) explosionMaskImage.destroy(); } catch (_) {}
+                }
             });
 
             window.SafeSound.play(this.scene, 'ui_gem_thunder');

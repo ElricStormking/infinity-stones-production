@@ -92,7 +92,7 @@ window.LightningCircleExplosion = class LightningCircleExplosion extends Phaser.
         this.set2f('center', cx, cy);
         // Match BlackholeShader's internal center offset (relative to height)
         // Values chosen to align visually with black hole FX
-        this.set2f('centerOffsetNorm', 0.04, 0.18);
+        this.set2f('centerOffsetNorm', 0.02, -0.09);
     }
 };
 

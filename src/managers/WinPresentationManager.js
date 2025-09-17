@@ -124,10 +124,10 @@ window.WinPresentationManager = class WinPresentationManager {
             const soundMap = {
                 SMALL: 'kaching',
                 MEDIUM: 'kaching',
-                BIG: 'bonus',
-                MEGA: 'bonus',
-                EPIC: 'bonus',
-                LEGENDARY: 'bonus'
+                BIG: 'kaching2',
+                MEGA: 'kaching3',
+                EPIC: 'kaching3',
+                LEGENDARY: 'kaching3'
             };
             window.SafeSound.play(this.scene, soundMap[winCategory.key] || 'kaching');
             
