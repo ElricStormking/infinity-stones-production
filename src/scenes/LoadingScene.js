@@ -239,6 +239,29 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 console.warn('Failed to create gem EXLight FX animation:', e);
             }
             
+            // Create burst thunder animation if spritesheet loaded
+            try {
+                if (this.textures && this.textures.exists('burst_thunder_sprite') && !this.anims.exists('burst_thunder')) {
+                    let frames;
+                    try {
+                        const tex = this.textures.get('burst_thunder_sprite');
+                        const frameTotal = (tex && typeof tex.frameTotal === 'number') ? Math.max(0, tex.frameTotal - 1) : 15;
+                        frames = this.anims.generateFrameNumbers('burst_thunder_sprite', { start: 0, end: frameTotal });
+                    } catch (_) {
+                        frames = this.anims.generateFrameNumbers('burst_thunder_sprite', { start: 0, end: 15 });
+                    }
+                    this.anims.create({
+                        key: 'burst_thunder',
+                        frames: frames,
+                        frameRate: 20,
+                        repeat: 0
+                    });
+                    console.log('✅ Burst thunder animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create burst thunder animation:', e);
+            }
+            
             progressBar.destroy();
             progressBox.destroy();
             loadingText.destroy();
@@ -396,6 +419,16 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         } catch (e) {
             // Non-fatal: keep static fallback
             console.warn('Failed to queue fg_redwitch animated assets:', e);
+        }
+        // Load new burst thunder FX spritesheet
+        try {
+            this.load.spritesheet('burst_thunder_sprite', 'assets/images/sprites/burst_thunder/burst_thunder.png', {
+                frameWidth: 1339,
+                frameHeight: 1120
+            });
+            try { this.load.json('burst_thunder_anim_json', 'assets/images/sprites/burst_thunder/burst_thunder_an.json'); } catch (_) {}
+        } catch (e) {
+            console.warn('Failed to queue burst thunder spritesheet:', e);
         }
         // Settings UI assets (moved to sidemenu_UI)
         this.loadImageWithFallback('settings_ui_bg', 'assets/images/sidemenu_UI/sidemenu_bg.png', 0x111111);

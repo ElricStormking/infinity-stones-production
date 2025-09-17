@@ -1,0 +1,174 @@
+{
+    "anims": [
+        {
+            "key": "burst_thunder",
+            "type": "frame",
+            "frames": [
+                {
+                    "key": "burst_thunder",
+                    "frame": 0,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 1,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 2,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 3,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 4,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 5,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 6,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 7,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 8,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 9,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 10,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 11,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 12,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 13,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 14,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 15,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 16,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 17,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 18,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 19,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 20,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 21,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 22,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 23,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "burst_thunder",
+                    "frame": 24,
+                    "duration": 0,
+                    "keyframe": false
+                }
+            ],
+            "frameRate": 30,
+            "skipMissedFrames": true,
+            "repeat": -1,
+            "randomFrame": false
+        }
+    ],
+    "globalTimeScale": 1,
+    "meta": {
+        "app": "Phaser Editor 2D v3",
+        "contentType": "Phaser v3 Animations"
+    },
+    "settings": {
+        "sourceLang": "JAVA_SCRIPT",
+        "esModule": false,
+        "generateCode": false
+    }
+}

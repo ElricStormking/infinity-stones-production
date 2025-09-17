@@ -1199,31 +1199,20 @@ window.BurstModeManager = class BurstModeManager {
             const x = this.blackholeEffect.x;
             const y = this.blackholeEffect.y;
 
-            // Ensure WebGL and pipeline
-            if (!this.scene.game.renderer || this.scene.game.renderer.type !== Phaser.WEBGL) {
-                console.warn('LightningCircleExplosion requires WebGL; skipping.');
-                return;
-            }
-            const pipelines = this.scene.game.renderer.pipelines || this.scene.game.renderer;
-            const existing = pipelines.get ? pipelines.get('LightningCircleExplosion') : (pipelines.getPipeline ? pipelines.getPipeline('LightningCircleExplosion') : null);
-            if (!existing) {
-                window.createLightningCircleExplosionShader && window.createLightningCircleExplosionShader(this.scene);
-            }
-
-            // Create a quad at the explosion center using the pipeline
+            // Sprite-based burst thunder explosion (replaces shader)
             const size = 400;
-            // Use an ellipse GameObject so its bounds are circular and do not introduce a rectangular alpha box
-            const quad = this.scene.add.ellipse(0, 0, size, size, 0x000000, 0);
-            quad.setPosition(x, y);
-            quad.setDepth(2013);
-            quad.setBlendMode(Phaser.BlendModes.ADD);
-            quad.setPipeline('LightningCircleExplosion');
-            this.burstModeUI.add(quad);
+            const offsetY = 32; // move center visually toward bottom by 20px
+            const thunderY = y + offsetY;
+            const thunder = this.scene.add.sprite(x, thunderY, 'burst_thunder_sprite', 0);
+            thunder.setOrigin(0.5);
+            thunder.setDepth(2013);
+            thunder.setBlendMode(Phaser.BlendModes.ADD);
+            this.burstModeUI.add(thunder);
 
-            // Create a soft circular bitmap mask with half-transparent edge for the explosion FX
+            // Create a soft circular bitmap mask for the thunder sprite
             let explosionMaskImage = null;
             try {
-                const maskSize = Math.max(64, Math.round(this.blackholeMask ? this.blackholeMask.width : size));
+                const maskSize = Math.max(64, Math.round(size));
                 const maskKey = `explosion_mask_${Math.floor(Math.random() * 1e9)}`;
                 const maskCanvas = this.scene.textures.createCanvas(maskKey, maskSize, maskSize);
                 const ctx = maskCanvas.getContext();
@@ -1232,29 +1221,32 @@ window.BurstModeManager = class BurstModeManager {
                 const radius = maskSize / 2;
                 const softEdge = Math.max(8, radius * 0.3);
                 const gradient = ctx.createRadialGradient(cx, cy, Math.max(0, radius - softEdge), cx, cy, radius);
-                gradient.addColorStop(0, 'rgba(255,255,255,1)');     // fully opaque center
-                gradient.addColorStop(1, 'rgba(255,255,255,0)');     // fully transparent edge to avoid square border
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.clearRect(0, 0, maskSize, maskSize);
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, maskSize, maskSize);
                 maskCanvas.refresh();
-                explosionMaskImage = this.scene.add.image(x, y, maskKey);
+                explosionMaskImage = this.scene.add.image(x, thunderY, maskKey);
                 explosionMaskImage.setOrigin(0.5, 0.5);
                 explosionMaskImage.setVisible(false);
                 const circleMask = explosionMaskImage.createBitmapMask();
-                quad.setMask(circleMask);
+                thunder.setMask(circleMask);
                 this.burstModeUI.add(explosionMaskImage);
             } catch (_) {}
 
-            // Animate a quick pulse fade-out
-            quad.setAlpha(1);
+            // Play the animation and clean up
+            if (this.scene.anims.exists('burst_thunder')) {
+                thunder.play('burst_thunder');
+            }
             this.scene.tweens.add({
-                targets: quad,
+                targets: thunder,
                 alpha: 0,
-                duration: 600,
+                duration: 700,
+                delay: 300,
                 ease: 'Cubic.Out',
                 onComplete: () => {
-                    try { quad.destroy(); } catch (_) {}
+                    try { thunder.destroy(); } catch (_) {}
                     try { if (explosionMaskImage) explosionMaskImage.destroy(); } catch (_) {}
                 }
             });
