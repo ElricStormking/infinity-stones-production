@@ -1,0 +1,360 @@
+✓ Initialized model: Player
+✓ Initialized model: Session
+✓ Initialized model: GameState
+✓ Initialized model: SpinResult
+✓ Initialized model: Transaction
+✓ Initialized model: Jackpot
+✓ Initialized model: JackpotContribution
+✓ Initialized model: AdminLog
+✓ Initialized model: RTPMetrics
+✓ Associated model: Player
+✓ Associated model: Session
+✓ Associated model: GameState
+✓ Associated model: SpinResult
+✓ Associated model: Transaction
+✓ Associated model: Jackpot
+✓ Associated model: JackpotContribution
+✓ Associated model: AdminLog
+✓ All 9 models initialized and associated successfully
+AntiCheat: Redis connection established
+AntiCheat: Redis connection established
+[dotenv@17.1.0] injecting env (19) from .env (tip: ⚙️  suppress all logs with { quiet: true })
+Metrics collection started
+[dotenv@17.1.0] injecting env (0) from .env (tip: 🔐 encrypt with dotenvx: https://dotenvx.com)
+⚠️  Redis disabled - using fallback authentication
+🎰 Infinity Storm Server running on port 3000
+🌐 Client URL: http://localhost:3000
+📡 WebSocket server ready
+🎮 Game available at: http://localhost:3000
+🔐 Authentication system active
+🏛️ Admin panel available at: http://localhost:3000/admin
+📡 Real-time metrics broadcasting started
+AuditLogger: Initialized successfully
+AuditLogger: Initialized successfully
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+::1 - - [11/Sep/2025:10:05:09 +0000] "GET /healthz HTTP/1.1" 200 11 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; zh-TW) WindowsPowerShell/5.1.26100.4768"
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+AuditLogger: Flushed 1 log entries in 2ms
+AuditLogger: Flushed 1 log entries in 3ms
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...
+Connected to Redis server
+Redis connection closed
+Reconnecting to Redis...

@@ -1,5 +1,24 @@
 const Redis = require('ioredis');
 
+// Quick bypass for local playtest: completely skip Redis when requested
+if (process.env.SKIP_REDIS === 'true') {
+  const noopClient = {
+    on: () => {},
+    quit: async () => {},
+    ping: async () => 'PONG'
+  };
+  const noopStore = () => ({ /* no session store when skipping redis */ });
+  module.exports = {
+    initializeRedis: () => null,
+    getRedisClient: () => noopClient,
+    closeRedis: async () => {},
+    testConnection: async () => false,
+    getSessionStore: noopStore,
+    config: {}
+  };
+  return;
+}
+
 /**
  * Redis Configuration
  * Handles Redis connection and configuration for sessions and caching

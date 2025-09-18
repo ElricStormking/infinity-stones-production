@@ -4,8 +4,8 @@
   "description": "Infinity Storm - Marvel themed casino slot game with Candy Crush mechanics",
   "main": "src/main.js",
   "scripts": {
-    "start": "http-server -c-1 -p 3000 -o",
-    "dev": "http-server -c-1 -p 3000 -o",
+    "start": "http-server -c-1 -p 3001 -o",
+    "dev": "http-server -c-1 -p 3001 -o",
     "test:integration": "node tests/integration/runIntegrationTests.js",
     "test:integration:client": "cd tests/integration && npm run test:client",
     "test:integration:server": "cd tests/integration && npm run test:server",
