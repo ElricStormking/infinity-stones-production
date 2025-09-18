@@ -1201,39 +1201,17 @@ window.BurstModeManager = class BurstModeManager {
 
             // Sprite-based burst thunder explosion (replaces shader)
             const size = 400;
-            const offsetY = 32; // move center visually toward bottom by 20px
+            const offsetY = 100; // move center visually toward bottom by 20px
             const thunderY = y + offsetY;
-            const thunder = this.scene.add.sprite(x, thunderY, 'burst_thunder_sprite', 0);
+            const thunderX = x + 30; // shift to the right by 30px
+            const thunder = this.scene.add.sprite(thunderX, thunderY, 'burst_thunder_sprite', 0);
             thunder.setOrigin(0.5);
             thunder.setDepth(2013);
             thunder.setBlendMode(Phaser.BlendModes.ADD);
+            thunder.setScale(1.5);
             this.burstModeUI.add(thunder);
 
-            // Create a soft circular bitmap mask for the thunder sprite
-            let explosionMaskImage = null;
-            try {
-                const maskSize = Math.max(64, Math.round(size));
-                const maskKey = `explosion_mask_${Math.floor(Math.random() * 1e9)}`;
-                const maskCanvas = this.scene.textures.createCanvas(maskKey, maskSize, maskSize);
-                const ctx = maskCanvas.getContext();
-                const cx = maskSize / 2;
-                const cy = maskSize / 2;
-                const radius = maskSize / 2;
-                const softEdge = Math.max(8, radius * 0.3);
-                const gradient = ctx.createRadialGradient(cx, cy, Math.max(0, radius - softEdge), cx, cy, radius);
-                gradient.addColorStop(0, 'rgba(255,255,255,1)');
-                gradient.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.clearRect(0, 0, maskSize, maskSize);
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, maskSize, maskSize);
-                maskCanvas.refresh();
-                explosionMaskImage = this.scene.add.image(x, thunderY, maskKey);
-                explosionMaskImage.setOrigin(0.5, 0.5);
-                explosionMaskImage.setVisible(false);
-                const circleMask = explosionMaskImage.createBitmapMask();
-                thunder.setMask(circleMask);
-                this.burstModeUI.add(explosionMaskImage);
-            } catch (_) {}
+            // No mask: show the entire burst_thunder sprite
 
             // Play the animation and clean up
             if (this.scene.anims.exists('burst_thunder')) {
@@ -1247,7 +1225,6 @@ window.BurstModeManager = class BurstModeManager {
                 ease: 'Cubic.Out',
                 onComplete: () => {
                     try { thunder.destroy(); } catch (_) {}
-                    try { if (explosionMaskImage) explosionMaskImage.destroy(); } catch (_) {}
                 }
             });
 

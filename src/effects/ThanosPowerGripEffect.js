@@ -94,7 +94,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
                 this.scene.tweens.add({
                     targets: container,
                     angle: 720, // Rotate for extra effect
-                    duration: 2000, // Hold longer for more dramatic effect
+                    duration: 2600, // 1.3x longer hold/rotation duration
                     ease: 'Linear',
                     onComplete: () => {
                         // Phase 3: Shrink and disappear
@@ -114,8 +114,7 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             }
         });
         
-        // Add extra particle effects around the FX
-        this.createEnhancedParticles(x, y);
+        // Removed extra particle effects for cleaner visuals
         
         this.activeEffects.push(container);
     }
@@ -126,23 +125,24 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             // Maintain ~square fit; EXLight art is wide, so scale to fit height then clamp width
             const targetSize = gridCellSize * 0.9;
 
-            // Use sprite-based FX
-            const sprite = this.scene.add.sprite(0, 0, 'ui_gem_exlight_sprite');
+            // Use sprite-based FX (blackhole variant)
+            const sprite = this.scene.add.sprite(0, 0, 'ui_gem_blackhole_sprite');
             sprite.setOrigin(0.5, 0.5);
             sprite.setDepth(window.GameConfig.UI_DEPTHS.FX + 10);
             sprite.setBlendMode(Phaser.BlendModes.ADD);
 
             // Scale to fit target height; keep aspect ratio
-            const fw = sprite.frame ? sprite.frame.width : 914;
-            const fh = sprite.frame ? sprite.frame.height : 491;
+            const fw = sprite.frame ? sprite.frame.width : 964;
+            const fh = sprite.frame ? sprite.frame.height : 957;
             const scale = targetSize / fh;
-            sprite.setScale(scale * 2);
+            // Make the effect 1.5x larger than before
+            sprite.setScale(scale * 3);
 
             container.add(sprite);
 
             // Play once then cleanup
-            if (this.scene.anims && this.scene.anims.exists('ui_gem_exlight')) {
-                sprite.play('ui_gem_exlight');
+            if (this.scene.anims && this.scene.anims.exists('ui_gem_blackhole')) {
+                sprite.play('ui_gem_blackhole');
             }
 
             // Ensure destruction after animation (~ frames/frameRate + buffer)

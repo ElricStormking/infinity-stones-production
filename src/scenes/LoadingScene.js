@@ -212,31 +212,34 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
                 console.warn('Failed to create gem thunder FX animation:', e);
             }
 
-            // Create EXLight FX animation (used to replace ThanosPowerGrip shader)
+            // Create Blackhole FX animation (replaces EXLight)
             try {
-                if (this.textures && this.textures.exists('ui_gem_exlight_sprite') && !this.anims.exists('ui_gem_exlight')) {
+                if (this.textures && this.textures.exists('ui_gem_blackhole_sprite') && !this.anims.exists('ui_gem_blackhole')) {
                     // Prefer all frames; fall back to range if names unavailable
                     let frames;
                     try {
-                        const tex = this.textures.get('ui_gem_exlight_sprite');
+                        const tex = this.textures.get('ui_gem_blackhole_sprite');
                         const names = tex && tex.getFrameNames ? tex.getFrameNames().filter(function(n){ return n !== '__BASE'; }) : [];
-                        frames = (names && names.length > 0)
-                          ? names.map(function(n){ return { key: 'ui_gem_exlight_sprite', frame: n }; })
-                          : this.anims.generateFrameNumbers('ui_gem_exlight_sprite', { start: 0, end: 15 });
+                        if (names && names.length > 0) {
+                            frames = names.map(function(n){ return { key: 'ui_gem_blackhole_sprite', frame: n }; });
+                        } else {
+                            const frameTotal = (tex && typeof tex.frameTotal === 'number') ? Math.max(0, tex.frameTotal - 1) : 15;
+                            frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: frameTotal });
+                        }
                     } catch (_) {
-                        frames = this.anims.generateFrameNumbers('ui_gem_exlight_sprite', { start: 0, end: 15 });
+                        frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: 15 });
                     }
 
                     this.anims.create({
-                        key: 'ui_gem_exlight',
+                        key: 'ui_gem_blackhole',
                         frames: frames,
                         frameRate: 20,
                         repeat: 0
                     });
-                    console.log('✅ Gem EXLight FX animation registered');
+                    console.log('✅ Gem Blackhole FX animation registered');
                 }
             } catch (e) {
-                console.warn('Failed to create gem EXLight FX animation:', e);
+                console.warn('Failed to create gem Blackhole FX animation:', e);
             }
             
             // Create burst thunder animation if spritesheet loaded
@@ -602,18 +605,18 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load gem light effect:', e);
         }
 
-        // Load new EXLight FX for replacing ThanosPowerGrip shader
+        // Load new Blackhole FX (replacing EXLight everywhere)
         try {
-            // Frame size from provided asset pack JSON
-            this.load.spritesheet('ui_gem_exlight_sprite', 'assets/images/sprites/ui_gem_exlight/ui_gem_exlight.png', {
-                frameWidth: 914,
-                frameHeight: 491
+            // Frame size from provided asset pack JSON (fallback to 914x491)
+            this.load.spritesheet('ui_gem_blackhole_sprite', 'assets/images/sprites/ui_gem_blackhole/ui_gem_blackhole.png', {
+                frameWidth: 964,
+                frameHeight: 957
             });
             // Optional animation data (not required if using sequential frames)
-            try { this.load.json('ui_gem_exlight_anim_json', 'assets/images/sprites/ui_gem_exlight/ui_gem_exlight_an.json'); } catch (_) {}
-            console.log('✅ Gem EXLight FX spritesheet queued');
+            try { this.load.json('ui_gem_blackhole_anim_json', 'assets/images/sprites/ui_gem_blackhole/ui_gem_blackhole_an.json'); } catch (_) {}
+            console.log('✅ Gem Blackhole FX spritesheet queued');
         } catch (e) {
-            console.warn('Failed to queue gem EXLight FX:', e);
+            console.warn('Failed to queue gem Blackhole FX:', e);
         }
 
         // Load thunder strike FX spritesheet for random multiplier (Scarlet Witch replacement)

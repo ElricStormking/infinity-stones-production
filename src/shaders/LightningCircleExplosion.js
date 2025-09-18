@@ -5,6 +5,7 @@ window.LightningCircleExplosionShader = {
         // Compatibility uniforms from existing Phaser pipeline
         uniform float time;
         uniform vec2 resolution;
+        uniform float scale; // visual scale (>1 enlarges effect)
 
         // Map to Shadertoy-style uniforms expected by the sample
         #define iResolution vec3(resolution, 1.0)
@@ -48,7 +49,10 @@ window.LightningCircleExplosionShader = {
             desiredCenter += vec2(centerOffsetNorm.x * iResolution.y, -centerOffsetNorm.y * iResolution.y);
             // Shift coordinates so the sample's assumed center (iResolution.xy*0.5) maps to desiredCenter
             vec2 delta = iResolution.xy * 0.5 - desiredCenter;
-            vec2 adjustedFrag = gl_FragCoord.xy + delta;
+            vec2 targetFrag = gl_FragCoord.xy + delta;
+            // Scale around desiredCenter so scale>1 makes visuals larger
+            vec2 fromCenter = targetFrag - desiredCenter;
+            vec2 adjustedFrag = desiredCenter + (fromCenter / max(scale, 0.0001));
             vec4 fragColor;
             mainImage(fragColor, adjustedFrag);
             gl_FragColor = fragColor;
@@ -93,6 +97,25 @@ window.LightningCircleExplosion = class LightningCircleExplosion extends Phaser.
         // Match BlackholeShader's internal center offset (relative to height)
         // Values chosen to align visually with black hole FX
         this.set2f('centerOffsetNorm', 0.09, 0.12);
+
+        // Heuristic: enlarge to 8x when game object indicates Burst mode or uses burst_thunder asset
+        let burstScale = 1.0;
+        try {
+            const texKey = (gameObject && gameObject.texture && gameObject.texture.key) || (gameObject && gameObject.frame && gameObject.frame.texture && gameObject.frame.texture.key) || '';
+            const keyIsBurstThunder = typeof texKey === 'string' && texKey.toLowerCase().indexOf('burst_thunder') !== -1;
+            const isBurst = !!(
+                gameObject && (
+                    (gameObject.data && typeof gameObject.data.get === 'function' && (gameObject.data.get('mode') === 'Burst' || gameObject.data.get('fxMode') === 'Burst')) ||
+                    gameObject.mode === 'Burst' ||
+                    gameObject.name === 'Burst' ||
+                    keyIsBurstThunder
+                )
+            );
+            burstScale = isBurst ? 8.0 : 1.0;
+        } catch (_) {
+            burstScale = 1.0;
+        }
+        this.set1f('scale', burstScale);
     }
 };
 
