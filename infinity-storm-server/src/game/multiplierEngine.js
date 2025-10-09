@@ -28,6 +28,12 @@ class MultiplierEngine {
       freeSpinsMultiplier: {
         baseMultiplier: gameConfig.FREE_SPINS.BASE_MULTIPLIER,
         accumTriggerChance: gameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE
+      },
+      cascadeRandomMultiplier: {
+        triggerChance: gameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE,
+        minMultipliers: gameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS,
+        maxMultipliers: gameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS,
+        minWinRequired: gameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_WIN_REQUIRED
       }
     };
 
@@ -124,6 +130,112 @@ class MultiplierEngine {
     });
 
     return result;
+  }
+
+  /**
+     * Process cascading random multipliers after cascades complete
+     * @param {number} totalWin - Current total win before cascade multipliers
+     * @param {number} cascadeCount - Number of cascades resolved
+     * @param {Object} options - Additional options
+     * @param {number} options.betAmount - Current bet amount
+     * @param {boolean} options.freeSpinsActive - Whether free spins are active
+     * @returns {Object} Cascading multiplier result
+     */
+  async processCascadingRandomMultipliers(totalWin, cascadeCount, options = {}) {
+    const config = this.config.cascadeRandomMultiplier;
+    const { betAmount = 0, freeSpinsActive = false } = options;
+
+    if (cascadeCount <= 0) {
+      return {
+        triggered: false,
+        reason: 'no_cascades'
+      };
+    }
+
+    if (totalWin < config.minWinRequired) {
+      return {
+        triggered: false,
+        reason: 'win_too_small',
+        minWinRequired: config.minWinRequired
+      };
+    }
+
+    const triggerRoll = this.rng.random();
+    if (triggerRoll > config.triggerChance) {
+      return {
+        triggered: false,
+        reason: 'probability_not_met',
+        triggerRoll,
+        triggerChance: config.triggerChance
+      };
+    }
+
+    const multiplierCount = this.rng.randomInt(config.minMultipliers, config.maxMultipliers);
+    const usedPositions = new Set();
+    const multipliers = [];
+    const appearDelayStep = 300;
+    const animationDuration = this.config.randomMultiplier.animationDuration;
+
+    for (let index = 0; index < multiplierCount; index++) {
+      const multiplier = this.selectRandomMultiplier();
+      const position = this.selectUniquePosition(usedPositions);
+      const character = this.selectCharacterForMultiplier();
+
+      const entry = {
+        type: 'cascade_random_multiplier',
+        multiplier,
+        position,
+        character,
+        sequenceIndex: index,
+        appearDelay: index * appearDelayStep,
+        animationDuration,
+        originalWin: totalWin,
+        metadata: {
+          triggerRoll,
+          triggerChance: config.triggerChance,
+          cascadeCount,
+          index,
+          betAmount,
+          freeSpinsActive
+        }
+      };
+
+      multipliers.push(entry);
+      this.updateRandomMultiplierStatistics(multiplier);
+    }
+
+    const totalMultiplier = multipliers.reduce((sum, entry) => sum + entry.multiplier, 0);
+    const multipliedWin = totalWin * totalMultiplier;
+
+    this.logAuditEvent('CASCADE_RANDOM_MULTIPLIERS_TRIGGERED', {
+      cascade_count: cascadeCount,
+      multiplier_count: multipliers.length,
+      total_multiplier: totalMultiplier,
+      trigger_roll: triggerRoll,
+      trigger_chance: config.triggerChance,
+      bet_amount: betAmount,
+      free_spins_active: freeSpinsActive,
+      multipliers: multipliers.map(entry => ({
+
+        multiplier: entry.multiplier,
+
+        position: `${entry.position.col},${entry.position.row}`,
+
+        character: entry.character,
+        id: entry.id
+
+      }))
+    });
+
+    return {
+      triggered: true,
+      multipliers,
+      totalMultiplier,
+      originalWin: totalWin,
+      multipliedWin,
+      triggerRoll,
+      triggerChance: config.triggerChance
+    };
   }
 
   /**
@@ -284,6 +396,58 @@ class MultiplierEngine {
      * @returns {string} Selected character
      * @private
      */
+  selectUniquePosition(usedPositions = new Set()) {
+
+    const maxAttempts = 50;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+
+      const position = {
+
+        col: this.rng.randomInt(0, this.gameConfig.GRID_COLS - 1),
+
+        row: this.rng.randomInt(0, this.gameConfig.GRID_ROWS - 1)
+
+      };
+
+      const key = `${position.col},${position.row}`;
+
+      if (!usedPositions.has(key)) {
+
+        usedPositions.add(key);
+
+        return position;
+
+      }
+
+    }
+
+
+
+    for (let col = 0; col < this.gameConfig.GRID_COLS; col++) {
+
+      for (let row = 0; row < this.gameConfig.GRID_ROWS; row++) {
+
+        const fallbackKey = `${col},${row}`;
+
+        if (!usedPositions.has(fallbackKey)) {
+
+          usedPositions.add(fallbackKey);
+
+          return { col, row };
+
+        }
+
+      }
+
+    }
+
+
+
+    return { col: 0, row: 0 };
+
+  }
+
   selectCharacterForMultiplier() {
     const roll = this.rng.random();
     return roll < this.characterWeights.thanos ? 'thanos' : 'scarlet_witch';

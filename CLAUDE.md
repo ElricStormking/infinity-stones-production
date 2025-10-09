@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Start
+
+```bash
+# 1. Install all dependencies
+npm install && cd infinity-storm-server && npm install && cd ../tests/integration && npm install && cd ../..
+
+# 2. Start the full game server (recommended)
+cd infinity-storm-server && npm start
+# Opens at http://localhost:3000
+```
+
 ## Commands
 
 ### Run the Game
@@ -15,7 +26,7 @@ npm start
 ./run-game.ps1
 # Opens on http://localhost:3000 (uses start-server.js internally)
 
-# Alternative: Simple static server (client-only, no backend features)  
+# Alternative: Simple static server (client-only, no backend features)
 node start-server.js
 # Runs on port 3001 with basic file serving only
 
@@ -182,53 +193,60 @@ Symbols are defined in GameConfig.js with tiered payouts based on cluster size:
 - **Scatter**: Infinity Glove (triggers free spins)
 - **Payout Tiers**: 8-9 symbols, 10-11 symbols, 12+ symbols
 
-### Important Implementation Details
+### Critical Implementation Patterns
 
-#### Global Window Pattern
+#### 🔴 Global Window Pattern (REQUIRED)
 All game classes MUST be attached to the window object for Phaser compatibility:
 ```javascript
-window.MyClass = class MyClass { ... }
-// NOT: export class MyClass { ... }
+// ✅ CORRECT - Phaser compatible
+window.MyClass = class MyClass {
+    constructor() { /* ... */ }
+}
+
+// ❌ WRONG - Will break Phaser loading
+export class MyClass { /* ... */ }
+import { MyClass } from './MyClass.js';
 ```
 
-#### Symbol IDs
-Must match exactly between GameConfig.js and asset filenames:
-- Symbol ID: 'time_gem' → Asset: assets/images/time_gem.png
-- Use underscores, not camelCase
+#### Symbol ID Conventions
+Must match EXACTLY between GameConfig.js and asset filenames:
+```javascript
+// GameConfig.js symbol definition
+SYMBOLS: {
+    time_gem: { id: 'time_gem', ... }  // ✅ Use underscores
+    timeGem: { id: 'timeGem', ... }    // ❌ Avoid camelCase
+}
+// Must match: assets/images/gems/time_gem.png
+```
 
-#### Grid System
-- 6 columns × 5 rows, zero-indexed
-- Symbols drop from top (negative Y position initially)
-- Grid positions stored as [col][row] in GridManager
+#### Grid Coordinate System
+```javascript
+// Grid is [column][row] with 6 columns × 5 rows
+gridManager.grid[col][row]  // Access pattern
+// col: 0-5 (left to right)
+// row: 0-4 (top to bottom)
+// Symbols drop from negative Y positions
+```
 
-#### Win Calculation
-- Uses flood-fill algorithm to find connected clusters
-- Minimum 8 symbols required for a win
-- Payouts based on symbol type and cluster size tier
-- Server-side validation in GridEngine.js
+#### Win Validation Flow
+1. Client displays animation immediately (optimistic UI)
+2. Server validates win using flood-fill algorithm (minimum 8 connected)
+3. Server sends authoritative results
+4. Client reconciles if mismatch occurs
 
-#### Audio System
-- SafeSound wrapper handles missing audio gracefully
-- BGM management with automatic switching
-- Audio context initialization after user interaction
+#### Audio System (SafeSound)
+```javascript
+// Always use SafeSound wrapper for audio
+this.safeSound.play('coin_drop');  // Handles missing audio gracefully
+// NOT: this.sound.play('coin_drop'); // May throw errors
+```
 
 #### Development Patterns
-- **No Build System**: Direct script tag loading for rapid development
+- **No Build System**: Direct `<script>` tag loading (no webpack/bundler)
 - **Global Namespace**: All classes use `window.ClassName = class` pattern
-- **Symbol Recycling**: GridManager maintains object pools for performance
-- **Config-Driven**: GameConfig.js contains all gameplay parameters and tuning
-- **Phaser Lifecycle**: Follows create() → update() → destroy() scene patterns
-- **Async Pattern**: NetworkService uses axios with Promise-based API calls
-- **Server Authority**: All game logic validation happens server-side
-- **Session-First**: Game requires valid session from portal before starting
-
-#### Network Architecture
-- **HTTP API**: axios-based client with interceptors for auth and error handling
-- **WebSocket**: Socket.io for real-time events (spin_request/spin_result, balance_update)
-- **Authentication**: JWT token validation via SessionService with automatic refresh
-- **Error Handling**: 401 auth error handling, timeout configuration (10s), graceful fallbacks
-- **Server Integration**: Complete game state synchronization with audit trail
-- **Dual Mode**: Supports both server-connected mode and demo mode fallback
+- **Server Authority**: Client displays, server validates all game logic
+- **Session-First**: Portal authentication required before game access
+- **Dual Mode**: Supports server-connected and demo fallback modes
 
 ### File Organization
 ```
@@ -302,20 +320,35 @@ Root files:
 ```
 
 ### Testing & Debugging
-- **Browser Console**: `window.game` provides access to Phaser game instance
-- **Animation Testing**: test-animations.html for sprite debugging
-- **RNG Security Testing**: test-rng-security.html for RNG validation
-- **Mobile Testing**: test-mobile.html for mobile orientation and touch testing
-- **Math Validation**: src/tools/MathSimulator.js for RTP testing
-- **Network Testing**: Server provides /api/health endpoint
-- **Global Objects**: All game classes attached to window (GridManager, NetworkService, OrientationManager, etc.)
-- **Mobile Debug**: DeviceDetectionService.debug(), OrientationManager.getState(), OverlayController.debug()
-- **Chrome DevTools**: Mobile emulation with device rotation testing (Ctrl+Shift+M)
-- **Symbol Pool**: GridManager includes symbol recycling for performance
-- **Development**: No build step required - direct browser loading with script tags
-- **Test Suites**: Jest tests for cascade logic, API endpoints, WebSocket events, comprehensive mobile testing
-- **Coverage Requirements**: 70% threshold for branches, functions, lines, statements
-- **Test Timeout**: 30 seconds for end-to-end and performance tests
+
+#### Browser Console Commands
+```javascript
+// Core game access
+window.game                          // Phaser game instance
+window.game.scene.scenes[0]         // Active scene access
+window.gridManager                   // Grid state and symbols
+window.networkService                // Network status and queue
+window.gameStateManager              // Current game state
+window.walletManager                // Balance and bet info
+
+// Debug specific systems
+deviceDetection.debug()             // Device capabilities info
+orientationManager.getState()       // Orientation and screen info
+overlayController.debug()           // Mobile overlay state
+```
+
+#### Test Pages & Utilities
+- **test-animations.html**: Sprite animation testing
+- **test-rng-security.html**: RNG validation
+- **src/tools/MathSimulator.js**: RTP validation (run with `node src/tools/MathSimulator.js`)
+- **Server health**: http://localhost:3000/api/health
+
+#### Development Notes
+- **No build system**: Direct script tag loading (no webpack/bundler needed)
+- **Global objects**: All classes attached to window for Phaser compatibility
+- **Chrome DevTools**: Use device emulation (Ctrl+Shift+M) for mobile testing
+- **Coverage Requirements**: 70% threshold for all metrics
+- **Test Timeout**: 30 seconds for integration tests
 
 ### Current Development State
 - **Architecture**: Portal-first casino architecture with secure authentication flow
@@ -407,62 +440,78 @@ When using Cursor with MCP enabled, you can directly query the Supabase database
 
 ## Mobile Development
 
-### Mobile Architecture Overview
-Infinity Storm features a comprehensive mobile horizontal layout system that ensures optimal gameplay experience on mobile devices by enforcing landscape orientation.
-
 ### Key Mobile Components
 - **DeviceDetectionService**: Multi-method device and capability detection
 - **OrientationManager**: Handles orientation changes with debouncing and game state management
 - **OverlayController**: Manages orientation overlay UI with smooth CSS animations
-- **MobileTestSuite**: Comprehensive testing framework for mobile functionality
+- **MobileTestSuite**: Comprehensive testing framework in tests/mobile/MobileTestSuite.js
 
-### Mobile Development Commands
-```bash
-# Mobile testing and development
-# Open test-mobile.html in browser for interactive mobile testing
-# Use Chrome DevTools device emulation (Ctrl+Shift+M)
+### Mobile Testing Commands
+```javascript
+// Browser console commands for mobile debugging
+deviceDetection.debug()                    // Device info and capabilities
+orientationManager.getState()              // Current orientation state
+overlayController.debug()                  // Overlay state and DOM info
 
-# Debug mobile systems in browser console
-deviceDetection.debug()                    # Device info and capabilities
-orientationManager.getState()              # Current orientation state
-overlayController.debug()                  # Overlay state and DOM info
-
-# Mobile test suite (in browser console)
+// Run mobile test suite (in browser console)
 const testSuite = new MobileTestSuite();
 testSuite.init();
-await testSuite.runAllTests();            # Comprehensive mobile testing
+await testSuite.runAllTests();            // Comprehensive mobile testing
 
-# Specific test categories
-await testSuite.runDeviceDetectionTests(); # Device detection accuracy
-await testSuite.runOrientationTests();     # Orientation handling
-await testSuite.runTouchInputTests();      # Touch interaction validation
-await testSuite.runPerformanceTests();     # Mobile performance metrics
+// Specific test categories
+await testSuite.runDeviceDetectionTests(); // Device detection accuracy
+await testSuite.runOrientationTests();     // Orientation handling
+await testSuite.runTouchInputTests();      // Touch interaction validation
+await testSuite.runPerformanceTests();     // Mobile performance metrics
 ```
-
-### Mobile Testing Strategy
-1. **Device Detection**: Verify accurate mobile/tablet identification across browsers
-2. **Orientation Handling**: Test orientation change detection and overlay management
-3. **Touch Input**: Validate touch events and gesture recognition
-4. **Performance**: Monitor frame rates, memory usage, and response times
-5. **Cross-Browser**: Ensure compatibility across mobile browsers
-6. **Edge Cases**: Handle rapid orientation changes, missing DOM, network issues
 
 ### Mobile Browser Support
 - **Tier 1**: Chrome Mobile 70+, Safari iOS 12+, Firefox Mobile 68+, Samsung Internet 10+
 - **Tier 2**: Edge Mobile 79+, Opera Mobile 60+, UC Browser 13+
-- **Legacy**: Graceful degradation for older browsers with fallback functionality
+- **Testing**: Use Chrome DevTools device emulation (Ctrl+Shift+M)
 
-### Mobile Configuration
-Key mobile settings in GameConfig.js:
-- Orientation enforcement (portrait → landscape overlay)
-- Touch target size validation (minimum 44px)
-- Performance optimization settings
-- Device-specific optimizations
+## Common Troubleshooting
 
-### Mobile Documentation
-Comprehensive mobile documentation available in docs/mobile/:
-- **MobileDeveloperGuide.md**: Complete developer reference
-- **MobileUserGuide.md**: End-user gameplay instructions
-- **MobileConfiguration.md**: Customization options and settings
-- **MobileTroubleshooting.md**: Common issues and debugging
-- **MobileDeployment.md**: Production deployment considerations
+### Server Won't Start
+```bash
+# Check if ports are in use
+netstat -ano | findstr :3000  # Windows
+lsof -i :3000                  # Linux/Mac
+
+# Clear node modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# Verify Node version (requires 18+)
+node --version
+```
+
+### Database Connection Issues
+```bash
+# Start Supabase
+cd infinity-storm-server
+npm run sb:start
+npm run sb:status      # Check if running
+npm run sb:verify      # Test connection
+
+# Alternative: Docker database
+npm run dev:db         # Start PostgreSQL + Redis
+docker compose logs -f # Check logs
+```
+
+### Test Failures
+```bash
+# Run specific test suites
+cd infinity-storm-server
+npx jest tests/cascade/CascadeLogic.test.js --verbose
+npx jest tests/smoke/smoke.test.js --verbose
+
+# Clear Jest cache
+npx jest --clearCache
+```
+
+### Asset Loading Issues
+- Ensure symbol IDs match filenames exactly (use underscores, not camelCase)
+- Check browser console for 404 errors
+- Verify assets exist in assets/images/ directory
+- Symbol ID: 'time_gem' must match file: assets/images/gems/time_gem.png

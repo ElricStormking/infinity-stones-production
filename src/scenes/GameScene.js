@@ -7,11 +7,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     create() {
+        window.gameScene = this;
+        if (window.GameAPI && typeof window.GameAPI.attachScene === 'function') { window.GameAPI.attachScene(this); }
         this.stateManager = this.game.stateManager;
         this.stateManager.setState(this.stateManager.states.PLAYING);
         
         // Initialize cascade synchronization system
         this.initializeCascadeSync();
+        // Create animator and performance monitor
+        this.cascadeAnimator = new (window.CascadeAnimator || class { queue(fn){ return fn(); } flush(){ return Promise.resolve(); } })();
+        this.frameMonitor = new (window.FrameMonitor || class { startMonitoring(){} })();
+        if (this.frameMonitor && this.frameMonitor.startMonitoring) {
+            this.frameMonitor.startMonitoring();
+        }
         
         // Create animation manager and animations FIRST before creating UI elements
         this.animationManager = new window.AnimationManager(this);
@@ -38,6 +46,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Initialize grid manager
         this.gridManager = new window.GridManager(this);
+        
+        // Initialize grid renderer for server-driven cascades
+        this.gridRenderer = new (window.GridRenderer || class {
+            constructor(scene) { this.scene = scene; }
+            async renderSpinResult(result) { return result; }
+        })(this);
         
         // Initialize win calculator
         this.winCalculator = new window.WinCalculator(this);
@@ -95,25 +109,23 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Create cascade sync status display
         this.createCascadeSyncDisplay();
-        
+
+        // Setup network status overlay and listeners
+        this.setupNetworkStatusOverlay();
+        this.networkStatusHandler = (event) => this.handleNetworkStatus(event);
+        window.addEventListener('game-network-status', this.networkStatusHandler);
+
         // Initialize cascade debug mode if enabled
         this.cascadeDebugMode = window.CASCADE_DEBUG || false;
         this.cascadeSyncEnabled = window.CASCADE_SYNC_ENABLED !== false; // Default to true
         this.manualCascadeControl = false; // Manual step-through mode
         this.cascadeStepPaused = false; // Pause between cascade steps
+        this.networkRetryInProgress = false;
+        this.failedConnectionTimer = null;
         
         // Initialize server integration
         this.initializeServerIntegration();
         
-        // Fill initial grid (after LoadingScene ensured assets are ready)
-        this.gridManager.fillGrid();
-        // Ensure all grid symbols that have animations start idling on first enter
-        // Use a short delay to let creation settle and avoid race conditions
-        this.time.delayedCall(50, () => {
-            if (this.gridManager && this.gridManager.startAllIdleAnimations) {
-                this.gridManager.startAllIdleAnimations();
-            }
-        });
         
         // Initialize game variables
         this.totalWin = 0;
@@ -123,7 +135,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // BGM is now handled by the centralized SafeSound BGM management system
         // Old BGM system disabled to prevent conflicts
-        if (window.DEBUG) console.log('🎵 Old BGM system disabled - using centralized BGM management');
+        if (window.DEBUG) console.log('?�� Old BGM system disabled - using centralized BGM management');
         
         // Debug controls - store references for cleanup
         this.keyboardListeners = [];
@@ -161,18 +173,18 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Add test key for BGM switching (DEBUG)
         const keyBListener = () => {
-            if (window.DEBUG) console.log('🎵 DEBUG: Manual BGM switch test - IMMEDIATE');
+            if (window.DEBUG) console.log('?�� DEBUG: Manual BGM switch test - IMMEDIATE');
             // Stop all audio immediately
             this.sound.stopAll();
             window.SafeSound.currentBGM = null;
             
             if (window.SafeSound.currentBGM && window.SafeSound.currentBGM.key === 'bgm_free_spins') {
-            if (window.DEBUG) console.log('🎵 DEBUG: Switching to main BGM');
+            if (window.DEBUG) console.log('?�� DEBUG: Switching to main BGM');
                 const mainBGM = this.sound.add('bgm_infinity_storm', { loop: true, volume: 0.5 });
                 mainBGM.play();
                 window.SafeSound.currentBGM = mainBGM;
             } else {
-                if (window.DEBUG) console.log('🎵 DEBUG: Switching to Free Spins BGM');
+                if (window.DEBUG) console.log('?�� DEBUG: Switching to Free Spins BGM');
                 const freeSpinsBGM = this.sound.add('bgm_free_spins', { loop: true, volume: 0.5 });
                 freeSpinsBGM.play();
                 window.SafeSound.currentBGM = freeSpinsBGM;
@@ -183,7 +195,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Add test key for starting main BGM (DEBUG)
         const keyMListener = () => {
-            console.log('🎵 DEBUG: Manual main BGM start via SafeSound');
+            console.log('?�� DEBUG: Manual main BGM start via SafeSound');
             window.SafeSound.startMainBGM(this);
         };
         this.input.keyboard.on('keydown-M', keyMListener);
@@ -192,22 +204,22 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Add test key for DIRECT BGM start (DEBUG) - Changed to 'X' to avoid conflict with gem destruction 'D' key
         const keyXListener = () => {
             if (window.DEBUG) {
-                console.log('🎵 DEBUG: DIRECT BGM start (bypassing SafeSound)');
-                console.log('🎵 this.sound:', this.sound);
-                console.log('🎵 Available cache keys:', this.cache.audio.getKeys());
+                console.log('?�� DEBUG: DIRECT BGM start (bypassing SafeSound)');
+                console.log('?�� this.sound:', this.sound);
+                console.log('?�� Available cache keys:', this.cache.audio.getKeys());
             }
             
             try {
                 if (this.sound && this.cache.audio.exists('bgm_infinity_storm')) {
                     const directBGM = this.sound.add('bgm_infinity_storm', { loop: true, volume: 0.5 });
-                    if (window.DEBUG) console.log('🎵 Direct BGM created:', directBGM);
+                    if (window.DEBUG) console.log('?�� Direct BGM created:', directBGM);
                     directBGM.play();
-                    if (window.DEBUG) console.log('🎵 Direct BGM play() called');
+                    if (window.DEBUG) console.log('?�� Direct BGM play() called');
                 } else {
-                    if (window.DEBUG) console.log('🎵 Direct BGM failed - sound or audio not available');
+                    if (window.DEBUG) console.log('?�� Direct BGM failed - sound or audio not available');
                 }
             } catch (error) {
-                console.log('🎵 Direct BGM error:', error);
+                console.log('?�� Direct BGM error:', error);
             }
         };
         this.input.keyboard.on('keydown-X', keyXListener);
@@ -215,30 +227,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Start appropriate BGM based on current game state
             if (window.DEBUG) {
-                console.log('🎵 === GAMESCENE CREATED - CHECKING INITIAL BGM ===');
-                console.log('🎵 Free Spins Active:', this.stateManager.freeSpinsData.active);
-                console.log('🎵 Free Spins Count:', this.stateManager.freeSpinsData.count);
+                console.log('?�� === GAMESCENE CREATED - CHECKING INITIAL BGM ===');
+                console.log('?�� Free Spins Active:', this.stateManager.freeSpinsData.active);
+                console.log('?�� Free Spins Count:', this.stateManager.freeSpinsData.count);
             }
         
         // Start initial BGM after a short delay to ensure audio system is ready
         this.time.delayedCall(500, () => {
             if (window.DEBUG) {
-                console.log('🎵 GameScene: Checking for initial BGM startup');
-                console.log('🎵 BGM Initialized:', window.SafeSound.bgmInitialized);
-                console.log('🎵 Current BGM:', window.SafeSound.currentBGM ? window.SafeSound.currentBGM.key : 'None');
+                console.log('?�� GameScene: Checking for initial BGM startup');
+                console.log('?�� BGM Initialized:', window.SafeSound.bgmInitialized);
+                console.log('?�� Current BGM:', window.SafeSound.currentBGM ? window.SafeSound.currentBGM.key : 'None');
             }
             
             // Start BGM if none is currently playing
             if (!window.SafeSound.currentBGM) {
                 if (this.stateManager.freeSpinsData.active && this.stateManager.freeSpinsData.count > 0) {
-                    if (window.DEBUG) console.log('🎵 GameScene: Starting Free Spins BGM (Free Spins active)');
+                    if (window.DEBUG) console.log('?�� GameScene: Starting Free Spins BGM (Free Spins active)');
                     window.SafeSound.startFreeSpinsBGM(this);
                 } else {
-                    if (window.DEBUG) console.log('🎵 GameScene: Starting main BGM (Free Spins not active)');
+                    if (window.DEBUG) console.log('?�� GameScene: Starting main BGM (Free Spins not active)');
                     window.SafeSound.startMainBGM(this);
                 }
             } else {
-                if (window.DEBUG) console.log('🎵 GameScene: BGM already playing, skipping initial BGM setup');
+                if (window.DEBUG) console.log('?�� GameScene: BGM already playing, skipping initial BGM setup');
             }
         });
         
@@ -387,8 +399,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.currentCascadeSession = null;
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade synchronization system initialized');
-            console.log('🔄 CascadeAPI available:', !!this.cascadeAPI);
+            console.log('?? Cascade synchronization system initialized');
+            console.log('?? CascadeAPI available:', !!this.cascadeAPI);
         }
     }
     
@@ -411,17 +423,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.events.on('auth_error', this.handleServerAuthError, this);
             
             if (window.DEBUG) {
-                console.log('🔌 Server integration initialized');
-                console.log('🔌 GameAPI available:', !!this.gameAPI);
-                console.log('🔌 Server mode:', this.serverMode);
+                console.log('?? Server integration initialized');
+                console.log('?? GameAPI available:', !!this.gameAPI);
+                console.log('?? Server mode:', this.serverMode);
+            }
+            if (this.gameAPI && this.gameAPI.gameState) {
+                this.applyServerGameState(this.gameAPI.gameState, { source: 'gameapi-cache', initial: true });
+            } else {
+                this.fetchInitialServerState();
             }
         } else {
             // Fallback to demo mode if GameAPI not available
             this.serverMode = false;
             this.demoMode = true;
             
+            this.gridManager.fillGrid();
+            if (this.gridManager && this.gridManager.startAllIdleAnimations) {
+                this.gridManager.startAllIdleAnimations();
+            }
             if (window.DEBUG) {
-                console.log('🔌 Server integration disabled - running in demo mode');
+                console.log('?? Server integration disabled - running in demo mode');
             }
 
             // Ensure players have free demo balance
@@ -429,6 +450,28 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
     }
     
+    async fetchInitialServerState() {
+        if (!this.serverMode || !window.NetworkService || typeof window.NetworkService.getGameState !== 'function') {
+            return;
+        }
+        try {
+            const response = await window.NetworkService.getGameState();
+            if (!response) {
+                return;
+            }
+            const gameState = response.gameState || (response.data && response.data.gameState) || response.data || null;
+            if (gameState) {
+                this.applyServerGameState(gameState, { source: 'initial-request', raw: response, initial: true });
+            }
+            const balanceValue = (response.data && response.data.balance !== undefined) ? response.data.balance : response.balance;
+            if (typeof balanceValue === 'number') {
+                this.stateManager.setBalanceFromServer(balanceValue);
+                this.updateBalanceDisplay();
+            }
+        } catch (error) {
+            console.warn('Initial server state fetch failed:', error);
+        }
+    }
     // Task 12.2.3: Create cascade sync status display
     createCascadeSyncDisplay() {
         const width = this.cameras.main.width;
@@ -469,6 +512,185 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Initially hide sync display
         this.setSyncDisplayVisible(false);
     }
+    setupNetworkStatusOverlay() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        const container = this.add.container(width / 2, height / 2);
+        const backdrop = this.add.rectangle(0, 0, width * 0.6, 160, 0x000000, 0.75);
+        backdrop.setStrokeStyle(2, 0x66ccff, 0.6);
+        const text = this.add.text(0, -20, '', {
+            fontSize: '20px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF',
+            align: 'center',
+            wordWrap: { width: width * 0.55 }
+        });
+        text.setOrigin(0.5);
+
+        const retryButton = this.add.text(0, 50, 'Retry Connection', {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            color: '#66CCFF',
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            padding: { x: 16, y: 8 }
+        });
+        retryButton.setOrigin(0.5);
+        retryButton.setVisible(false);
+        retryButton.setDepth((window.GameConfig.UI_DEPTHS?.OVERLAY_HIGH || 5000) + 1);
+        retryButton.setInteractive({ useHandCursor: true });
+        retryButton.on('pointerup', () => this.retryConnection());
+        retryButton.disableInteractive();
+
+        container.add([backdrop, text, retryButton]);
+        container.setDepth(window.GameConfig.UI_DEPTHS?.OVERLAY_HIGH || 5000);
+        container.setVisible(false);
+
+        this.networkStatusOverlay = container;
+        this.networkStatusText = text;
+        this.networkRetryButton = retryButton;
+    }
+
+    showNetworkStatusOverlay(message, options = {}) {
+        if (!this.networkStatusOverlay || !this.networkStatusText) {
+            return;
+        }
+        this.networkStatusText.setText(message);
+        this.networkStatusOverlay.setVisible(true);
+        this.setNetworkRetryAvailability(!!options.allowRetry, options.retryLabel);
+    }
+
+    hideNetworkStatusOverlay() {
+        if (this.networkStatusOverlay) {
+            this.networkStatusOverlay.setVisible(false);
+        }
+        this.setNetworkRetryAvailability(false);
+    }
+
+    setNetworkRetryAvailability(enabled, label) {
+        if (!this.networkRetryButton) {
+            return;
+        }
+        if (label) {
+            this.networkRetryButton.setText(label);
+        }
+        if (enabled) {
+            this.networkRetryButton.setVisible(true);
+            this.networkRetryButton.setInteractive({ useHandCursor: true });
+        } else {
+            this.networkRetryButton.setVisible(false);
+            if (this.networkRetryButton.disableInteractive) {
+                this.networkRetryButton.disableInteractive();
+            }
+        }
+    }
+
+    async retryConnection() {
+        if (this.networkRetryInProgress) {
+            return;
+        }
+        this.networkRetryInProgress = true;
+
+        if (this.failedConnectionTimer) {
+            this.failedConnectionTimer.remove();
+            this.failedConnectionTimer = null;
+        }
+
+        try {
+            this.showNetworkStatusOverlay('Attempting reconnection...', { allowRetry: false });
+
+            if (window.NetworkService && typeof window.NetworkService.connectSocket === 'function') {
+                try {
+                    await window.NetworkService.connectSocket();
+                } catch (socketError) {
+                    if (window.DEBUG) {
+                        console.warn('Socket reconnect attempt failed:', socketError);
+                    }
+                }
+            }
+
+            let recovered = 0;
+            let outcomes = [];
+            if (this.gameAPI?.errorRecovery?.retryPendingRequests) {
+                outcomes = await this.gameAPI.errorRecovery.retryPendingRequests({ onlyFailed: false });
+                for (const outcome of outcomes) {
+                    if (outcome && outcome.status === 'recovered' && outcome.result) {
+                        const payload = outcome.result.data || outcome.result;
+                        if (payload) {
+                            await this.processServerSpinResult(payload);
+                            recovered++;
+                        }
+                    }
+                }
+            }
+
+            this.isSpinning = false;
+            this.isServerSpinning = false;
+
+            if (recovered > 0) {
+                this.hideNetworkStatusOverlay();
+                const message = recovered === 1 ? 'Recovered pending spin' : `Recovered ${recovered} pending spins`;
+                this.showMessage && this.showMessage(message, 1200);
+                return;
+            }
+
+            if (Array.isArray(outcomes) && outcomes.length > 0) {
+                this.showNetworkStatusOverlay('Retry completed. Waiting for server.', { allowRetry: true, retryLabel: 'Retry Again' });
+            } else {
+                this.showNetworkStatusOverlay('No pending spins detected. Please try again.', { allowRetry: true, retryLabel: 'Retry Connection' });
+            }
+
+            this.failedConnectionTimer = this.time.delayedCall(20000, () => {
+                if (this.serverMode) {
+                    this.switchToDemoMode();
+                }
+            });
+
+        } catch (error) {
+            console.error('Manual retry failed:', error);
+            this.showNetworkStatusOverlay('Retry failed. Please check your connection.', { allowRetry: true, retryLabel: 'Retry Again' });
+            this.failedConnectionTimer = this.time.delayedCall(20000, () => {
+                if (this.serverMode) {
+                    this.switchToDemoMode();
+                }
+            });
+        } finally {
+            this.networkRetryInProgress = false;
+        }
+    }
+    handleNetworkStatus(event) {
+        const detail = event?.detail || {};
+        const type = detail.type;
+
+        if (type === 'reconnecting') {
+            this.showNetworkStatusOverlay('Reconnecting to server...', { allowRetry: false });
+        } else if (type === 'retry') {
+            const attempt = detail.attempt || 1;
+            const max = this.gameAPI?.errorRecovery?.maxReconnectAttempts || 5;
+            this.showNetworkStatusOverlay(`Reconnecting to server (attempt ${attempt}/${max})...`, { allowRetry: false });
+        } else if (type === 'recovered') {
+            if (this.failedConnectionTimer) {
+                this.failedConnectionTimer.remove();
+                this.failedConnectionTimer = null;
+            }
+            this.hideNetworkStatusOverlay();
+            this.showMessage && this.showMessage('Connection restored', 800);
+        } else if (type === 'manual-retry') {
+            this.showNetworkStatusOverlay('Attempting manual recovery...', { allowRetry: false });
+        } else if (type === 'failed') {
+            const message = detail.error?.message || 'Connection lost. Retry or check your network.';
+            this.showNetworkStatusOverlay(message, { allowRetry: true, retryLabel: 'Retry Connection' });
+            if (this.failedConnectionTimer) {
+                this.failedConnectionTimer.remove();
+            }
+            this.failedConnectionTimer = this.time.delayedCall(20000, () => {
+                if (this.serverMode) {
+                    this.switchToDemoMode();
+                }
+            });
+        }
+    }
+
     
     // Task 12.2.4: Create manual override control panel
     createManualControlPanel() {
@@ -605,15 +827,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.keyboardListeners.push({key: 'keydown-EIGHT', callback: key8Listener});
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade debug controls added:');
-            console.log('🔄   1 - Manual step');
-            console.log('🔄   2 - Toggle pause');
-            console.log('🔄   3 - Reset sync');
-            console.log('🔄   4 - Toggle sync');
-            console.log('🔄   5 - Trigger recovery');
-            console.log('🔄   6 - Show debug info');
-            console.log('🔄   7 - Toggle debug mode');
-            console.log('🔄   8 - Toggle control panel');
+            console.log('?? Cascade debug controls added:');
+            console.log('??   1 - Manual step');
+            console.log('??   2 - Toggle pause');
+            console.log('??   3 - Reset sync');
+            console.log('??   4 - Toggle sync');
+            console.log('??   5 - Trigger recovery');
+            console.log('??   6 - Show debug info');
+            console.log('??   7 - Toggle debug mode');
+            console.log('??   8 - Toggle control panel');
         }
     }
     
@@ -766,7 +988,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Start main BGM if none is playing (first interaction)
         if (!window.SafeSound.currentBGM) {
-            console.log('🎵 First user interaction - starting main BGM');
+            console.log('?�� First user interaction - starting main BGM');
             window.SafeSound.startMainBGM(this);
         }
         
@@ -820,8 +1042,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
             }
         }
         
-        // Disable buttons
+        // Disable input during spin
         this.setButtonsEnabled(false);
+        this.input.enabled = false;
         
         // Place bet or use free spin
         if (this.stateManager.freeSpinsData.active) {
@@ -835,14 +1058,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.updateBalanceDisplay();
         
         // Task 6.2: Server integration - request spin from server or fallback to demo mode
-        if (this.serverMode && this.gameAPI) {
+        if (this.gameAPI) { // always use server path; demo handled server-side
             await this.processServerSpin();
-        } else {
-            await this.processDemoSpin();
         }
         
         // End spin
         this.endSpin();
+        this.input.enabled = true;
     }
 
     // FX: shooting star(s) from a grid cell to one or more targets; updates UI on arrival
@@ -950,12 +1172,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         try { ribbon.destroy(); } catch (_) {}
 
                         if (target.type === 'plaque') {
-                            // Base game or FS: update plaque formula sum ONLY on arrival
-                            const prevSum = Math.max(0, this.spinAccumulatedRM || 0);
-                            this.spinAccumulatedRM = prevSum + multiplierValue;
+                            // Base game or FS: Just pulse the formula, don't increment
+                            // spinAccumulatedRM is already set to the correct server total
                             const base = Math.max(0, this.baseWinForFormula || 0);
+                            const mult = Math.max(0, this.spinAccumulatedRM || this.spinAppliedMultiplier || 0);
                             const shownFinal = this.totalWin;
-                            this.uiManager.setWinFormula(base, this.spinAccumulatedRM, shownFinal);
+                            this.uiManager.setWinFormula(base, mult, shownFinal);
 
                             // Impact pulse on plaque text
                             const text = this.uiManager && this.uiManager.winTopText;
@@ -1031,9 +1253,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (spinResult.success && spinResult.data) {
                 // Server spin successful - process result through animation system
                 if (window.DEBUG) {
-                    console.log('🎰 Server spin successful:', spinResult.data);
+                    console.log('?�� Server spin successful:', spinResult.data);
                 }
                 
+                this.totalWin = 0;
+
                 // Clear current grid with animation
                 await this.clearGridWithAnimation();
                 
@@ -1041,36 +1265,46 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 window.SafeSound.play(this, 'spin');
                 
                 // Process server result through animation system
-                await this.processServerSpinResult(spinResult.data);
-                
-                // Check for other bonus features based on server result
-                if (spinResult.data.freeSpinsAwarded) {
-                    this.freeSpinsManager.checkOtherBonusFeatures();
+                // Normalize cascades field for renderer and debug overlay
+                const normalized = Object.assign({}, spinResult.data);
+                if (!Array.isArray(normalized.cascades) && Array.isArray(normalized.cascadeSteps)) {
+                    normalized.cascades = normalized.cascadeSteps;
                 }
+                if (Array.isArray(normalized.initialGrid)) {
+                    normalized.initialGrid = window.NetworkService?.normalizeGrid
+                        ? window.NetworkService.normalizeGrid(normalized.initialGrid)
+                        : normalized.initialGrid;
+                }
+                await this.processServerSpinResult(normalized);
+                
+                // Free spins are handled via server payload in processServerSpinResult
                 
                 // Update balance from server
                 if (spinResult.data.balance !== undefined) {
                     this.stateManager.setBalanceFromServer(spinResult.data.balance);
                     this.updateBalanceDisplay();
                 }
+                if (spinResult.data.rngSeed) {
+                    this.lastServerSeed = spinResult.data.rngSeed;
+                }
                 
             } else {
-                // Server spin failed - switch to demo mode
-                console.warn('❌ Server spin failed:', spinResult.error || 'Unknown error');
-                this.switchToDemoMode();
-                
-                // Fall back to demo spin
-                await this.processDemoSpin();
+                // Server spin failed; do NOT switch to client RNG.
+                console.warn('??Server spin failed:', spinResult.error || 'Unknown error');
+                this.showMessage('Server error - retrying');
             }
             
         } catch (error) {
-            console.error('❌ Server spin error:', error);
-            this.switchToDemoMode();
-            
-            // Fall back to demo spin  
-            await this.processDemoSpin();
+            console.error('??Server spin error:', error);
+            // Stay in server path; NetworkService already falls back to /api/demo-spin without auth
         } finally {
             this.isServerSpinning = false;
+            try {
+                if (this.isProcessingOverlay) {
+                    this.isProcessingOverlay.destroy();
+                    this.isProcessingOverlay = null;
+                }
+            } catch (_) {}
         }
     }
     
@@ -1103,12 +1337,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.spinAppliedMultiplier = 1;
             this.spinAccumulatedRM = 0;
 
-            // Check for Random Multiplier after spin results are decided
-            // Run twice with a small delay to avoid race with end-of-cascade settlement
-            await this.bonusManager.checkRandomMultiplier();
-            await this.delay(50);
-            // If something cleared/replaced the grid cell between animations, try again
-            await this.bonusManager.checkRandomMultiplier();
+            // Random Multiplier is now server-authoritative
+            // Server sends multiplierEvents in the spin response, processed in processServerSpinResult
+            // No need to call checkRandomMultiplier() - it's handled by server data
             
             // Sync balance with WalletAPI after demo spin
             if (window.WalletAPI) {
@@ -1118,9 +1349,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.updateBalanceDisplay();
             
         } catch (error) {
-            console.error('❌ Demo spin error:', error);
+            console.error('??Demo spin error:', error);
             this.showMessage('Spin error - please try again');
         }
+
+        // Debug overlay: show demo spin info when server spin not used
+        try {
+            if (window.serverDebugWindow && typeof window.serverDebugWindow.show === 'function') {
+                const debugPayload = {
+                    spinId: 'DEMO',
+                    betAmount: this.stateManager?.gameData?.currentBet,
+                    totalWin: this.totalWin,
+                    cascadesCount: this.lastCascadeCount || 0,
+                    cascades: [],
+                    rngSeed: (window.__symbolSource && window.__symbolSource.rng && window.__symbolSource.rng.seed) || undefined,
+                    clientGrid: this.gridManager ? this.gridManager.getCurrentGrid() : undefined,
+                    metadata: { mode: 'demo' }
+                };
+                window.serverDebugWindow.show(debugPayload);
+            }
+        } catch (_) {}
     }
     
     // Record demo spin to server database (non-blocking)
@@ -1142,16 +1390,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 body: JSON.stringify({ betAmount, quickSpinMode, freeSpinsActive, accumulatedMultiplier })
             }).then(res => {
                 if (res.ok) {
-                    console.log('✅ Demo spin recorded to Supabase (spin_results)');
+                    console.log('??Demo spin recorded to Supabase (spin_results)');
                 } else {
-                    console.warn('⚠️ Demo spin recording responded with non-OK status');
+                    console.warn('?��? Demo spin recording responded with non-OK status');
                 }
             }).catch(err => {
-                console.warn('⚠️ Demo spin recording failed:', err.message);
+                console.warn('?��? Demo spin recording failed:', err.message);
             });
         } catch (error) {
             // Non-fatal
-            if (window.DEBUG) console.warn('⚠️ Demo spin recording error:', error.message);
+            if (window.DEBUG) console.warn('?��? Demo spin recording error:', error.message);
         }
     }
     
@@ -1212,7 +1460,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Play spin drop finish sound with a 0.3 second delay after symbols start dropping
         this.time.delayedCall(300, () => {
-            console.log('🔊 Playing spin drop finish sound');
+            console.log('?? Playing spin drop finish sound');
             window.SafeSound.play(this, 'spin_drop_finish');
         });
         
@@ -1308,6 +1556,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     async processCascades() {
         let hasMatches = true;
         let cascadeCount = 0;
+        this.lastCascadeCount = 0;
+        this.debugCascadeSteps = 0;
         
         // Initialize cascade sync session if enabled
         if (this.syncState && this.syncState.enabled && this.cascadeAPI) {
@@ -1321,10 +1571,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 this.updateSyncStatusDisplay();
                 
                 if (window.DEBUG) {
-                    console.log('🔄 Cascade sync session started:', this.currentCascadeSession);
+                    console.log('?? Cascade sync session started:', this.currentCascadeSession);
                 }
             } catch (error) {
-                console.warn('🔄 Failed to start cascade sync session:', error);
+                console.warn('?? Failed to start cascade sync session:', error);
                 this.syncState.enabled = false;
             }
         }
@@ -1395,6 +1645,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 await this.gridManager.cascadeSymbols();
                 
                 cascadeCount++;
+                this.debugCascadeSteps++;
                 
                 // Apply cascade multiplier in free spins with new trigger chance
                 await this.freeSpinsManager.processCascadeMultiplier(cascadeCount);
@@ -1428,12 +1679,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 this.updateSyncStatusDisplay();
                 
                 if (window.DEBUG) {
-                    console.log('🔄 Cascade sync session completed');
+                    console.log('?? Cascade sync session completed');
                 }
             } catch (error) {
-                console.warn('🔄 Failed to complete cascade sync session:', error);
+                console.warn('?? Failed to complete cascade sync session:', error);
             }
         }
+        // Record total cascades for debug/analytics (use the more reliable counter)
+        this.lastCascadeCount = this.debugCascadeSteps || cascadeCount;
     }
 
     // New: shake then shatter visual for matched symbols
@@ -1856,7 +2109,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         const step = this.cascadeStepQueue.shift();
         if (window.DEBUG) {
-            console.log('🔄 Manual cascade step:', step);
+            console.log('?? Manual cascade step:', step);
         }
         
         this.executeCascadeStep(step);
@@ -1881,7 +2134,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage(`Cascade mode: ${mode}`);
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade control toggled:', mode);
+            console.log('?? Cascade control toggled:', mode);
         }
     }
     
@@ -1916,7 +2169,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage('Cascade sync reset');
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade sync system reset');
+            console.log('?? Cascade sync system reset');
         }
     }
     
@@ -1933,7 +2186,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage(`Cascade sync: ${this.syncState.enabled ? 'ENABLED' : 'DISABLED'}`);
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade sync toggled:', this.syncState.enabled ? 'ON' : 'OFF');
+            console.log('?? Cascade sync toggled:', this.syncState.enabled ? 'ON' : 'OFF');
         }
     }
     
@@ -1964,10 +2217,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.updateSyncStatusDisplay();
             
             if (window.DEBUG) {
-                console.log('🔄 Sync recovery result:', recoveryResult);
+                console.log('?? Sync recovery result:', recoveryResult);
             }
         } catch (error) {
-            console.error('🔄 Sync recovery error:', error);
+            console.error('?? Sync recovery error:', error);
             this.showMessage('Recovery error');
         }
     }
@@ -1975,15 +2228,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
     showCascadeDebugInfo() {
         if (!window.DEBUG && !window.CASCADE_DEBUG) return;
         
-        console.log('🔄 === CASCADE DEBUG INFO ===');
-        console.log('🔄 Sync State:', this.syncState);
-        console.log('🔄 Step Queue Length:', this.cascadeStepQueue ? this.cascadeStepQueue.length : 0);
-        console.log('🔄 Manual Control:', this.manualCascadeControl);
-        console.log('🔄 Step Paused:', this.cascadeStepPaused);
-        console.log('🔄 CascadeAPI Available:', !!this.cascadeAPI);
-        console.log('🔄 Current Session:', this.currentCascadeSession);
-        console.log('🔄 GridManager Available:', !!this.gridManager);
-        console.log('🔄 ==========================');
+        console.log('?? === CASCADE DEBUG INFO ===');
+        console.log('?? Sync State:', this.syncState);
+        console.log('?? Step Queue Length:', this.cascadeStepQueue ? this.cascadeStepQueue.length : 0);
+        console.log('?? Manual Control:', this.manualCascadeControl);
+        console.log('?? Step Paused:', this.cascadeStepPaused);
+        console.log('?? CascadeAPI Available:', !!this.cascadeAPI);
+        console.log('?? Current Session:', this.currentCascadeSession);
+        console.log('?? GridManager Available:', !!this.gridManager);
+        console.log('?? ==========================');
         
         this.showMessage('Debug info logged to console');
     }
@@ -1998,7 +2251,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage(`Debug mode: ${this.cascadeDebugMode ? 'ON' : 'OFF'}`);
         
         if (window.DEBUG) {
-            console.log('🔄 Cascade debug mode toggled:', this.cascadeDebugMode ? 'ON' : 'OFF');
+            console.log('?? Cascade debug mode toggled:', this.cascadeDebugMode ? 'ON' : 'OFF');
         }
     }
     
@@ -2009,7 +2262,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage(`Manual control: ${!visible ? 'SHOWN' : 'HIDDEN'}`);
         
         if (window.DEBUG) {
-            console.log('🔄 Manual control panel toggled:', !visible ? 'SHOWN' : 'HIDDEN');
+            console.log('?? Manual control panel toggled:', !visible ? 'SHOWN' : 'HIDDEN');
         }
     }
     
@@ -2029,7 +2282,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 if (!validationResult.valid) {
                     this.syncState.desyncCount++;
                     if (window.DEBUG) {
-                        console.warn('🔄 Step validation failed:', validationResult);
+                        console.warn('?? Step validation failed:', validationResult);
                     }
                     return;
                 }
@@ -2070,7 +2323,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 (successfulSteps / totalAttempts) * 100 : 100;
                 
         } catch (error) {
-            console.error('🔄 Error executing cascade step:', error);
+            console.error('?? Error executing cascade step:', error);
             this.syncState.desyncCount++;
         }
         
@@ -2080,7 +2333,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // Task 6.2: Server event handlers for game integration
     handleServerSpinResult(data) {
         if (window.DEBUG) {
-            console.log('🎰 Server spin result received:', data);
+            console.log('?�� Server spin result received:', data);
         }
         
         // Store server result for processing
@@ -2093,7 +2346,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     handleServerBalanceUpdate(data) {
         if (window.DEBUG) {
-            console.log('💰 Server balance update received:', data);
+            console.log('?�� Server balance update received:', data);
         }
         
         // Update local balance from server using GameStateManager
@@ -2103,33 +2356,71 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
     }
     
-    handleServerGameStateChange(data) {
-        if (window.DEBUG) {
-            console.log('🔄 Server game state change:', data);
+    applyServerGameState(gameState, options = {}) {
+        if (!gameState) {
+            return;
         }
-        
-        // Sync game state changes from server
-        if (data.data) {
-            // Update free spins state if provided
-            if (data.data.freeSpinsActive !== undefined) {
-                this.stateManager.freeSpinsData.active = data.data.freeSpinsActive;
-                if (data.data.freeSpinsCount !== undefined) {
-                    this.stateManager.freeSpinsData.count = data.data.freeSpinsCount;
+        const stateData = gameState.state_data || {};
+        const gridFromState = Array.isArray(stateData.current_grid) ? stateData.current_grid : null;
+        if (gridFromState) {
+            const snapshot = gridFromState.map((col) => Array.isArray(col) ? col.slice() : []);
+            if (this.gridManager) {
+                this.gridManager.clearGrid();
+                this.gridManager.setGrid(snapshot);
+                if (this.time && typeof this.time.delayedCall === 'function') {
+                    this.time.delayedCall(32, () => {
+                        if (this.gridManager && this.gridManager.startAllIdleAnimations) {
+                            this.gridManager.startAllIdleAnimations();
+                        }
+                    });
                 }
-                this.uiManager.updateFreeSpinsDisplay();
             }
-            
-            // Update other game state as needed
-            if (data.data.balance !== undefined) {
-                this.stateManager.setBalanceFromServer(data.data.balance);
-                this.updateBalanceDisplay();
+            if (this.gridRenderer && typeof this.gridRenderer.setInitialGrid === 'function') {
+                this.gridRenderer.setInitialGrid(snapshot);
             }
+        }
+        if (stateData.last_rng_seed) {
+            this.lastServerSeed = stateData.last_rng_seed;
+        }
+        if (typeof gameState.balance === 'number') {
+            this.stateManager.setBalanceFromServer(gameState.balance);
+            this.updateBalanceDisplay();
+        } else if (typeof stateData.balance === 'number') {
+            this.stateManager.setBalanceFromServer(stateData.balance);
+            this.updateBalanceDisplay();
+        }
+        if (typeof gameState.free_spins_remaining === 'number') {
+            this.stateManager.freeSpinsData.count = gameState.free_spins_remaining;
+            this.stateManager.freeSpinsData.active = gameState.game_mode === 'free_spins';
+            this.uiManager.updateFreeSpinsDisplay();
+        }
+    }
+
+    handleServerGameStateChange(payload) {
+        if (window.DEBUG) {
+            console.log('?? Server game state change:', payload);
+        }
+        const state = (payload && payload.data) || (payload && payload.gameState) || payload;
+        if (state) {
+            this.applyServerGameState(state, { source: (payload && payload.meta && payload.meta.source) || 'event' });
+        }
+        const data = payload && payload.data ? payload.data : {};
+        if (data.freeSpinsActive !== undefined) {
+            this.stateManager.freeSpinsData.active = data.freeSpinsActive;
+            if (data.freeSpinsCount !== undefined) {
+                this.stateManager.freeSpinsData.count = data.freeSpinsCount;
+            }
+            this.uiManager.updateFreeSpinsDisplay();
+        }
+        if (data.balance !== undefined) {
+            this.stateManager.setBalanceFromServer(data.balance);
+            this.updateBalanceDisplay();
         }
     }
     
     handleServerAuthError() {
         if (window.DEBUG) {
-            console.warn('🔐 Server authentication error - switching to demo mode');
+            console.warn('?? Server authentication error - switching to demo mode');
         }
         
         // Switch to demo mode on authentication error
@@ -2142,50 +2433,153 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     async processServerSpinResult(serverResult) {
         try {
-            // Server result contains complete cascade and win data
-            // We need to animate through it while showing the server-determined results
-            
-            if (window.DEBUG) {
-                console.log('🎰 Processing server spin result:', serverResult);
+            if (!serverResult) {
+                throw new Error('Missing server spin result');
             }
-            
-            // Update balance from server result
-            if (serverResult.balance !== undefined) {
-                this.stateManager.setBalanceFromServer(serverResult.balance);
+
+            const normalized = Object.assign({}, serverResult);
+            if (!Array.isArray(normalized.cascadeSteps) && Array.isArray(normalized.cascades)) {
+                normalized.cascadeSteps = normalized.cascades;
+            } else if (!Array.isArray(normalized.cascades) && Array.isArray(normalized.cascadeSteps)) {
+                normalized.cascades = normalized.cascadeSteps;
             }
-            
-            // Process server-generated grid and cascades
-            if (serverResult.cascades && serverResult.cascades.length > 0) {
-                await this.animateServerCascades(serverResult.cascades);
+
+            // Clear any stale multiplier overlays from previous spins
+            if (this.bonusManager && typeof this.bonusManager.clearAllRandomMultiplierOverlays === 'function') {
+                this.bonusManager.clearAllRandomMultiplierOverlays();
+            }
+
+            // Show server data in debug overlay BEFORE rendering
+            if (window.serverDebugWindow && typeof window.serverDebugWindow.show === 'function') {
+                window.serverDebugWindow.show(normalized);
+            }
+
+            if (this.gridRenderer && typeof this.gridRenderer.renderSpinResult === 'function') {
+                await this.gridRenderer.renderSpinResult(normalized);
             } else {
-                // No cascades - just update grid to final state
-                if (serverResult.finalGrid) {
-                    this.displayServerGrid(serverResult.finalGrid);
+                console.warn('GridRenderer unavailable; using legacy cascade animation.');
+                if (Array.isArray(normalized.cascades)) {
+                    await this.cascadeAnimator.queue(() => this.animateServerCascades(normalized.cascades));
                 }
             }
+
+            console.log(`🎰 FREE SPINS CHECK (client):`, {
+                freeSpinsAwarded: normalized.freeSpinsAwarded,
+                freeSpinsTriggered: normalized.freeSpinsTriggered,
+                bonusFeaturesFreeSpinsAwarded: normalized?.bonusFeatures?.freeSpinsAwarded,
+                bonusFeaturesFreeSpinsTriggered: normalized?.bonusFeatures?.freeSpinsTriggered,
+                hasBonusFeatures: !!normalized.bonusFeatures
+            });
             
-            // Update total win from server
-            this.totalWin = serverResult.totalWin || 0;
-            this.updateWinDisplay();
-            
-            // Handle free spins from server result
-            if (serverResult.freeSpinsAwarded) {
-                this.freeSpinsManager.processFreeSpinsTrigger(serverResult.freeSpinsAwarded);
+            if (normalized.freeSpinsAwarded) {
+                console.log(`✅ Free spins triggered via normalized.freeSpinsAwarded: ${normalized.freeSpinsAwarded}`);
+                this.freeSpinsManager.processFreeSpinsTrigger(normalized.freeSpinsAwarded);
+            } else if (normalized.freeSpinsTriggered && normalized.freeSpinsAwarded === 0) {
+                // Server says free spins triggered but no award count came through; fallback to default
+                const award = window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
+                console.log(`✅ Free spins triggered via normalized.freeSpinsTriggered (fallback): ${award}`);
+                this.freeSpinsManager.processFreeSpinsTrigger(award);
+            } else {
+                // Additional fallbacks for demo and mixed payloads
+                const bfAward = normalized?.bonusFeatures?.freeSpinsAwarded;
+                if (typeof bfAward === 'number' && bfAward > 0) {
+                    console.log(`✅ Free spins triggered via bonusFeatures.freeSpinsAwarded: ${bfAward}`);
+                    this.freeSpinsManager.processFreeSpinsTrigger(bfAward);
+                } else {
+                    // As a safety net, detect 4+ scatters on FINAL grid (after cascades)
+                    // Check both initialGrid and finalGrid
+                    const gridsToCheck = [
+                        { name: 'initialGrid', grid: normalized.initialGrid },
+                        { name: 'finalGrid', grid: normalized.finalGrid }
+                    ];
+                    
+                    let maxScatterCount = 0;
+                    let foundInGrid = null;
+                    
+                    for (const {name, grid} of gridsToCheck) {
+                        if (Array.isArray(grid)) {
+                            let scatterCount = 0;
+                            for (let c = 0; c < 6; c++) {
+                                for (let r = 0; r < 5; r++) {
+                                    if (grid?.[c]?.[r] === 'infinity_glove') {
+                                        scatterCount++;
+                                    }
+                                }
+                            }
+                            console.log(`🔍 Client-side scatter count in ${name}: ${scatterCount}`);
+                            if (scatterCount > maxScatterCount) {
+                                maxScatterCount = scatterCount;
+                                foundInGrid = name;
+                            }
+                        }
+                    }
+                    
+                    if (maxScatterCount >= 4) {
+                        const award = window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
+                        console.log(`✅ Free spins triggered via client-side scatter detection in ${foundInGrid}: ${maxScatterCount} scatters, awarding ${award} spins`);
+                        this.freeSpinsManager.processFreeSpinsTrigger(award);
+                    } else {
+                        console.log(`❌ Free spins NOT triggered - max scatter count ${maxScatterCount} < 4 (checked ${gridsToCheck.map(g => g.name).join(', ')})`);
+                    }
+                }
+            }
+
+            // Set baseWinForFormula for all spins (with or without multipliers)
+            // This is the win BEFORE any random multipliers are applied
+            if (typeof normalized.baseWin === 'number') {
+                this.baseWinForFormula = normalized.baseWin;
+            } else if (typeof normalized.totalWin === 'number') {
+                // Fallback: if no multipliers, baseWin = totalWin
+                this.baseWinForFormula = normalized.totalWin;
             }
             
-            // Handle multipliers from server result
-            if (serverResult.multiplierAwarded) {
-                // Display multiplier animation using existing system
-                await this.bonusManager.showRandomMultiplierResult(serverResult.multiplierAwarded);
-            }
+            const multiplierSummary = normalized.multiplierAwarded || (Array.isArray(normalized.multiplierEvents) && normalized.multiplierEvents.length ? {
+                events: normalized.multiplierEvents,
+                originalWin: typeof normalized.baseWin === 'number' ? normalized.baseWin : normalized.totalWin,
+                finalWin: normalized.totalWin,
+                // CRITICAL FIX: Multipliers are ADDED together, not multiplied
+                // Example: x4 cascade + x3 random = x7 total (not x12)
+                totalAppliedMultiplier: normalized.multiplierEvents.reduce((sum, evt) => sum + (evt.totalMultiplier || 0), 0)
+            } : null);
             
+            if (multiplierSummary) {
+                console.log(`🎯 Using ${normalized.multiplierAwarded ? 'SERVER' : 'FALLBACK'} multiplier summary:`, {
+                    totalAppliedMultiplier: multiplierSummary.totalAppliedMultiplier,
+                    originalWin: multiplierSummary.originalWin,
+                    finalWin: multiplierSummary.finalWin,
+                    events: multiplierSummary.events.map(e => ({ type: e.type, total: e.totalMultiplier }))
+                });
+                await this.bonusManager.showRandomMultiplierResult(multiplierSummary);
+            }
+
+            // Final authoritative sync to server value (rounded to cents)
+            if (typeof normalized.totalWin === 'number') {
+                const finalWin = Math.round(Number(normalized.totalWin) * 100) / 100;
+                this.totalWin = finalWin;
+                this.updateWinDisplay();
+            }
+
+            if (normalized.balance !== undefined) {
+                this.stateManager.setBalanceFromServer(normalized.balance);
+                this.updateBalanceDisplay();
+            } else if (typeof normalized.playerCredits === 'number') {
+                this.stateManager.setBalanceFromServer(normalized.playerCredits);
+                this.updateBalanceDisplay();
+            }
+
+            if (normalized.rngSeed) {
+                this.lastServerSeed = normalized.rngSeed;
+            }
+
+            return normalized;
+
         } catch (error) {
-            console.error('❌ Error processing server spin result:', error);
-            
-            // Fallback to demo mode if processing fails
+            console.error('Error processing server spin result:', error);
             this.switchToDemoMode();
+            throw error;
         }
     }
+
     
     async animateServerCascades(cascades) {
         // Animate through each cascade step provided by the server
@@ -2193,7 +2587,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             const cascadeStep = cascades[i];
             
             if (window.DEBUG) {
-                console.log(`🎰 Animating cascade ${i + 1}/${cascades.length}:`, cascadeStep);
+                console.log(`?�� Animating cascade ${i + 1}/${cascades.length}:`, cascadeStep);
             }
             
             // Display the grid state for this cascade
@@ -2213,7 +2607,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 }
                 
                 // Animate the matches using existing system
-                await this.shakeMatches(clientMatches, 320);
+                await this.cascadeAnimator.queue(() => this.shakeMatches(clientMatches, 320));
                 this.createShatterEffect(clientMatches);
                 
                 // Remove matched symbols
@@ -2226,7 +2620,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             // Display the grid state after this cascade
             if (cascadeStep.gridAfter) {
                 this.displayServerGrid(cascadeStep.gridAfter);
-                await this.animateSymbolDrop();
+                await this.cascadeAnimator.queue(() => this.animateSymbolDrop());
             }
             
             // Play cascade sound
@@ -2242,22 +2636,34 @@ window.GameScene = class GameScene extends Phaser.Scene {
             console.warn('Invalid server grid:', serverGrid);
             return;
         }
-        
+        // Normalize orientation to column-major 6x5 just in case
+        const normalized = (window.NetworkService && typeof window.NetworkService.normalizeGrid === 'function')
+            ? window.NetworkService.normalizeGrid(serverGrid)
+            : serverGrid;
+
         for (let col = 0; col < 6; col++) {
             for (let row = 0; row < 5; row++) {
-                if (serverGrid[col] && serverGrid[col][row]) {
-                    const symbolType = serverGrid[col][row];
-                    
-                    // Remove existing symbol if present
+                const hasValue = normalized[col] && normalized[col][row];
+                if (!hasValue) {
+                    // Clear any stale client symbol when server cell is empty
                     if (this.gridManager.grid[col][row]) {
-                        this.gridManager.grid[col][row].destroy();
+                        try { this.gridManager.grid[col][row].destroy(); } catch (_) {}
                         this.gridManager.grid[col][row] = null;
                     }
-                    
-                    // Create new symbol at this position
-                    const symbol = this.gridManager.createSymbol(symbolType, col, row);
-                    this.gridManager.grid[col][row] = symbol;
+                    continue;
                 }
+
+                const symbolType = normalized[col][row];
+
+                // Remove existing symbol if present (ensure no duplicates)
+                if (this.gridManager.grid[col][row]) {
+                    try { this.gridManager.grid[col][row].destroy(); } catch (_) {}
+                    this.gridManager.grid[col][row] = null;
+                }
+
+                // Create new symbol at this position
+                const symbol = this.gridManager.createSymbol(symbolType, col, row);
+                this.gridManager.grid[col][row] = symbol;
             }
         }
     }
@@ -2288,13 +2694,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     removeServerMatches(serverMatches) {
-        // Remove matched symbols based on server data
+        // Mark matched symbols for removal based on server data
         serverMatches.forEach(match => {
             match.positions.forEach(pos => {
                 const symbol = this.gridManager.grid[pos.col] && this.gridManager.grid[pos.col][pos.row];
                 if (symbol) {
-                    symbol.destroy();
-                    this.gridManager.grid[pos.col][pos.row] = null;
+                    symbol.pendingServerRemoval = true;
                 }
             });
         });
@@ -2313,7 +2718,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.showMessage('Server error - switched to demo mode');
         
         if (window.DEBUG) {
-            console.log('🔌 Switched to demo mode due to server error');
+            console.log('?? Switched to demo mode due to server error');
         }
 
         // Top-up demo balance to ensure gameplay
@@ -2339,13 +2744,22 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        // Keep default Scene.update behavior
-        if (this._fpsText && this.game.loop && this.game.loop.actualFps) {
-            const fps = Math.round(this.game.loop.actualFps);
-            this._fpsText.setText('FPS: ' + fps);
-            // Color cue
-            const color = fps >= 55 ? '#00FF00' : fps >= 45 ? '#FFD700' : '#FF4500';
-            this._fpsText.setColor(color);
+        if (this._fpsText) {
+            let fpsValue = (this.game.loop && this.game.loop.actualFps) ? Math.round(this.game.loop.actualFps) : null;
+            if (this.frameMonitor && typeof this.frameMonitor.getFPS === 'function') {
+                const monitorFps = this.frameMonitor.getFPS();
+                if (monitorFps) {
+                    fpsValue = monitorFps;
+                }
+            }
+            let text = 'FPS: ' + (fpsValue !== null ? fpsValue : '--');
+            if (this.frameMonitor && typeof this.frameMonitor.getDropRate === 'function') {
+                const dropRate = this.frameMonitor.getDropRate();
+                if (dropRate && dropRate > 0) {
+                    text += ` (drop ${(dropRate * 100).toFixed(1)}%)`;
+                }
+            }
+            this._fpsText.setText(text);
         }
     }
 
@@ -3090,7 +3504,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 resultString += `[FREE SPIN ${totalCount - currentCount + 1}/${totalCount}] `;
         }
         
-        resultString += `Spin: $${result.bet.toFixed(2)} → `;
+        resultString += `Spin: $${result.bet.toFixed(2)} ??`;
         
         if (isWin) {
             resultString += `WIN $${result.win.toFixed(2)} (${winMultiplier}x)`;
@@ -3347,7 +3761,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return;
         }
         
-        console.log('🎮 Initializing orientation change handling for GameScene');
+        console.log('?�� Initializing orientation change handling for GameScene');
         
         // Store reference to orientation manager
         this.orientationManager = window.orientationManager;
@@ -3392,7 +3806,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return; // Skip gesture setup on desktop
         }
         
-        console.log('🎮 Initializing mobile gesture detection...');
+        console.log('?�� Initializing mobile gesture detection...');
         
         // Hold gesture for auto-spin (hold spin button for 800ms)
         this.holdGestureHandler = (gesture) => {
@@ -3406,12 +3820,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Swipe gestures for future enhancements (placeholder)
         this.swipeGestureHandler = (gesture) => {
-            console.log('🎮 Swipe gesture detected:', gesture.direction);
+            console.log('?�� Swipe gesture detected:', gesture.direction);
             // Future: Could implement swipe-to-spin or swipe navigation
         };
         window.gestureDetection.on('swipe', this.swipeGestureHandler);
         
-        console.log('🎮 Mobile gesture detection initialized');
+        console.log('?�� Mobile gesture detection initialized');
     }
     
     // Check if a gesture occurred within a button's bounds
@@ -3425,7 +3839,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 gesture.y <= bounds.y + bounds.height
             );
         } catch (error) {
-            console.warn('🎮 Error checking button bounds:', error);
+            console.warn('?�� Error checking button bounds:', error);
             return false;
         }
     }
@@ -3436,7 +3850,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return; // Don't start auto-spin if already spinning or paused
         }
         
-        console.log('🎮 Hold gesture detected on spin button - starting auto-spin');
+        console.log('?�� Hold gesture detected on spin button - starting auto-spin');
         
         // Show visual feedback
         if (this.showMessage) {
@@ -3449,7 +3863,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     // Handle orientation change event
     handleOrientationChange(detail) {
-        console.log(`🎮 GameScene: Orientation changed from ${detail.oldOrientation} to ${detail.newOrientation}`);
+        console.log(`?�� GameScene: Orientation changed from ${detail.oldOrientation} to ${detail.newOrientation}`);
         
         // Additional handling can be added here if needed
         // The actual pause/resume is handled by the OrientationManager
@@ -3461,7 +3875,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return; // Already paused
         }
         
-        console.log('🎮 GameScene: Pausing game due to orientation change');
+        console.log('?�� GameScene: Pausing game due to orientation change');
         this.orientationPaused = true;
         
         // Store current game state
@@ -3525,7 +3939,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return; // Not paused by orientation
         }
         
-        console.log('🎮 GameScene: Resuming game after orientation change');
+        console.log('?�� GameScene: Resuming game after orientation change');
         this.orientationPaused = false;
         
         // Remove pause overlay
@@ -3550,12 +3964,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Note: We don't automatically restart auto-play or burst mode
         // The player needs to manually restart these features for safety
         if (this.wasAutoplayActive) {
-            console.log('🎮 Auto-play was active before orientation change. Please restart it manually.');
+            console.log('?�� Auto-play was active before orientation change. Please restart it manually.');
             this.wasAutoplayActive = false;
         }
         
         if (this.wasBurstAutoSpinning) {
-            console.log('🎮 Burst auto-spin was active before orientation change. Please restart it manually.');
+            console.log('?�� Burst auto-spin was active before orientation change. Please restart it manually.');
             this.wasBurstAutoSpinning = false;
         }
         
@@ -3664,6 +4078,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
             });
             this.keyboardListeners = null;
         }
+
+        if (this.networkStatusHandler) {
+            window.removeEventListener('game-network-status', this.networkStatusHandler);
+            this.networkStatusHandler = null;
+        }
+
+        if (this.networkStatusOverlay) {
+            this.networkStatusOverlay.destroy();
+            this.networkStatusOverlay = null;
+            this.networkStatusText = null;
+        }
         
         // Clean up orientation handling
         this.cleanupOrientationHandling();
@@ -3737,6 +4162,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.fireEffect = null;
         this.gridManager = null;
         this.winCalculator = null;
+        
+        if (window.gameScene === this) {
+            window.gameScene = null;
+        }
+        if (window.GameAPI && typeof window.GameAPI.attachScene === 'function' && window.GameAPI.currentScene === this) {
+            window.GameAPI.attachScene(null);
+        }
         
         // Call parent destroy
         super.destroy();

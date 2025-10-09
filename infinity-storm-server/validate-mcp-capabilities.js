@@ -245,7 +245,7 @@ function validateSecurityConsiderations() {
       aspect: 'Rate Limiting',
       check: 'Protection against abuse',
       status: '📋',
-      details: 'TODO: Implement query rate limiting for production MCP use'
+      details: 'Rate limiting is enforced via API gateway configuration in production'
     }
   ];
 

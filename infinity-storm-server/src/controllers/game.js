@@ -31,6 +31,8 @@ class GameController {
     this.stateManager = new StateManager();
     this.antiCheat = new AntiCheat();
     this.auditLogger = new AuditLogger();
+    this.pendingSpinResults = new Map();
+    this.pendingResultRetentionMs = 5 * 60 * 1000;
 
     // Performance monitoring
     this.spinMetrics = {
@@ -53,13 +55,13 @@ class GameController {
       const {
         betAmount = 1.00,
         quickSpinMode = false,
-        freeSpinsActive = false,
-        accumulatedMultiplier = 1,
         bonusMode = false
       } = req.body;
+      const normalizedBetAmount = Number.isFinite(betAmount) ? betAmount : (parseFloat(betAmount) || 0);
+      const clientRequestId = req.body.clientRequestId || req.body.requestId || null;
 
-      const playerId = req.user.id;
-      const sessionId = req.session_info.id;
+      const playerId = (req.user?.id === 'demo-player') ? 'demo-player' : req.user.id;
+      const sessionId = (req.session_info?.id === 'demo-session') ? 'demo-session' : req.session_info.id;
 
       // Input validation
       const validation = this.validateSpinRequest(req.body, req.user);
@@ -107,18 +109,30 @@ class GameController {
           throw new Error('Player not found');
         }
 
-        // Process bet transaction using wallet service (if not demo mode)
+        const gameState = await this.stateManager.getPlayerState(playerId);
+        const rawFreeSpinsRemaining = gameState ? gameState.free_spins_remaining : 0;
+        const serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
+          ? rawFreeSpinsRemaining
+          : parseInt(rawFreeSpinsRemaining, 10) || 0;
+        const rawAccumulatedMultiplier = gameState ? gameState.accumulated_multiplier : 1;
+        const serverAccumulatedMultiplier = typeof rawAccumulatedMultiplier === 'number'
+          ? rawAccumulatedMultiplier
+          : parseFloat(rawAccumulatedMultiplier) || 1;
+        const serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
+          && serverFreeSpinsRemaining > 0;
+
+        // Process bet transaction using wallet service (skip during free spins or demo)
         let betTransaction = null;
-        if (!player.is_demo) {
+        if (!player.is_demo && !serverFreeSpinsActive) {
           try {
             betTransaction = await WalletService.processBet({
               player_id: playerId,
-              amount: betAmount,
+              amount: normalizedBetAmount,
               reference_id: spinId,
               metadata: {
                 session_id: sessionId,
                 quick_spin_mode: quickSpinMode,
-                free_spins_active: freeSpinsActive
+                free_spins_active: serverFreeSpinsActive
               }
             });
           } catch (walletError) {
@@ -137,23 +151,23 @@ class GameController {
           }
         }
 
-        // Get current game state
-        const gameState = await this.stateManager.getPlayerState(playerId);
-
         // Process spin with game engine
         const spinRequest = {
-          betAmount: parseFloat(betAmount),
+          betAmount: normalizedBetAmount,
           playerId,
           sessionId,
-          freeSpinsActive: Boolean(freeSpinsActive),
-          freeSpinsRemaining: gameState ? gameState.free_spins_remaining : 0,
-          accumulatedMultiplier: parseFloat(accumulatedMultiplier),
+          freeSpinsActive: serverFreeSpinsActive,
+          freeSpinsRemaining: serverFreeSpinsRemaining,
+          accumulatedMultiplier: serverAccumulatedMultiplier,
           quickSpinMode: Boolean(quickSpinMode),
           bonusMode: Boolean(bonusMode),
           spinId
         };
 
         const spinResult = await this.gameEngine.processCompleteSpin(spinRequest);
+        if (clientRequestId) {
+          spinResult.clientRequestId = clientRequestId;
+        }
 
         // Validate spin result
         const resultValidation = this.gameEngine.validateGameResult(spinResult);
@@ -182,7 +196,7 @@ class GameController {
                 base_win: spinResult.baseWin,
                 bonus_win: spinResult.totalWin - spinResult.baseWin,
                 cascade_count: spinResult.cascadeSteps ? spinResult.cascadeSteps.length : 0,
-                multiplier_applied: accumulatedMultiplier
+                multiplier_applied: serverAccumulatedMultiplier
               }
             });
           } catch (walletError) {
@@ -199,7 +213,7 @@ class GameController {
           spin_id: spinId,
           player_id: playerId,
           session_id: sessionId,
-          bet_amount: betAmount,
+          bet_amount: normalizedBetAmount,
           total_win: spinResult.totalWin,
           spin_data: {
             ...spinResult,
@@ -208,7 +222,7 @@ class GameController {
             validationChecks: resultValidation
           },
           rng_seed: spinResult.rngSeed,
-          free_spins_active: freeSpinsActive,
+          free_spins_active: serverFreeSpinsActive,
           game_mode: gameState ? gameState.game_mode : 'base'
         }, { transaction: client });
 
@@ -244,9 +258,21 @@ class GameController {
           }
         });
 
-        // Prepare response
-        const response = {
-          success: true,
+        const freeSpinFeature = spinResult.features?.free_spins || null;
+        const freeSpinsAwarded = freeSpinFeature?.spinsAwarded
+          ?? spinResult.bonusFeatures?.freeSpinsAwarded
+          ?? 0;
+        const freeSpinsTriggered = Boolean(spinResult.bonusFeatures?.freeSpinsTriggered || (freeSpinFeature && !serverFreeSpinsActive));
+        const freeSpinsRetriggered = Boolean(spinResult.bonusFeatures?.freeSpinsRetriggered || freeSpinFeature?.retrigger);
+        const nextFreeSpinCount = typeof stateResult.gameState.free_spins_remaining === 'number'
+          ? stateResult.gameState.free_spins_remaining
+          : 0;
+        const nextGameMode = stateResult.gameState.game_mode;
+        const freeSpinsActiveNext = nextGameMode === 'free_spins';
+        const freeSpinsEnded = serverFreeSpinsActive && !freeSpinsActiveNext;
+
+        // Prepare response (canonical format with nested data, matching /api/demo-spin)
+        const responseData = {
           spinId: spinResult.spinId,
           betAmount: spinResult.betAmount,
           totalWin: spinResult.totalWin,
@@ -255,11 +281,21 @@ class GameController {
           finalGrid: spinResult.finalGrid,
           cascadeSteps: spinResult.cascadeSteps,
           bonusFeatures: spinResult.bonusFeatures,
+          multiplierEvents: spinResult.multiplierEvents,
+          multiplierAwarded: spinResult.multiplierAwarded,
+          features: spinResult.features,
           timing: spinResult.timing,
-          freeSpinsRemaining: stateResult.gameState.free_spins_remaining,
-          gameMode: stateResult.gameState.game_mode,
+          freeSpinsTriggered,
+          freeSpinsRetriggered,
+          freeSpinsAwarded,
+          freeSpinsActive: freeSpinsActiveNext,
+          freeSpinsRemaining: nextFreeSpinCount,
+          freeSpinsEnded,
+          gameMode: nextGameMode,
           accumulatedMultiplier: stateResult.gameState.accumulated_multiplier,
           playerCredits: player.is_demo ? null : currentBalance,
+          balance: player.is_demo ? null : currentBalance,
+          rngSeed: spinResult.rngSeed,
           sessionData: {
             totalSpins: this.spinMetrics.totalSpins,
             sessionRTP: this.gameEngine.calculateSessionRTP(
@@ -275,7 +311,16 @@ class GameController {
           }
         };
 
-        res.json(response);
+        if (clientRequestId) {
+          responseData.requestId = clientRequestId;
+          this.storePendingSpinResult(clientRequestId, { success: true, data: responseData });
+        }
+
+        // Return canonical format matching /api/demo-spin
+        res.json({
+          success: true,
+          data: responseData
+        });
 
       } catch (transactionError) {
         // Rollback transaction on any error
@@ -318,12 +363,66 @@ class GameController {
      * GET /api/game-state
      */
   async getGameState(req, res) {
+    if (req.user?.is_demo) {
+      const safeData = {
+        balance: 5000,
+        free_spins_remaining: 0,
+        accumulated_multiplier: 1,
+        game_mode: 'base',
+        updated_at: new Date().toISOString()
+      };
+      const sessionInfo = {
+        id: 'demo-session',
+        playerId: 'demo-player',
+        lastActivity: Date.now()
+      };
+      const gameStats = this.gameEngine.getGameStatistics();
+      if (this.stateManager.setDemoState) {
+        await this.stateManager.setDemoState('demo-player', safeData, sessionInfo);
+      }
+
+      return res.json({
+        success: true,
+        gameState: safeData,
+        sessionInfo,
+        gameMode: safeData.game_mode,
+        freeSpinsRemaining: safeData.free_spins_remaining,
+        accumulatedMultiplier: safeData.accumulated_multiplier,
+        lastActivity: safeData.updated_at,
+        gameStatistics: {
+          sessionRTP: gameStats.session.currentRTP,
+          totalSpins: gameStats.session.totalSpins,
+          winRate: gameStats.session.winRate,
+          biggestWin: gameStats.session.biggestWin
+        },
+        serverTime: new Date().toISOString()
+      });
+    }
+
     try {
       const playerId = req.user.id;
 
       // Get game state from state manager
-      const gameState = await this.stateManager.getPlayerState(playerId);
-      const sessionInfo = this.stateManager.getActiveSession(req.session_info.id);
+      let gameState = await this.stateManager.getPlayerState(playerId);
+      let sessionInfo = this.stateManager.getActiveSession(req.session_info.id);
+
+      if (!gameState && req.user?.is_demo) {
+        const fallbackSafe = {
+          balance: 5000,
+          free_spins_remaining: 0,
+          accumulated_multiplier: 1,
+          game_mode: 'base',
+          updated_at: new Date().toISOString()
+        };
+        gameState = {
+          getSafeData: () => fallbackSafe,
+          game_mode: fallbackSafe.game_mode,
+          free_spins_remaining: fallbackSafe.free_spins_remaining,
+          accumulated_multiplier: fallbackSafe.accumulated_multiplier,
+          updated_at: fallbackSafe.updated_at
+        };
+        sessionInfo = sessionInfo || { id: 'demo-session', playerId: 'demo-player', lastActivity: Date.now() };
+      }
 
       if (!gameState) {
         return res.status(404).json({
@@ -352,6 +451,10 @@ class GameController {
         },
         serverTime: new Date().toISOString()
       };
+
+      if (req.user?.is_demo) {
+        await this.stateManager.setDemoState(playerId, response.gameState, sessionInfo);
+      }
 
       res.json(response);
 
@@ -671,6 +774,86 @@ class GameController {
       errorRate: 0,
       lastResetTime: Date.now()
     };
+  }
+
+  storePendingSpinResult(requestId, payload) {
+    if (!requestId) {
+      return;
+    }
+
+    try {
+      const clone = typeof payload === 'object' && payload !== null
+        ? JSON.parse(JSON.stringify(payload))
+        : payload;
+      this.pendingSpinResults.set(requestId, {
+        result: clone,
+        storedAt: Date.now()
+      });
+      this.purgePendingSpinResults();
+    } catch (error) {
+      logger.warn('Failed to cache pending spin result', { requestId, error: error.message });
+    }
+  }
+
+  retrievePendingSpinResult(requestId) {
+    if (!requestId) {
+      return null;
+    }
+    const entry = this.pendingSpinResults.get(requestId);
+    if (!entry) {
+      return null;
+    }
+
+    if (Date.now() - entry.storedAt > this.pendingResultRetentionMs) {
+      this.pendingSpinResults.delete(requestId);
+      return null;
+    }
+
+    return entry.result;
+  }
+
+  purgePendingSpinResults(maxAgeMs) {
+    const retention = typeof maxAgeMs === 'number' ? maxAgeMs : this.pendingResultRetentionMs;
+    const cutoff = Date.now() - retention;
+    for (const [requestId, entry] of this.pendingSpinResults.entries()) {
+      if (!entry || entry.storedAt < cutoff) {
+        this.pendingSpinResults.delete(requestId);
+      }
+    }
+  }
+
+  async getPendingSpinResultByRequest(req, res) {
+    try {
+      const { requestId } = req.params;
+      if (!requestId) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST_ID',
+          message: 'requestId parameter is required'
+        });
+      }
+
+      const cached = this.retrievePendingSpinResult(requestId);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      return res.status(404).json({
+        success: false,
+        error: 'PENDING_RESULT_NOT_FOUND',
+        message: 'No pending spin result is available for the provided requestId'
+      });
+    } catch (error) {
+      logger.error('Pending spin lookup error', {
+        error: error.message,
+        stack: error.stack
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'PENDING_RESULT_ERROR',
+        message: 'Unable to retrieve pending spin result'
+      });
+    }
   }
 
   /**

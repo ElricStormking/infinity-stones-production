@@ -36,7 +36,10 @@ window.SpinResult = class SpinResult {
         
         // Free spins state
         this.freeSpinsTriggered = data.freeSpinsTriggered || false;
+        this.freeSpinsAwarded = data.freeSpinsAwarded || 0;
+        this.freeSpinsActive = data.freeSpinsActive || false;
         this.freeSpinsRemaining = data.freeSpinsRemaining || 0;
+        this.freeSpinsEnded = data.freeSpinsEnded || false;
         this.freeSpinsTotal = data.freeSpinsTotal || 0;
         this.accumulatedMultiplier = data.accumulatedMultiplier || 1;
         
@@ -47,6 +50,8 @@ window.SpinResult = class SpinResult {
             appearTiming: mult.appearTiming || 500, // When to show multiplier (ms)
             animationDuration: mult.animationDuration || 2000 // Thanos grip animation (ms)
         }));
+        this.multiplierEvents = Array.isArray(data.multiplierEvents) ? data.multiplierEvents : [];
+        this.multiplierAwarded = data.multiplierAwarded || null;
         
         // Total spin duration for client synchronization
         this.totalSpinDuration = data.totalSpinDuration || 0;
@@ -203,10 +208,15 @@ window.SpinResult = class SpinResult {
             totalWin: this.totalWin,
             balance: this.balance,
             freeSpinsTriggered: this.freeSpinsTriggered,
+            freeSpinsAwarded: this.freeSpinsAwarded,
+            freeSpinsActive: this.freeSpinsActive,
             freeSpinsRemaining: this.freeSpinsRemaining,
+            freeSpinsEnded: this.freeSpinsEnded,
             freeSpinsTotal: this.freeSpinsTotal,
             accumulatedMultiplier: this.accumulatedMultiplier,
             randomMultipliers: this.randomMultipliers,
+            multiplierEvents: this.multiplierEvents,
+            multiplierAwarded: this.multiplierAwarded,
             totalSpinDuration: this.totalSpinDuration,
             error: this.error,
             errorMessage: this.errorMessage

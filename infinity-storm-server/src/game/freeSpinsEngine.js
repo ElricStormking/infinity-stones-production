@@ -58,61 +58,52 @@ class FreeSpinsEngine {
      * @param {boolean} currentlyInFreeSpins - Whether currently in free spins mode
      * @returns {Object} Free spins trigger result
      */
-  checkFreeSpinsTrigger(scatterCount, currentlyInFreeSpins = false) {
+  checkFreeSpinsTrigger(scatterCount, freeSpinsActive = false) {
     // Track scatter distribution for statistics
     this.statistics.scatterDistribution[scatterCount] =
             (this.statistics.scatterDistribution[scatterCount] || 0) + 1;
 
-    if (scatterCount < this.config.minScatterCount) {
-      return {
-        triggered: false,
-        reason: 'insufficient_scatters',
+    const triggered = !freeSpinsActive && scatterCount >= 4;
+    this.logAuditEvent('FREE_SPINS_TRIGGER_CHECK', {
         scatterCount,
-        requiredCount: this.config.minScatterCount
-      };
-    }
-
-    if (currentlyInFreeSpins) {
-      // Retrigger during free spins
-      this.statistics.freeSpinsRetriggered++;
-      this.statistics.totalFreeSpinsAwarded += this.config.retriggerSpins;
-
-      const result = {
-        triggered: true,
-        type: 'retrigger',
-        spinsAwarded: this.config.retriggerSpins,
-        scatterCount,
-        message: `+${this.config.retriggerSpins} Free Spins!`
-      };
-
-      this.logAuditEvent('FREE_SPINS_RETRIGGER', {
-        scatter_count: scatterCount,
-        spins_awarded: this.config.retriggerSpins,
-        retrigger_count: this.statistics.freeSpinsRetriggered
-      });
-
-      return result;
-    } else {
-      // Initial free spins trigger
+        freeSpinsActive,
+        triggered
+    });
+    if (triggered) {
+      const spinsAwarded = this.gameConfig.FREE_SPINS.SCATTER_4_PLUS;
       this.statistics.freeSpinsTriggered++;
-      this.statistics.totalFreeSpinsAwarded += this.config.scatterTrigger;
-
-      const result = {
+      return {
         triggered: true,
-        type: 'initial',
-        spinsAwarded: this.config.scatterTrigger,
-        scatterCount,
-        message: `${this.config.scatterTrigger} FREE SPINS AWARDED!`
+        spinsAwarded,
+        scatterCount
       };
-
-      this.logAuditEvent('FREE_SPINS_TRIGGERED', {
-        scatter_count: scatterCount,
-        spins_awarded: this.config.scatterTrigger,
-        trigger_count: this.statistics.freeSpinsTriggered
-      });
-
-      return result;
     }
+    return {
+      triggered: false,
+      spinsAwarded: 0,
+      scatterCount
+    };
+  }
+
+  checkFreeSpinsRetrigger(scatterCount) {
+      const retriggered = scatterCount >= 4;
+      this.logAuditEvent('FREE_SPINS_RETRIGGER_CHECK', {
+          scatterCount,
+          retriggered
+      });
+      if (retriggered) {
+          this.statistics.freeSpinsRetriggered++;
+          return {
+              triggered: true,
+              spinsAwarded: this.gameConfig.FREE_SPINS.RETRIGGER_SPINS,
+              scatterCount
+          };
+      }
+      return {
+          triggered: false,
+          spinsAwarded: 0,
+          scatterCount
+      };
   }
 
   /**

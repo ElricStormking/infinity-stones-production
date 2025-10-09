@@ -12,7 +12,17 @@ window.GridManager = class GridManager {
         this.grid = [];
         
         // Symbol pool for recycling
-        this.symbolPool = [];
+        if (window.SpritePool) {
+            this.spritePool = new window.SpritePool({
+                create: (options) => this._createSymbolInstance(options),
+                reset: (symbol, options) => this._resetPooledSymbol(symbol, options),
+                onRelease: (symbol) => this._cleanupPooledSymbol(symbol)
+            });
+            this.symbolPool = null;
+        } else {
+            this.spritePool = null;
+            this.symbolPool = [];
+        }
         
         // Grid position
         this.gridX = 0;
@@ -78,7 +88,7 @@ window.GridManager = class GridManager {
         this.currentStepIndex = 0;
         this.lastValidationHash = null;
         
-        console.log('🔒 GridManager validation state initialized');
+        console.log('?? GridManager validation state initialized');
     }
     
     setPosition(x, y) {
@@ -108,58 +118,84 @@ window.GridManager = class GridManager {
     getSymbolScreenY(row) {
         return this.gridY + row * (this.symbolSize + this.spacing) + this.symbolSize / 2;
     }
-    
     createSymbol(type, col, row) {
-        // Map logical symbol types to their rendering texture keys for grid
-        let textureKey;
+        const textureKey = this._resolveTextureKey(type);
+        const options = { type, col, row, textureKey };
+
+        let symbol;
+        if (this.spritePool) {
+            symbol = this.spritePool.acquire(options);
+        } else if (this.symbolPool && this.symbolPool.length > 0) {
+            symbol = this.symbolPool.pop();
+            this._resetLegacyPooledSymbol(symbol, textureKey);
+        } else {
+            symbol = this._createSymbolInstance(options);
+        }
+
+        this._configureSymbolForGrid(symbol, options);
+        return symbol;
+    }
+
+    _resolveTextureKey(type) {
         if (type === 'thanos') {
-            textureKey = 'thanos_sprite';
-        } else if (type === 'thanos_weapon') {
-            textureKey = 'thanos_weap';
-        } else if (type === 'scarlet_witch') {
-            // Use the new Scarlet Witch animated grid symbol
-            textureKey = this.scene.textures && this.scene.textures.exists('scarlet_witch_symbol_sprite')
+            return 'thanos_sprite';
+        }
+        if (type === 'thanos_weapon') {
+            return 'thanos_weap';
+        }
+        if (type === 'scarlet_witch') {
+            return (this.scene.textures && this.scene.textures.exists('scarlet_witch_symbol_sprite'))
                 ? 'scarlet_witch_symbol_sprite'
                 : 'scarlet_witch';
-        } else {
-            textureKey = type;
         }
-        let symbol;
-        
-        // Try to get from pool first
-        if (this.symbolPool.length > 0) {
-            symbol = this.symbolPool.pop();
-            // Properly reset the pooled symbol
+        return type;
+    }
+
+    _createSymbolInstance({ type, col, row, textureKey }) {
+        const pos = this.getSymbolPosition(col, row);
+        const symbol = new window.Symbol(this.scene, pos.x, pos.y, textureKey);
+        this.scene.add.existing(symbol);
+        symbol.setVisible(this.symbolsVisible !== false);
+        return symbol;
+    }
+
+    _resetLegacyPooledSymbol(symbol, textureKey) {
+        if (!symbol) {
+            return;
+        }
+        if (textureKey) {
             symbol.setTexture(textureKey);
-            symbol.setVisible(this.symbolsVisible !== false);
-            symbol.setActive(true);
-            symbol.reset();
-            
-            // Clear any previous animation states
-            this.scene.tweens.killTweensOf(symbol);
-            if (symbol.shadowEffect) {
-                this.scene.tweens.killTweensOf(symbol.shadowEffect);
-            }
-            if (symbol.glowEffect) {
-                symbol.glowEffect.clear();
-            }
-        } else {
-            // Create new symbol
-            const pos = this.getSymbolPosition(col, row);
-            symbol = new window.Symbol(this.scene, pos.x, pos.y, textureKey);
-            this.scene.add.existing(symbol);
-            symbol.setVisible(this.symbolsVisible !== false);
         }
-        
-        // Set symbol properties
-        symbol.symbolType = type; // keep logical type as original (e.g., 'thanos') even if texture differs
-        symbol.setGridPosition(col, row);
-        // Make sure symbol and its effects render above UI panels
+        symbol.setVisible(this.symbolsVisible !== false);
+        if (typeof symbol.setActive === 'function') {
+            symbol.setActive(true);
+        }
+        if (typeof symbol.reset === 'function') {
+            symbol.reset();
+        }
+        this.scene.tweens.killTweensOf(symbol);
+        if (symbol.shadowEffect) {
+            this.scene.tweens.killTweensOf(symbol.shadowEffect);
+        }
+        if (symbol.glowEffect) {
+            symbol.glowEffect.clear();
+        }
+    }
+
+    _resetPooledSymbol(symbol, options) {
+        this._resetLegacyPooledSymbol(symbol, options?.textureKey);
+    }
+
+    _configureSymbolForGrid(symbol, { type, col, row }) {
+        if (!symbol) {
+            return;
+        }
+        symbol.symbolType = type;
+        symbol.setGridPosition?.(col, row);
         if (symbol.setDepthWithEffects) {
             symbol.setDepthWithEffects(window.GameConfig.UI_DEPTHS.GRID_SYMBOL);
         }
 
-        // If BonusManager placed a persistent overlay on this cell, ensure it stays on top
         if (this.scene && this.scene.bonusManager && this.scene.bonusManager.randomMultiplierOverlays) {
             const key = `${col},${row}`;
             const overlay = this.scene.bonusManager.randomMultiplierOverlays[key];
@@ -168,17 +204,61 @@ window.GridManager = class GridManager {
                 overlay.container.setPosition(symbol.x, symbol.y);
             }
         }
-        
-        // Position symbol
+
         const pos = this.getSymbolPosition(col, row);
-        symbol.updatePosition(pos.x, pos.y);
-        
-        // Add appearance animation only if symbols are visible
-        if (this.symbolsVisible !== false) {
+        if (typeof symbol.updatePosition === 'function') {
+            symbol.updatePosition(pos.x, pos.y);
+        } else {
+            symbol.x = pos.x;
+            symbol.y = pos.y;
+        }
+
+        if (this.symbolsVisible !== false && typeof symbol.appear === 'function') {
             symbol.appear();
         }
-        
-        return symbol;
+    }
+
+    _cleanupPooledSymbol(symbol) {
+        if (!symbol) {
+            return;
+        }
+        try {
+            if (typeof symbol.setVisible === 'function') symbol.setVisible(false);
+            if (typeof symbol.setActive === 'function') symbol.setActive(false);
+            if (typeof symbol.reset === 'function') symbol.reset();
+            if (symbol.multiplierText) {
+                symbol.multiplierText.destroy();
+                symbol.multiplierText = null;
+            }
+            if (symbol.glowEffect) {
+                symbol.glowEffect.clear();
+            }
+            if (symbol.shadowEffect) {
+                this.scene.tweens.killTweensOf(symbol.shadowEffect);
+            }
+            if (symbol.multiplierPulseTween) {
+                symbol.multiplierPulseTween.stop();
+                symbol.multiplierPulseTween = null;
+            }
+        } catch (error) {
+            console.warn('Symbol cleanup failed:', error);
+        }
+    }
+
+    _releaseSymbol(symbol) {
+        if (!symbol) {
+            return;
+        }
+        if (this.spritePool) {
+            this.spritePool.release(symbol);
+            return;
+        }
+        if (this.symbolPool && this.symbolPool.length < 60 && !symbol.isDestroyed) {
+            this._cleanupPooledSymbol(symbol);
+            this.symbolPool.push(symbol);
+        } else {
+            symbol.destroy();
+        }
     }
     
     fillGrid() {
@@ -224,18 +304,51 @@ window.GridManager = class GridManager {
             for (let row = 0; row < this.rows; row++) {
                 const symbol = this.grid[col][row];
                 if (symbol && symbol.symbolType !== 'infinity_glove' && !symbol.isRandomMultiplier && symbol.symbolType !== 'random_multiplier') { // Exclude scatter and random-mult symbols
+                    const key = symbol.symbolType + '_' + col + '_' + row;
                     if (!symbolCounts[symbol.symbolType]) {
-                        symbolCounts[symbol.symbolType] = [];
+                        symbolCounts[symbol.symbolType] = {};
                     }
-                    symbolCounts[symbol.symbolType].push({ col, row, symbol });
+                    symbolCounts[symbol.symbolType][key] = { col, row, symbol };
                 }
             }
         }
-        
-        // Check which symbol types have 8+ instances
-        for (const [symbolType, positions] of Object.entries(symbolCounts)) {
-            if (positions.length >= window.GameConfig.MIN_MATCH_COUNT) {
-                matches.push(positions);
+
+        // Check which symbol types have 8+ instances and form contiguous clusters using flood fill
+        const visited = new Set();
+        for (const [symbolType, positionsMap] of Object.entries(symbolCounts)) {
+            const positions = Object.values(positionsMap);
+            const positionSet = new Set(Object.keys(positionsMap));
+            for (const pos of positions) {
+                const key = pos.symbol.symbolType + '_' + pos.col + '_' + pos.row;
+                if (visited.has(key)) {
+                    continue;
+                }
+                const cluster = [];
+                const queue = [{ col: pos.col, row: pos.row, symbol: pos.symbol }];
+                while (queue.length > 0) {
+                    const { col, row, symbol } = queue.shift();
+                    const clusterKey = symbol.symbolType + '_' + col + '_' + row;
+                    if (visited.has(clusterKey) || !positionSet.has(clusterKey)) {
+                        continue;
+                    }
+                    visited.add(clusterKey);
+                    cluster.push({ col, row, symbol });
+                    const neighbors = [
+                        { col: col - 1, row },
+                        { col: col + 1, row },
+                        { col, row: row - 1 },
+                        { col, row: row + 1 }
+                    ];
+                    for (const neighbor of neighbors) {
+                        const neighborKey = symbol.symbolType + '_' + neighbor.col + '_' + neighbor.row;
+                        if (!visited.has(neighborKey) && positionSet.has(neighborKey)) {
+                            queue.push({ col: neighbor.col, row: neighbor.row, symbol: positionsMap[neighborKey].symbol });
+                        }
+                    }
+                }
+                if (cluster.length >= window.GameConfig.MIN_MATCH_COUNT) {
+                    matches.push(cluster);
+                }
             }
         }
         
@@ -247,7 +360,7 @@ window.GridManager = class GridManager {
         
         // Play symbol shattering sound effect when matches are found
         if (matches.length > 0) {
-            console.log(`🔊 Playing symbol shattering sound for ${matches.length} match groups`);
+            console.log(`?? Playing symbol shattering sound for ${matches.length} match groups`);
             window.SafeSound.play(this.scene, 'symbol_shattering');
         }
         
@@ -529,31 +642,7 @@ window.GridManager = class GridManager {
                     this.scene.tweens.killTweensOf(symbol);
                     
                     // For clearing the grid (not removing matches), we can try to pool symbols
-                    if (this.symbolPool.length < 60 && !symbol.isDestroyed) {
-                        // Reset the symbol for reuse
-                        symbol.setVisible(false);
-                        symbol.setActive(false);
-                        symbol.reset();
-                        
-                        // Clean up visual effects without destroying the symbol
-                        if (symbol.multiplierText) {
-                            symbol.multiplierText.destroy();
-                            symbol.multiplierText = null;
-                        }
-                        if (symbol.glowEffect) {
-                            symbol.glowEffect.clear();
-                        }
-                        if (symbol.multiplierPulseTween) {
-                            symbol.multiplierPulseTween.stop();
-                            symbol.multiplierPulseTween = null;
-                        }
-                        
-                        // Add to pool for reuse
-                        this.symbolPool.push(symbol);
-                    } else {
-                        // Pool is full or symbol should be destroyed
-                        symbol.destroy();
-                    }
+                    this._releaseSymbol(symbol);
                     this.grid[col][row] = null;
                 }
             }
@@ -688,7 +777,7 @@ window.GridManager = class GridManager {
             if (expectedHash) {
                 const hashMatches = clientHash === expectedHash;
                 if (!hashMatches) {
-                    console.warn('⚠️ Grid state hash mismatch!');
+                    console.warn('?��? Grid state hash mismatch!');
                     console.warn('Expected:', expectedHash.substring(0, 16) + '...');
                     console.warn('Client:  ', clientHash.substring(0, 16) + '...');
                     
@@ -705,7 +794,7 @@ window.GridManager = class GridManager {
             // Store validation result
             this.lastValidationHash = clientHash;
             
-            console.log('✅ Grid state validation passed');
+            console.log('??Grid state validation passed');
             return {
                 valid: true,
                 clientHash,
@@ -714,7 +803,7 @@ window.GridManager = class GridManager {
             };
             
         } catch (error) {
-            console.error('❌ Grid state validation failed:', error);
+            console.error('??Grid state validation failed:', error);
             return {
                 valid: false,
                 reason: 'validation_error',
@@ -724,22 +813,29 @@ window.GridManager = class GridManager {
     }
     
     validateGridStructure(gridState) {
-        // Validate grid dimensions
         if (!gridState || !Array.isArray(gridState)) {
             return { valid: false, reason: 'invalid_grid_structure' };
         }
-        
-        if (gridState.length !== this.cols) {
-            return { valid: false, reason: 'invalid_column_count' };
+
+        const looksLikeColMajor = gridState.length === this.cols;
+        if (looksLikeColMajor) {
+            return this.validateColumnMajor(gridState);
         }
-        
-        // Validate each column
+
+        const looksLikeRowMajor = gridState.length === this.rows;
+        if (looksLikeRowMajor) {
+            return this.validateRowMajor(gridState);
+        }
+
+        return { valid: false, reason: 'invalid_dimensions' };
+    }
+
+    validateColumnMajor(gridState) {
         for (let col = 0; col < this.cols; col++) {
             if (!Array.isArray(gridState[col]) || gridState[col].length !== this.rows) {
                 return { valid: false, reason: 'invalid_row_count', column: col };
             }
-            
-            // Validate symbol types and positions
+
             for (let row = 0; row < this.rows; row++) {
                 const symbolType = gridState[col][row];
                 if (symbolType !== null && !this.isValidSymbolType(symbolType)) {
@@ -752,16 +848,65 @@ window.GridManager = class GridManager {
                 }
             }
         }
-        
+        return { valid: true };
+    }
+
+    validateRowMajor(gridState) {
+        for (let row = 0; row < this.rows; row++) {
+            if (!Array.isArray(gridState[row]) || gridState[row].length !== this.cols) {
+                return { valid: false, reason: 'invalid_row_length', row };
+            }
+
+            for (let col = 0; col < this.cols; col++) {
+                const symbolType = gridState[row][col];
+                if (symbolType !== null && !this.isValidSymbolType(symbolType)) {
+                    return {
+                        valid: false,
+                        reason: 'invalid_symbol_type',
+                        position: { col, row },
+                        symbolType
+                    };
+                }
+            }
+        }
         return { valid: true };
     }
     
     isValidSymbolType(symbolType) {
-        const validTypes = [
-            ...Object.keys(window.GameConfig.SYMBOLS || {}),
-            'infinity_glove', 'random_multiplier'
+        if (symbolType === null || symbolType === undefined) {
+            return true; // allow empty slots during cascades
+        }
+
+        const canonicalIds = [
+            'time_gem',
+            'space_gem',
+            'mind_gem',
+            'power_gem',
+            'reality_gem',
+            'soul_gem',
+            'thanos',
+            'thanos_weapon',
+            'scarlet_witch',
+            'infinity_glove'
         ];
-        return validTypes.includes(symbolType);
+
+        const value = typeof symbolType === 'string' ? symbolType : String(symbolType);
+        if (!value) {
+            return false;
+        }
+
+        const normalized = value.toLowerCase();
+        if (canonicalIds.includes(normalized)) {
+            return true;
+        }
+
+        // Legacy GameConfig keys are uppercase (e.g. TIME_GEM); normalise before comparison
+        const legacyNormalized = value.replace(/[^A-Z_]/g, '').toLowerCase();
+        if (legacyNormalized && canonicalIds.includes(legacyNormalized)) {
+            return true;
+        }
+
+        return false;
     }
     
     captureGridState() {
@@ -779,29 +924,31 @@ window.GridManager = class GridManager {
     }
     
     async generateGridStateHash(gridState, stepData = null) {
+
         try {
-            const hashData = {
-                gridState: gridState,
-                timestamp: Date.now(),
-                stepIndex: stepData?.stepIndex || this.currentStepIndex,
-                salt: stepData?.salt || this.generateSalt()
-            };
-            
-            const dataString = JSON.stringify(hashData, null, 0);
+
+            const serialized = JSON.stringify(gridState ?? []);
+
             const encoder = new TextEncoder();
-            const data = encoder.encode(dataString);
+
+            const data = encoder.encode(serialized);
+
             const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            
+
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            
-            return hashHex;
-            
+
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
         } catch (error) {
-            console.error('❌ Grid state hash generation failed:', error);
+
+            console.error('??Grid state hash generation failed:', error);
+
             throw error;
+
         }
+
     }
+
     
     /**
      * Task 3.2.2: Cascade step verification methods
@@ -812,7 +959,7 @@ window.GridManager = class GridManager {
         }
         
         try {
-            console.log(`🔍 Verifying cascade step ${stepData.stepIndex}`);
+            console.log(`?? Verifying cascade step ${stepData.stepIndex}`);
             
             // Store step data for verification
             this.stepValidationData.set(stepData.stepIndex, {
@@ -861,7 +1008,7 @@ window.GridManager = class GridManager {
                 }
             }
             
-            console.log(`✅ Cascade step ${stepData.stepIndex} verification passed`);
+            console.log(`??Cascade step ${stepData.stepIndex} verification passed`);
             
             return {
                 verified: true,
@@ -871,7 +1018,7 @@ window.GridManager = class GridManager {
             };
             
         } catch (error) {
-            console.error(`❌ Cascade step ${stepData.stepIndex} verification failed:`, error);
+            console.error(`??Cascade step ${stepData.stepIndex} verification failed:`, error);
             return {
                 verified: false,
                 reason: 'verification_error',
@@ -1023,7 +1170,7 @@ window.GridManager = class GridManager {
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             
         } catch (error) {
-            console.error('❌ Step verification hash generation failed:', error);
+            console.error('??Step verification hash generation failed:', error);
             throw error;
         }
     }
@@ -1092,7 +1239,7 @@ window.GridManager = class GridManager {
                 }
             }
             
-            console.log(`⏰ Step ${stepData.stepIndex} timing verification passed`);
+            console.log(`??Step ${stepData.stepIndex} timing verification passed`);
             return {
                 verified: true,
                 timingDifference: expectedStartTime ? Math.abs(receivedAt - expectedStartTime) : 0,
@@ -1100,7 +1247,7 @@ window.GridManager = class GridManager {
             };
             
         } catch (error) {
-            console.error(`❌ Step ${stepData.stepIndex} timing verification failed:`, error);
+            console.error(`??Step ${stepData.stepIndex} timing verification failed:`, error);
             return {
                 verified: false,
                 reason: 'timing_verification_error',
@@ -1178,14 +1325,14 @@ window.GridManager = class GridManager {
             // Send acknowledgment via CascadeAPI if available
             if (window.cascadeAPI && typeof window.cascadeAPI.sendStepAcknowledgment === 'function') {
                 await window.cascadeAPI.sendStepAcknowledgment(stepData, acknowledgment);
-                console.log(`📤 Sync acknowledgment sent for step ${stepData.stepIndex}`);
+                console.log(`?�� Sync acknowledgment sent for step ${stepData.stepIndex}`);
             } else {
                 // Fallback: send via NetworkService directly
                 if (window.NetworkService && typeof window.NetworkService.emit === 'function') {
                     window.NetworkService.emit('grid_step_acknowledgment', acknowledgment);
-                    console.log(`📤 Grid sync acknowledgment sent for step ${stepData.stepIndex}`);
+                    console.log(`?�� Grid sync acknowledgment sent for step ${stepData.stepIndex}`);
                 } else {
-                    console.warn('⚠️ No communication service available for acknowledgment');
+                    console.warn('?��? No communication service available for acknowledgment');
                     return { sent: false, reason: 'no_communication_service' };
                 }
             }
@@ -1197,7 +1344,7 @@ window.GridManager = class GridManager {
             };
             
         } catch (error) {
-            console.error(`❌ Failed to send sync acknowledgment for step ${stepData.stepIndex}:`, error);
+            console.error(`??Failed to send sync acknowledgment for step ${stepData.stepIndex}:`, error);
             return {
                 sent: false,
                 reason: 'acknowledgment_error',
@@ -1217,7 +1364,7 @@ window.GridManager = class GridManager {
     
     async processServerCascadeStep(serverStepData) {
         try {
-            console.log(`🔄 Processing server cascade step ${serverStepData.stepIndex}`);
+            console.log(`?? Processing server cascade step ${serverStepData.stepIndex}`);
             
             // Update current step index
             this.currentStepIndex = serverStepData.stepIndex;
@@ -1259,7 +1406,7 @@ window.GridManager = class GridManager {
                 timestamp: Date.now()
             });
             
-            console.log(`✅ Server cascade step ${serverStepData.stepIndex} processed successfully`);
+            console.log(`??Server cascade step ${serverStepData.stepIndex} processed successfully`);
             
             return {
                 success: true,
@@ -1269,7 +1416,7 @@ window.GridManager = class GridManager {
             };
             
         } catch (error) {
-            console.error(`❌ Failed to process server cascade step ${serverStepData.stepIndex}:`, error);
+            console.error(`??Failed to process server cascade step ${serverStepData.stepIndex}:`, error);
             
             // Send error acknowledgment
             try {
@@ -1278,7 +1425,7 @@ window.GridManager = class GridManager {
                     processed: false
                 });
             } catch (ackError) {
-                console.error('❌ Failed to send error acknowledgment:', ackError);
+                console.error('??Failed to send error acknowledgment:', ackError);
             }
             
             return {
@@ -1327,11 +1474,11 @@ window.GridManager = class GridManager {
                 }
             }
             
-            console.log('✅ Grid state applied successfully');
+            console.log('??Grid state applied successfully');
             return true;
             
         } catch (error) {
-            console.error('❌ Failed to set grid state:', error);
+            console.error('??Failed to set grid state:', error);
             return false;
         }
     }
@@ -1350,7 +1497,7 @@ window.GridManager = class GridManager {
     
     setValidationConfig(config) {
         this.validationConfig = { ...this.validationConfig, ...config };
-        console.log('🔧 GridManager validation config updated:', this.validationConfig);
+        console.log('?�� GridManager validation config updated:', this.validationConfig);
     }
     
     generateSalt(length = 16) {
@@ -1379,19 +1526,24 @@ window.GridManager = class GridManager {
         }
         
         // Clear symbol pool
-        for (const symbol of this.symbolPool) {
-            this.scene.tweens.killTweensOf(symbol);
-            symbol.destroy();
+        if (this.spritePool) {
+            this.spritePool.clear();
+        } else if (Array.isArray(this.symbolPool)) {
+            for (const symbol of this.symbolPool) {
+                this.scene.tweens.killTweensOf(symbol);
+                symbol.destroy();
+            }
+            this.symbolPool = [];
         }
-        this.symbolPool = [];
-        
+
         // Clear validation state
         this.gridStateHistory = [];
         this.stepValidationData.clear();
         this.syncAcknowledgments.clear();
-        
+
         // Clear any remaining references
         this.grid = null;
+        this.spritePool = null;
         this.symbolPool = null;
         this.scene = null;
     }

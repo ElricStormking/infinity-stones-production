@@ -27,7 +27,7 @@ describe('GET /api/history/spins', () => {
   it('returns paginated history with required fields', async () => {
     const res = await request(app)
       .get('/api/history/spins?page=1&limit=2&order=desc')
-      .set('Origin', 'http://localhost:3001');
+      .set('Origin', 'http://localhost:3000');
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty('success', true);

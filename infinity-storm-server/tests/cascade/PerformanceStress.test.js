@@ -69,6 +69,13 @@ describe('Enhanced Cascade Synchronization - Performance and Stress Tests', () =
       }
     });
 
+    // Minimal echo handlers for WS message delivery tests
+    io.on('connection', (socket) => {
+      socket.on('test_cascade_message', (payload) => {
+        socket.emit('test_cascade_response', { ok: true, ...payload });
+      });
+    });
+
     // Start server
     await new Promise((resolve) => {
       server.listen(port, () => {

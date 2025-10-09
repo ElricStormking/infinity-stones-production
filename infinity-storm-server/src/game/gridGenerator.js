@@ -14,6 +14,8 @@
 const { getRNG } = require('./rng');
 const SymbolDistribution = require('./symbolDistribution');
 
+const MIN_MATCH_COUNT = 8;
+
 /**
  * Grid Generator for Infinity Storm Slot Game
  *
@@ -26,7 +28,9 @@ class GridGenerator {
       cols: 6,
       rows: 5,
       auditLogging: true,
-      validateRTP: true,
+      validateRTP: false,
+      minClustersPerGrid: 2,
+      clusterInjection: true,
       ...options
     };
 
@@ -102,29 +106,10 @@ class GridGenerator {
     });
 
     // Generate the grid
-    const grid = this.createEmptyGrid();
-    const symbolCounts = {};
-
-    for (let col = 0; col < this.options.cols; col++) {
-      for (let row = 0; row < this.options.rows; row++) {
-        const symbol = this.generateSymbol(rng, {
-          position: [col, row],
-          freeSpinsMode,
-          accumulatedMultiplier
-        });
-
-        grid[col][row] = symbol;
-
-        // Track symbol generation
-        symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
-        this.stats.symbolsGenerated++;
-
-        // Update distribution statistics
-        if (this.stats.distributionStats[symbol]) {
-          this.stats.distributionStats[symbol].count++;
-        }
-      }
-    }
+    const { grid, symbolCounts, metadata: cascadeMetadata } = this.generateCascadeReadyGrid(rng, {
+      freeSpinsMode,
+      accumulatedMultiplier
+    });
 
     const endTime = Date.now();
     const generationTime = endTime - startTime;
@@ -155,7 +140,8 @@ class GridGenerator {
         symbol_counts: symbolCounts,
         total_symbols: this.options.cols * this.options.rows,
         generated_at: startTime,
-        validation
+        validation,
+        cascade_metadata: cascadeMetadata
       },
       statistics: this.getGenerationStatistics()
     };
@@ -179,6 +165,203 @@ class GridGenerator {
     }
 
     return gridData;
+  }
+
+  /**
+     * Generate a cascade-ready grid by first creating a weighted layout
+     * and then enforcing strong cluster coverage using deterministic heuristics.
+     * @param {Function} rng
+     * @param {Object} context
+     * @returns {{grid:Array<Array<string>>,symbolCounts:Object,metadata:Object}}
+     */
+  generateCascadeReadyGrid(rng, context = {}) {
+    const grid = this.createEmptyGrid();
+    const symbolCounts = {};
+    const originalCounts = {};
+
+    // Phase 1: seeded weighted fill
+    for (let col = 0; col < this.options.cols; col++) {
+      for (let row = 0; row < this.options.rows; row++) {
+        const symbol = this.generateSymbol(rng, {
+          position: [col, row],
+          freeSpinsMode: context.freeSpinsMode,
+          accumulatedMultiplier: context.accumulatedMultiplier
+        });
+
+        grid[col][row] = symbol;
+        symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+        originalCounts[symbol] = (originalCounts[symbol] || 0) + 1;
+        this.stats.symbolsGenerated++;
+
+        if (this.stats.distributionStats[symbol]) {
+          this.stats.distributionStats[symbol].count++;
+        }
+      }
+    }
+
+    const metadata = this.enforceCascadeClusters(grid, rng, context);
+
+    // Recalculate symbol counts after potential cluster injection
+    const finalCounts = this.countSymbols(grid);
+    this.applySymbolCountDiff(originalCounts, finalCounts);
+
+    return { grid, symbolCounts: finalCounts, metadata };
+  }
+
+  /**
+     * Ensure each grid has at least one cascade-worthy cluster by reseeding columns
+     * deterministically. Prioritize low-tier symbols for first cascade, while
+     * respecting scatter constraints.
+     * @param {Array<Array<string>>} grid
+     * @param {Function} rng
+     * @param {Object} context
+     * @returns {Object} cascade cluster metadata for audit
+     */
+  enforceCascadeClusters(grid, rng, context = {}) {
+    const minClusters = this.options.clusterInjection ? (this.options.minClustersPerGrid || 1) : 0;
+
+    const existingClusters = this.findClusters(grid);
+    const clusterInfo = existingClusters.slice();
+
+    if (!this.options.clusterInjection) {
+      return {
+        clusterStrategy: 'detected',
+        clusters: clusterInfo,
+        metadata: {
+          requestedClusters: 0,
+          injectedClusters: 0,
+          existingClusters: clusterInfo.length
+        }
+      };
+    }
+
+    if (clusterInfo.length >= minClusters) {
+      return {
+        clusterStrategy: 'existing',
+        clusters: clusterInfo,
+        metadata: {
+          requestedClusters: minClusters,
+          injectedClusters: 0,
+          existingClusters: clusterInfo.length
+        }
+      };
+    }
+
+    const neededClusters = Math.max(0, minClusters - existingClusters.length);
+
+    const seedSymbols = ['time_gem', 'space_gem', 'mind_gem', 'power_gem'];
+    const injectionClusters = [];
+
+    for (let i = 0; i < neededClusters; i++) {
+      const symbol = seedSymbols[i % seedSymbols.length];
+      const startCol = Math.min(Math.floor(rng() * Math.max(1, this.options.cols - 1)), this.options.cols - 2);
+      const maxRowStart = Math.max(0, this.options.rows - 4);
+      const startRow = Math.min(Math.floor(rng() * (maxRowStart + 1)), maxRowStart);
+      const positions = [];
+
+      for (let deltaRow = 0; deltaRow < Math.min(4, this.options.rows); deltaRow++) {
+        const row = startRow + deltaRow;
+        if (row >= this.options.rows) {break;}
+        for (let deltaCol = 0; deltaCol < Math.min(2, this.options.cols); deltaCol++) {
+          const col = startCol + deltaCol;
+          if (col >= this.options.cols) {continue;}
+          grid[col][row] = symbol;
+          positions.push({ col, row });
+        }
+      }
+
+      if (positions.length >= MIN_MATCH_COUNT) {
+        injectionClusters.push({ symbolType: symbol, positions });
+      }
+    }
+
+    if (injectionClusters.length) {
+      clusterInfo.push(...injectionClusters);
+    }
+
+    return {
+      clusterStrategy: injectionClusters.length ? 'injected' : 'detected',
+      clusters: clusterInfo,
+      metadata: {
+        requestedClusters: minClusters,
+        injectedClusters: injectionClusters.length,
+        existingClusters: existingClusters.length
+      }
+    };
+  }
+
+  /**
+     * Find connected clusters using simple flood-fill identical to winCalculator
+     * @param {Array<Array<string>>} gridState
+     * @returns {Array<Object>} clusters
+     */
+  findClusters(gridState) {
+    const clusters = [];
+    const visited = new Set();
+
+    for (let col = 0; col < this.options.cols; col++) {
+      for (let row = 0; row < this.options.rows; row++) {
+        const key = `${col},${row}`;
+        if (visited.has(key)) {continue;}
+        const symbol = gridState[col][row];
+        if (!symbol || symbol === 'infinity_glove') {continue;}
+
+        const cluster = this.floodFillCluster(gridState, col, row, symbol, visited);
+        if (cluster.length >= MIN_MATCH_COUNT) {
+          clusters.push({ symbolType: symbol, positions: cluster });
+        }
+      }
+    }
+
+    return clusters;
+  }
+
+  floodFillCluster(gridState, startCol, startRow, symbolType, visited) {
+    const queue = [{ col: startCol, row: startRow }];
+    const cluster = [];
+
+    while (queue.length) {
+      const { col, row } = queue.shift();
+      const key = `${col},${row}`;
+      if (visited.has(key)) {continue;}
+      if (col < 0 || col >= this.options.cols || row < 0 || row >= this.options.rows) {
+        continue;
+      }
+      if (gridState[col][row] !== symbolType) {continue;}
+
+      visited.add(key);
+      cluster.push({ col, row });
+
+      queue.push(
+        { col: col - 1, row },
+        { col: col + 1, row },
+        { col, row: row - 1 },
+        { col, row: row + 1 }
+      );
+    }
+
+    return cluster;
+  }
+
+  countSymbols(gridState) {
+    const counts = {};
+    for (let col = 0; col < this.options.cols; col++) {
+      for (let row = 0; row < this.options.rows; row++) {
+        const symbol = gridState[col][row];
+        counts[symbol] = (counts[symbol] || 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  applySymbolCountDiff(originalCounts, finalCounts) {
+    for (const [symbol, finalCount] of Object.entries(finalCounts)) {
+      const originalCount = originalCounts[symbol] || 0;
+      const diff = finalCount - originalCount;
+      if (diff !== 0 && this.stats.distributionStats[symbol]) {
+        this.stats.distributionStats[symbol].count += diff;
+      }
+    }
   }
 
   /**

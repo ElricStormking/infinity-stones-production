@@ -1169,10 +1169,14 @@ window.UIManager = class UIManager {
                     base = Math.max(0, this.scene.baseWinForFormula || 0);
                     mult = Math.max(1, this.scene.spinAppliedMultiplier || 1);
                 }
+                // Avoid showing misleading formula when values are effectively 0/1 due to rounding noise
+                const baseRounded = Math.round(base * 100) / 100;
+                const multRounded = Math.round(mult * 100) / 100;
+                const meaningfulFormula = (baseRounded >= 0.01) && (multRounded >= 1.01);
                 let text;
-                if (base > 0 && mult > 1) {
-                    const baseStr = `$${base.toFixed(2)}`;
-                    const multStr = `x${mult.toFixed(2).replace(/\.00$/, '')}`;
+                if (meaningfulFormula) {
+                    const baseStr = `$${baseRounded.toFixed(2)}`;
+                    const multStr = `x${multRounded.toFixed(2).replace(/\.00$/, '')}`;
                     const finalStr = `$${amount.toFixed(2)}`;
                     text = `${baseStr} ${multStr} = ${finalStr}`;
                 } else {

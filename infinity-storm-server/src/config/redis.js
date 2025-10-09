@@ -1,20 +1,66 @@
 const Redis = require('ioredis');
 
 // Quick bypass for local playtest: completely skip Redis when requested
-if (process.env.SKIP_REDIS === 'true') {
-  const noopClient = {
-    on: () => {},
-    quit: async () => {},
-    ping: async () => 'PONG'
-  };
+const shouldSkipRedis = (process.env.SKIP_REDIS ?? '').toLowerCase() !== 'false'
+  ? true
+  : false;
+
+if (shouldSkipRedis) {
+  const asyncNull = async () => null;
+  const asyncZero = async () => 0;
+  const asyncArray = async () => [];
+  const asyncOk = async () => 'OK';
+
+  const noopClient = new Proxy({}, {
+    get: (_target, prop) => {
+      switch (prop) {
+        case 'on':
+          return () => {};
+        case 'quit':
+        case 'disconnect':
+        case 'connect':
+          return async () => {};
+        case 'duplicate':
+          return () => noopClient;
+        case 'ping':
+          return async () => 'PONG';
+        case 'get':
+          return asyncNull;
+        case 'set':
+        case 'setex':
+        case 'setEx':
+        case 'expire':
+        case 'pexpire':
+          return asyncOk;
+        case 'del':
+        case 'zremrangebyscore':
+          return asyncZero;
+        case 'zadd':
+        case 'sadd':
+          return asyncZero;
+        case 'zrange':
+        case 'zrevrange':
+        case 'zrangebyscore':
+        case 'keys':
+          return asyncArray;
+        case 'scard':
+        case 'zcount':
+          return asyncZero;
+        default:
+          return asyncNull;
+      }
+    }
+  });
+
   const noopStore = () => ({ /* no session store when skipping redis */ });
   module.exports = {
-    initializeRedis: () => null,
+    initializeRedis: () => noopClient,
     getRedisClient: () => noopClient,
     closeRedis: async () => {},
     testConnection: async () => false,
     getSessionStore: noopStore,
-    config: {}
+    config: {},
+    shouldSkipRedis: true
   };
   return;
 }

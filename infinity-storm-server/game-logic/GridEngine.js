@@ -286,7 +286,7 @@ class GridEngine {
      * @param {GameSession} options.gameSession - Game session for synchronization tracking
      * @returns {SpinResult} Complete SpinResult object with enhanced cascade synchronization
      */
-  generateSpinResult(options = {}) {
+  async generateSpinResult(options = {}) {
     const {
       bet = 1.00,
       quickSpinMode = false,
@@ -458,7 +458,20 @@ class GridEngine {
       spinResult.totalWin = this.roundWin(totalWin);
       spinResult.baseWin = this.roundWin(totalWin / accumulatedMultiplier);
       spinResult.totalMultiplier = accumulatedMultiplier;
-      spinResult.balance = 1000.00; // TODO: Get from wallet service
+      if (this.walletService && typeof this.walletService.getBalance === 'function' && gameSession?.playerId) {
+        try {
+          const balanceData = await this.walletService.getBalance(gameSession.playerId);
+          spinResult.balance = typeof balanceData?.balance === 'number' ? balanceData.balance : null;
+        } catch (balanceError) {
+          this.logger?.warn?.('GridEngine: balance lookup failed', {
+            playerId: gameSession.playerId,
+            error: balanceError.message
+          });
+          spinResult.balance = null;
+        }
+      } else {
+        spinResult.balance = null;
+      }
       spinResult.freeSpinsTriggered = freeSpinsTriggered;
       spinResult.freeSpinsRemaining = freeSpinsTriggered ? 15 : 0;
       spinResult.freeSpinsTotal = freeSpinsTriggered ? 15 : 0;

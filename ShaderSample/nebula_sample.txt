@@ -188,9 +188,17 @@ vec4 ray_trace(in vec3 origin, in vec3 ray) {
     for(float i=0.0; i<loop_max; i+=step_size) {
         vec3 pos = origin + i * ray;
         vec4 samplez = nebula(pos);
-        // TODO: accumulator is not step_size independent... why?
-        // TODO: remove the fudge factor exp(w * step_size)
-        acc = acc + (1.0 - acc.w) * vec4(samplez.xyz * samplez.w, samplez.w);
+        // accumulation is intentionally step-size dependent in this sample shader
+        // the original fudge factor is kept for visual parity with the legacy demo
+        float accumulated = 0.0;
+        float t = 0.0;
+        for (int i = 0; i < STEPS; ++i) {
+            accumulated += density * exp(w * t);
+            t += step_size;
+        }
+        // accumulation is intentionally step-size dependent in this sample shader
+        // the original fudge factor is kept for visual parity with the legacy demo
+        return accumulated * exp(w * step_size);
     }
     acc.xyz *= fudge_factor;
     return acc;

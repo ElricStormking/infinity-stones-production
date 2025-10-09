@@ -8,6 +8,7 @@ window.GameAPI = new (class GameAPI {
         this.isSpinning = false;
         this.balance = 0;
         this.playerStats = null;
+        this.currentScene = null;
         
         // Setup WebSocket event listeners
         this.setupWebSocketListeners();
@@ -16,6 +17,10 @@ window.GameAPI = new (class GameAPI {
         this.initialize();
     }
     
+    attachScene(scene) {
+        this.currentScene = scene || null;
+    }
+
     async initialize() {
         // Wait for NetworkService to be ready
         if (!window.NetworkService) {
@@ -154,17 +159,14 @@ window.GameAPI = new (class GameAPI {
             return { success: false, error: 'Spin already in progress' };
         }
         
-        if (!NetworkService.authToken) {
+        if (!NetworkService.authToken && !NetworkService.isDemoMode()) {
             return { success: false, error: 'No authentication token' };
         }
         
         this.isSpinning = true;
         
         try {
-            // Prefer WebSocket if connected, otherwise HTTP
-            if (NetworkService.isSocketConnected()) {
-                return await this.requestSpinViaWebSocket(betAmount);
-            }
+            // Prefer HTTP endpoint until WebSocket payload mirrors canonical spin results
             return await this.requestSpinViaHTTP(betAmount);
         } catch (error) {
             console.error('❌ Spin request failed:', error);
@@ -215,11 +217,14 @@ window.GameAPI = new (class GameAPI {
     async requestSpinViaHTTP(betAmount) {
         try {
             // Use new NetworkService processSpin method
+            const scene = this.currentScene;
+            const freeSpinsData = scene?.stateManager?.freeSpinsData || null;
             const result = await NetworkService.processSpin({
                 bet: betAmount,
-                quickSpinMode: true,
-                freeSpinsActive: false,
-                accumulatedMultiplier: 1
+                betAmount,
+                quickSpinMode: scene?.settings?.quickSpinEnabled ?? false,
+                freeSpinsActive: !!freeSpinsData?.active,
+                accumulatedMultiplier: freeSpinsData?.multiplierAccumulator || 1
             });
             
             this.isSpinning = false;

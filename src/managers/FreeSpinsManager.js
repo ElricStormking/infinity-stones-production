@@ -40,6 +40,25 @@ window.FreeSpinsManager = class FreeSpinsManager {
         }
     }
     
+    processFreeSpinsTrigger(spins, triggerType = 'server') {
+        const count = Number(spins) || 0;
+        if (count <= 0) {
+            return;
+        }
+
+        // Retrigger if already active
+        if (this.scene.stateManager?.freeSpinsData?.active) {
+            this.addFreeSpinsSpins(count);
+            this.scene.showMessage(`+${count} Free Spins!`);
+            try { this.scene.uiManager.updateFreeSpinsDisplay?.(); } catch (_) {}
+            window.SafeSound.play(this.scene, 'bonus');
+            return;
+        }
+
+        // First-time trigger from server payload
+        this.showThanosSnapThenStartUI(count, triggerType || 'server');
+    }
+
     triggerFreeSpins(scatterCount) {
         // 4+ scatters always award 15 free spins in base game
         const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
@@ -793,6 +812,16 @@ window.FreeSpinsManager = class FreeSpinsManager {
         
         // Save game state
         this.scene.stateManager.saveState();
+    }
+    
+    addFreeSpinsSpins(spins) {
+        if (!spins || spins <= 0) {
+            return;
+        }
+        this.scene.stateManager.freeSpinsData.count = (this.scene.stateManager.freeSpinsData.count || 0) + spins;
+        this.scene.stateManager.freeSpinsData.totalCount = (this.scene.stateManager.freeSpinsData.totalCount || 0) + spins;
+        this.scene.showMessage(`+${spins} Free Spins!`);
+        this.scene.uiManager.updateFreeSpinsDisplay?.();
     }
     
     // Getters and setters

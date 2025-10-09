@@ -50,40 +50,32 @@ class WinCalculator {
      * @returns {Array<Object>} Array of match objects with connected clusters
      */
   findConnectedMatches(grid) {
-    const matches = [];
-    const visited = new Set();
+    const symbolBuckets = new Map();
 
-    // Iterate through each position in the grid
     for (let col = 0; col < this.gameConfig.GRID_COLS; col++) {
       for (let row = 0; row < this.gameConfig.GRID_ROWS; row++) {
-        const positionKey = `${col},${row}`;
-
-        // Skip if already visited or empty
-        if (visited.has(positionKey) || !grid[col][row]) {
-          continue;
-        }
-
         const symbol = grid[col][row];
-
-        // Skip scatter symbols for cluster matching
-        if (symbol === 'infinity_glove') {
+        if (!symbol || symbol === 'infinity_glove') {
           continue;
         }
 
-        // Find all connected symbols of the same type using flood-fill
-        const cluster = this.floodFillCluster(grid, col, row, symbol, visited);
-
-        // Only create match if cluster meets minimum size requirement
-        if (cluster.length >= this.gameConfig.MIN_MATCH_COUNT) {
-          matches.push({
-            symbolType: symbol,
-            positions: cluster,
-            clusterSize: cluster.length
-          });
-
-          this.statistics.clusterMatches++;
-          this.statistics.largestCluster = Math.max(this.statistics.largestCluster, cluster.length);
+        if (!symbolBuckets.has(symbol)) {
+          symbolBuckets.set(symbol, []);
         }
+        symbolBuckets.get(symbol).push({ col, row });
+      }
+    }
+
+    const matches = [];
+    for (const [symbolType, positions] of symbolBuckets.entries()) {
+      if (positions.length >= this.gameConfig.MIN_MATCH_COUNT) {
+        matches.push({
+          symbolType,
+          positions,
+          clusterSize: positions.length
+        });
+        this.statistics.clusterMatches++;
+        this.statistics.largestCluster = Math.max(this.statistics.largestCluster, positions.length);
       }
     }
 

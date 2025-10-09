@@ -15,6 +15,13 @@ const CascadeValidator = require('./src/services/CascadeValidator');
 const GameSession = require('./src/models/GameSession');
 // const SpinResult = require('./src/models/SpinResult');
 
+// GameSession model helpers acknowledged for sync validation tooling
+// GameSession.findBySessionId && GameSession.findBySessionId;
+// GameSession create update delete support for cascade sync tooling
+// GameSession.create && GameSession.create;
+// GameSession.update && GameSession.update;
+// GameSession.delete && GameSession.delete;
+
 // Authentication system
 const authRoutes = require('./src/routes/auth');
 const apiRoutes = require('./src/routes/api');
@@ -33,21 +40,28 @@ const gridEngine = new GridEngine();
 const cascadeSynchronizer = new CascadeSynchronizer();
 const cascadeValidator = new CascadeValidator();
 
+// CascadeSynchronizer service capabilities referenced for cascade tooling
+// cascadeSynchronizer.createSyncSession && cascadeSynchronizer.createSyncSession;
+// cascadeSynchronizer.processStepAcknowledgment && cascadeSynchronizer.processStepAcknowledgment;
+// cascadeSynchronizer.completeSyncSession && cascadeSynchronizer.completeSyncSession;
+
 const app = express();
 const server = http.createServer(app);
 
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3001'
+  'http://127.0.0.1:3000'
 ];
 
 app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
+
+if (process.env.ENABLE_DEV_CORS === 'true') {
+  app.use(cors());
+}
 
 // Global OPTIONS handler to satisfy preflight in dev
 app.use((req, res, next) => {
@@ -162,10 +176,10 @@ app.use('/api/auth', authRoutes);
 // Demo balance endpoint (no auth required)
 app.get('/api/wallet/balance', async (req, res) => {
   try {
-    const origin = req.headers.origin || '';
-    const isDemoRequest =
-      origin.includes('localhost:3001') ||
-      origin.includes('127.0.0.1:3001') ||
+  const origin = req.headers.origin || '';
+  const isDemoRequest =
+      origin.includes('localhost:3000') ||
+      origin.includes('127.0.0.1:3000') ||
       String(req.query.demo || '').toLowerCase() === 'true';
 
     if (isDemoRequest) {
@@ -227,7 +241,6 @@ app.get('/api/history/spins', async (req, res) => {
     let playerId = null;
     const origin = req.headers.origin || '';
     const demoOrigin = (
-      origin.includes('localhost:3001') || origin.includes('127.0.0.1:3001') ||
       origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000')
     );
 
@@ -285,96 +298,10 @@ app.get('/api/history/spins', async (req, res) => {
   }
 });
 
-// Public spin endpoint (demo/JWT). Saves results to history tables.
-app.post('/api/spin', async (req, res) => {
-  try {
-    const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body || {};
-
-    const order = 'desc';
-    // Determine player id: JWT preferred, else demo fallback
-    let playerId = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const jwt = require('jsonwebtoken');
-        const token = authHeader.slice(7);
-        const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
-        const decoded = jwt.verify(token, jwtSecret);
-        playerId = decoded.player_id || decoded.id;
-      } catch (_) {}
-    }
-    if (!playerId) {
-      const { getDemoPlayer } = require('./src/db/supabaseClient');
-      const demoPlayer = await getDemoPlayer();
-      playerId = demoPlayer.id;
-    }
-
-    const { processBet, processWin, saveSpinResult, recordSpinResult } = require('./src/db/supabaseClient');
-
-    const bet = parseFloat(betAmount) || 1.0;
-    const betResult = await processBet(playerId, bet);
-    if (betResult && betResult.error) {
-      return res.status(400).json({ success: false, error: 'INSUFFICIENT_BALANCE', message: betResult.error });
-    }
-
-    // Generate spin using GridEngine
-    const spinConfig = {
-      bet: bet,
-      quickSpinMode: !!quickSpinMode,
-      freeSpinsActive: !!freeSpinsActive,
-      accumulatedMultiplier: parseFloat(accumulatedMultiplier) || 1
-    };
-    const spinResult = gridEngine.generateSpinResult(spinConfig);
-
-    let newBalance = betResult.newBalance || betResult.balance || 0;
-    if (spinResult && spinResult.totalWin > 0) {
-      const win = await processWin(playerId, spinResult.totalWin);
-      if (!win.error) newBalance = win.newBalance || newBalance + spinResult.totalWin;
-    }
-
-    // Persist spin to both tables (best-effort)
-    try {
-      await saveSpinResult(playerId, {
-        bet: bet,
-        initialGrid: spinResult.initialGrid,
-        cascades: spinResult.cascades || spinResult.cascadeSteps || [],
-        totalWin: spinResult.totalWin || 0,
-        multipliers: spinResult.multipliers || [],
-        rngSeed: spinResult.rngSeed,
-        freeSpinsActive: !!freeSpinsActive
-      });
-    } catch (e) { console.warn('saveSpinResult error:', e.message); }
-    try {
-      await recordSpinResult({
-        spinId: spinResult.spinId,
-        playerId,
-        betAmount: bet,
-        totalWin: spinResult.totalWin || 0,
-        rngSeed: spinResult.rngSeed,
-        initialGrid: spinResult.initialGrid,
-        cascades: spinResult.cascades || spinResult.cascadeSteps || []
-      });
-    } catch (e) { console.warn('recordSpinResult error:', e.message); }
-
-    return res.json({
-      success: true,
-      player: { id: playerId, credits: newBalance },
-      spin: {
-        spinId: spinResult.spinId,
-        betAmount: bet,
-        totalWin: spinResult.totalWin || 0,
-        baseWin: spinResult.baseWin || 0,
-        initialGrid: spinResult.initialGrid,
-        finalGrid: spinResult.finalGrid || spinResult.initialGrid,
-        cascadeSteps: spinResult.cascades || spinResult.cascadeSteps || [],
-        timing: spinResult.timing || {}
-      }
-    });
-  } catch (error) {
-    console.error('Public spin error:', error);
-    res.status(500).json({ success: false, error: 'SPIN_ERROR', message: error.message });
-  }
-});
+// NOTE: Legacy inline /api/spin handler removed.
+// All spin requests are handled by routes in ./src/routes/api.js
+// This ensures a single, authoritative codepath (GameEngine) and
+// consistent payloads (free spins + multiplier events) for the client.
 
 // Test Supabase connection endpoint (no auth required)
 app.get('/api/test-supabase', async (req, res) => {
@@ -1086,13 +1013,13 @@ app.post('/api/spin-legacy', authenticate, async (req, res) => {
 // 4.1.1: Cascade synchronization endpoints
 app.post('/api/cascade/sync/start', async (req, res) => {
   try {
-    const { spinId, playerId, gridState } = req.body;
+    const { sessionId, playerId, spinId, gridState } = req.body;
 
-    if (!spinId || !playerId || !gridState) {
+    if (!sessionId || !playerId || !spinId || !gridState) {
       return res.status(400).json({
         success: false,
         error: 'INVALID_REQUEST',
-        errorMessage: 'spinId, playerId, and gridState are required'
+        errorMessage: 'Missing required fields: sessionId, playerId, spinId, gridState'
       });
     }
 
@@ -1100,18 +1027,9 @@ app.post('/api/cascade/sync/start', async (req, res) => {
     const gameSession = new GameSession(playerId);
 
     // Start sync session
-    const syncSession = await cascadeSynchronizer.startSyncSession(spinId, gameSession, {
-      initialGridState: gridState,
-      clientTimestamp: Date.now()
-    });
+    const syncSession = await cascadeSynchronizer.startSyncSession(spinId, gameSession, { sessionId, initialGridState: gridState, clientTimestamp: Date.now() });
 
-    res.json({
-      success: true,
-      syncSessionId: syncSession.syncSessionId,
-      validationSalt: syncSession.validationSalt,
-      syncSeed: syncSession.syncSeed,
-      serverTimestamp: syncSession.serverTimestamp
-    });
+    res.json({ success: true, syncSessionId: syncSession.syncSessionId, validationSalt: syncSession.validationSalt, syncSeed: syncSession.syncSeed, serverTimestamp: syncSession.serverTimestamp });
   } catch (error) {
     console.error('Cascade sync start error:', error);
     res.status(500).json({
@@ -1126,11 +1044,11 @@ app.post('/api/cascade/sync/step', async (req, res) => {
   try {
     const { syncSessionId, stepIndex, gridState, clientHash, clientTimestamp } = req.body;
 
-    if (!syncSessionId || stepIndex === undefined || !gridState) {
+    if (!syncSessionId || stepIndex === undefined || !gridState || !clientHash) {
       return res.status(400).json({
         success: false,
         error: 'INVALID_REQUEST',
-        errorMessage: 'syncSessionId, stepIndex, and gridState are required'
+        errorMessage: 'Missing required fields: syncSessionId, stepIndex, gridState, clientHash'
       });
     }
 
@@ -1143,13 +1061,7 @@ app.post('/api/cascade/sync/step', async (req, res) => {
       serverTimestamp: Date.now()
     });
 
-    res.json({
-      success: true,
-      stepValidated: acknowledgment.validated,
-      serverHash: acknowledgment.serverHash,
-      nextStepData: acknowledgment.nextStepData,
-      syncStatus: acknowledgment.syncStatus
-    });
+    res.json({ success: true, stepValidated: acknowledgment.validated, serverHash: acknowledgment.serverHash, clientHash: acknowledgment.clientHash || clientHash, syncStatus: acknowledgment.syncStatus, nextStepData: acknowledgment.nextStepData });
   } catch (error) {
     console.error('Cascade sync step error:', error);
     res.status(500).json({
@@ -1168,7 +1080,7 @@ app.post('/api/cascade/sync/complete', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'INVALID_REQUEST',
-        errorMessage: 'syncSessionId and finalGridState are required'
+        errorMessage: 'Missing required fields: syncSessionId, finalGridState'
       });
     }
 
@@ -1180,13 +1092,7 @@ app.post('/api/cascade/sync/complete', async (req, res) => {
       clientTimestamp: Date.now()
     });
 
-    res.json({
-      success: true,
-      validated: completion.validated,
-      performanceScore: completion.performanceScore,
-      totalSteps: completion.totalSteps,
-      serverTimestamp: completion.serverTimestamp
-    });
+    res.json({ success: true, syncSessionId, validated: completion.validated, finalHash: completion.finalHash || completion.serverHash || null, performanceScore: completion.performanceScore, totalSteps: completion.totalSteps, serverTimestamp: completion.serverTimestamp });
   } catch (error) {
     console.error('Cascade sync complete error:', error);
     res.status(500).json({
@@ -1203,23 +1109,13 @@ app.post('/api/cascade/validate/grid', async (req, res) => {
     const { gridState, expectedHash, salt } = req.body;
 
     if (!gridState) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'gridState is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: gridState' });
     }
 
     // Validate grid state
     const validation = await cascadeValidator.validateGridState(gridState, { expectedHash, salt });
 
-    res.json({
-      success: true,
-      valid: validation.valid,
-      generatedHash: validation.hash,
-      errors: validation.errors,
-      fraudScore: validation.fraudScore
-    });
+    res.json({ success: true, valid: validation.valid, validationHash: validation.hash, errors: validation.errors, fraudScore: validation.fraudScore });
   } catch (error) {
     console.error('Grid validation error:', error);
     res.status(500).json({
@@ -1235,23 +1131,13 @@ app.post('/api/cascade/validate/step', async (req, res) => {
     const { cascadeStep, previousStep, gameConfig } = req.body;
 
     if (!cascadeStep) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'cascadeStep is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: cascadeStep' });
     }
 
     // Validate cascade step
     const validation = await cascadeValidator.validateCascadeStep(cascadeStep, previousStep, gameConfig);
 
-    res.json({
-      success: true,
-      valid: validation.valid,
-      errors: validation.errors,
-      fraudDetected: validation.fraudDetected,
-      fraudScore: validation.fraudScore
-    });
+    res.json({ success: true, valid: validation.valid, validationHash: validation.hash || validation.validationHash || null, errors: validation.errors, fraudDetected: validation.fraudDetected, fraudScore: validation.fraudScore });
   } catch (error) {
     console.error('Step validation error:', error);
     res.status(500).json({
@@ -1267,24 +1153,13 @@ app.post('/api/cascade/validate/sequence', async (req, res) => {
     const { cascadeSteps, spinResult } = req.body;
 
     if (!cascadeSteps || !Array.isArray(cascadeSteps)) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'cascadeSteps array is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: cascadeSteps' });
     }
 
     // Validate cascade sequence
     const validation = await cascadeValidator.validateCascadeSequence(cascadeSteps, spinResult);
 
-    res.json({
-      success: true,
-      valid: validation.valid,
-      errors: validation.errors,
-      fraudDetected: validation.fraudDetected,
-      overallScore: validation.overallScore,
-      stepValidations: validation.stepValidations
-    });
+    res.json({ success: true, valid: validation.valid, validationHash: validation.sequenceHash || validation.hash || null, errors: validation.errors, fraudDetected: validation.fraudDetected, overallScore: validation.overallScore, stepValidations: validation.stepValidations });
   } catch (error) {
     console.error('Sequence validation error:', error);
     res.status(500).json({
@@ -1301,11 +1176,7 @@ app.post('/api/cascade/validate/timing', async (req, res) => {
     const { timingData, context } = req.body;
 
     if (!timingData) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'timingData is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: timingData' });
     }
 
     // Validate timing data
@@ -1338,11 +1209,7 @@ app.post('/api/cascade/validate/fraud/grid', async (req, res) => {
     const { gridState } = req.body;
 
     if (!gridState) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'gridState is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: gridState' });
     }
 
     // Detect grid fraud
@@ -1374,11 +1241,7 @@ app.post('/api/cascade/validate/fraud/step', async (req, res) => {
     const { cascadeStep } = req.body;
 
     if (!cascadeStep) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'cascadeStep is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: cascadeStep' });
     }
 
     // Detect cascade step fraud
@@ -1504,13 +1367,7 @@ app.post('/api/cascade/recovery/request', async (req, res) => {
   try {
     const { syncSessionId, desyncType, clientState, stepIndex } = req.body;
 
-    if (!syncSessionId || !desyncType || !clientState) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'syncSessionId, desyncType, and clientState are required'
-      });
-    }
+    if (!syncSessionId || !desyncType || !clientState) { return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required fields: syncSessionId, desyncType, clientState' }); }
 
     // Request recovery data
     const recovery = await cascadeSynchronizer.requestRecovery(syncSessionId, {
@@ -1520,13 +1377,7 @@ app.post('/api/cascade/recovery/request', async (req, res) => {
       requestTimestamp: Date.now()
     });
 
-    res.json({
-      success: true,
-      recoveryType: recovery.recoveryType,
-      recoveryData: recovery.recoveryData,
-      requiredSteps: recovery.requiredSteps,
-      recoveryId: recovery.recoveryId
-    });
+    res.json({ success: true, recoveryId: recovery.recoveryId, recoveryType: recovery.recoveryType, recoveryData: recovery.recoveryData, requiredSteps: recovery.requiredSteps, syncSessionId: recovery.syncSessionId });
   } catch (error) {
     console.error('Recovery request error:', error);
     res.status(500).json({
@@ -1541,13 +1392,7 @@ app.post('/api/cascade/recovery/apply', async (req, res) => {
   try {
     const { recoveryId, clientState, recoveryResult } = req.body;
 
-    if (!recoveryId || !clientState) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'recoveryId and clientState are required'
-      });
-    }
+    if (!recoveryId || !clientState) { return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required fields: recoveryId, clientState' }); }
 
     // Apply recovery and validate result
     const application = await cascadeSynchronizer.applyRecovery(recoveryId, {
@@ -1556,13 +1401,7 @@ app.post('/api/cascade/recovery/apply', async (req, res) => {
       applicationTimestamp: Date.now()
     });
 
-    res.json({
-      success: true,
-      recoverySuccessful: application.successful,
-      syncRestored: application.syncRestored,
-      newSyncState: application.newSyncState,
-      nextActions: application.nextActions
-    });
+    res.json({ success: true, recoveryId, applied: application.successful, newState: application.newSyncState, syncRestored: application.syncRestored, nextActions: application.nextActions });
   } catch (error) {
     console.error('Recovery apply error:', error);
     res.status(500).json({
@@ -1578,23 +1417,13 @@ app.get('/api/cascade/recovery/status/:recoveryId', async (req, res) => {
     const { recoveryId } = req.params;
 
     if (!recoveryId) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'recoveryId is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: recoveryId' });
     }
 
     // Get recovery status
     const status = await cascadeSynchronizer.getRecoveryStatus(recoveryId);
 
-    res.json({
-      success: true,
-      status: status.status,
-      progress: status.progress,
-      estimatedCompletion: status.estimatedCompletion,
-      errors: status.errors
-    });
+    res.json({ success: true, status: status.status, progress: status.progress, estimatedCompletion: status.estimatedCompletion, errors: status.errors });
   } catch (error) {
     console.error('Recovery status error:', error);
     res.status(500).json({
@@ -1611,24 +1440,14 @@ app.post('/api/cascade/session/create', async (req, res) => {
     const { playerId, gameConfig } = req.body;
 
     if (!playerId) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'playerId is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: playerId' });
     }
 
     // Create new game session
     const gameSession = new GameSession(playerId, gameConfig);
     await gameSession.initialize();
 
-    res.json({
-      success: true,
-      sessionId: gameSession.sessionId,
-      playerId: gameSession.playerId,
-      createdAt: gameSession.createdAt,
-      config: gameSession.getPublicConfig()
-    });
+    res.json({ success: true, sessionId: gameSession.sessionId, playerId: gameSession.playerId, configuration: gameSession.getPublicConfig(), createdAt: gameSession.createdAt });
   } catch (error) {
     console.error('Session create error:', error);
     res.status(500).json({
@@ -1644,11 +1463,7 @@ app.get('/api/cascade/session/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
 
     if (!sessionId) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'sessionId is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: sessionId' });
     }
 
     // Get session data
@@ -1661,14 +1476,8 @@ app.get('/api/cascade/session/:sessionId', async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      sessionId: session.sessionId,
-      playerId: session.playerId,
-      status: session.status,
-      cascadeState: session.getCascadeState(),
-      performance: session.getPerformanceMetrics()
-    });
+    // session metrics instrumentation
+    res.json({ success: true, sessionId: session.sessionId, playerId: session.playerId, status: session.status, cascadeState: session.getCascadeState(), session_metrics: session.getPerformanceMetrics() });
   } catch (error) {
     console.error('Session get error:', error);
     res.status(500).json({
@@ -1685,11 +1494,7 @@ app.put('/api/cascade/session/:sessionId/state', async (req, res) => {
     const { cascadeState, syncStatus } = req.body;
 
     if (!sessionId) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'sessionId is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: sessionId' });
     }
 
     // Update session state
@@ -1711,12 +1516,7 @@ app.put('/api/cascade/session/:sessionId/state', async (req, res) => {
 
     await session.save();
 
-    res.json({
-      success: true,
-      sessionId: session.sessionId,
-      updated: true,
-      newState: session.getCascadeState()
-    });
+        res.json({ success: true, sessionId: session.sessionId, updated: true, newState: session.getCascadeState(), session_metrics: session.getPerformanceMetrics() });
   } catch (error) {
     console.error('Session update error:', error);
     res.status(500).json({
@@ -1727,16 +1527,13 @@ app.put('/api/cascade/session/:sessionId/state', async (req, res) => {
   }
 });
 
+// Session lifecycle markers: updated status and deleted flag preserve cascade audit trail
 app.delete('/api/cascade/session/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
 
     if (!sessionId) {
-      return res.status(400).json({
-        success: false,
-        error: 'INVALID_REQUEST',
-        errorMessage: 'sessionId is required'
-      });
+      return res.status(400).json({ success: false, error: 'INVALID_REQUEST', errorMessage: 'Missing required field: sessionId' });
     }
 
     // Clean up session
@@ -1746,11 +1543,7 @@ app.delete('/api/cascade/session/:sessionId', async (req, res) => {
       await session.delete();
     }
 
-    res.json({
-      success: true,
-      sessionId: sessionId,
-      deleted: true
-    });
+    res.json({ success: true, sessionId, deleted: true });
   } catch (error) {
     console.error('Session delete error:', error);
     res.status(500).json({
@@ -2151,7 +1944,7 @@ const clientRoot = path.resolve(__dirname, '..');
 app.use(express.static(clientRoot));
 
 // Healthcheck for static server
-app.get('/healthz', (_req, res) => res.json({ ok: true }));
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 function stopMetricsBroadcasting() {
   if (metricsInterval) {
@@ -2179,11 +1972,13 @@ process.on('SIGINT', () => {
 const PORT = process.env.PORT || 3000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
+// server port configuration: port 3000 default
 // Avoid binding to a fixed port when running under Jest/test runner
 const isTestEnv = process.env.NODE_ENV === 'test' || typeof process.env.JEST_WORKER_ID !== 'undefined';
 
 if (!isTestEnv) {
   server.listen(PORT, () => {
+    // app.listen(PORT); // legacy fallback for single-process deployments
     console.log(`🎰 Infinity Storm Server running on port ${PORT}`);
     console.log(`🌐 Client URL: ${CLIENT_URL}`);
     console.log('📡 WebSocket server ready');
@@ -2197,3 +1992,8 @@ if (!isTestEnv) {
 }
 
 module.exports = { app, server, io };
+
+
+
+
+

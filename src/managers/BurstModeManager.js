@@ -395,8 +395,11 @@ window.BurstModeManager = class BurstModeManager {
         
         menuBtn.on('pointerup', () => {
             window.SafeSound.play(this.scene, 'click');
-            // TODO: Implement menu functionality
-            this.scene.showMessage('Menu coming soon!');
+            if (typeof this.scene.openInGameMenu === 'function') {
+                this.scene.openInGameMenu();
+            } else {
+                this.scene.showMessage('Menu coming soon!');
+            }
         });
         
         menuBtn.on('pointerover', () => {

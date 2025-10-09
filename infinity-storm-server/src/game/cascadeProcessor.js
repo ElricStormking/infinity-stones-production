@@ -50,7 +50,7 @@ class CascadeProcessor {
      * @param {boolean} quickSpinMode - Quick spin mode enabled
      * @returns {Object} Cascade result with new grid, timing, and drop patterns
      */
-  async processCascade(grid, matches, cascadeNumber, quickSpinMode = false) {
+  async processCascade(grid, matches, cascadeNumber, quickSpinMode = false, cascadeSeed = null) {
     const startTime = Date.now();
 
     this.logAuditEvent('CASCADE_PROCESSING_STARTED', {
@@ -68,9 +68,10 @@ class CascadeProcessor {
 
     // Step 2: Calculate symbol drops and generate drop patterns
     const dropResult = this.calculateSymbolDrops(newGrid);
+    const gridAfterRemoval = this.cloneGrid(newGrid);
 
     // Step 3: Fill empty spaces with new symbols
-    const fillResult = await this.fillEmptySpaces(newGrid, cascadeNumber);
+    const fillResult = await this.fillEmptySpaces(newGrid, cascadeNumber, cascadeSeed);
 
     // Step 4: Calculate timing for all animations
     const timing = this.calculateCascadeTiming(
@@ -88,6 +89,7 @@ class CascadeProcessor {
 
     const cascadeResult = {
       newGrid,
+      gridAfterRemoval,
       removedPositions,
       dropPatterns: dropResult.dropPatterns,
       newSymbols: fillResult.newSymbols,
@@ -100,6 +102,10 @@ class CascadeProcessor {
         symbolsGenerated: fillResult.newSymbolCount
       }
     };
+
+    // Back-compat aliases to avoid consumer "missing grid" issues
+    cascadeResult.grid = cascadeResult.newGrid;
+    cascadeResult.gridMid = cascadeResult.gridAfterRemoval;
 
     this.logAuditEvent('CASCADE_PROCESSING_COMPLETED', {
       cascade_number: cascadeNumber,
@@ -157,7 +163,8 @@ class CascadeProcessor {
       const columnDropPattern = {
         column: col,
         drops: [],
-        maxDropInColumn: 0
+        maxDropInColumn: 0,
+        lastDropTime: 0
       };
 
       const writeRow = this.gameConfig.GRID_ROWS - 1; // Start from bottom
@@ -184,15 +191,20 @@ class CascadeProcessor {
           // Track drop if symbol moved
           if (symbolData.originalRow !== targetRow) {
             const dropDistance = symbolData.originalRow - targetRow;
+            const dropTime = this.calculateDropTime(Math.abs(dropDistance));
             columnDropPattern.drops.push({
-              from: symbolData.originalRow,
-              to: targetRow,
+              from: { col, row: symbolData.originalRow },
+              to: { col, row: targetRow },
+              fromRow: symbolData.originalRow,
+              toRow: targetRow,
+              symbolType: symbolData.symbol,
               symbol: symbolData.symbol,
               dropDistance,
-              dropTime: this.calculateDropTime(dropDistance)
+              dropTime
             });
 
             columnDropPattern.maxDropInColumn = Math.max(columnDropPattern.maxDropInColumn, dropDistance);
+            columnDropPattern.lastDropTime = Math.max(columnDropPattern.lastDropTime, dropTime);
             maxDropDistance = Math.max(maxDropDistance, dropDistance);
           }
         }
@@ -222,12 +234,14 @@ class CascadeProcessor {
      * @param {number} cascadeStep - Current cascade step for RNG seeding
      * @returns {Object} Fill result with new symbols data
      */
-  async fillEmptySpaces(grid, cascadeStep) {
+  async fillEmptySpaces(grid, cascadeStep, cascadeSeed = null) {
     const newSymbols = [];
     let newSymbolCount = 0;
 
-    // Create seeded RNG for consistent results
-    const cascadeRNG = this.rng.createSeededRNG(`cascade_${cascadeStep}_${Date.now()}`);
+    // Create seeded RNG for consistent results (must be hex per rng.createSeededRNG)
+    // If caller provided a seed, use it; else derive from RNG uuid hashed to hex
+    const seededHex = cascadeSeed || this.rng.hashSeed(this.rng.uuid().replace(/-/g, ''));
+    const cascadeRNG = this.rng.createSeededRNG(seededHex);
 
     // Fill from top to bottom to ensure proper cascading order
     for (let row = 0; row < this.gameConfig.GRID_ROWS; row++) {
@@ -252,11 +266,16 @@ class CascadeProcessor {
 
           const newSymbolData = {
             position: { col, row },
+            column: col,
+            row,
             symbol: newSymbol,
+            symbolType: newSymbol,
+            type: newSymbol,
             dropFromRow,
             dropTime,
             emptyRowsAbove,
-            isNewSymbol: true
+            isNewSymbol: true,
+            rngSeed: seededHex
           };
 
           newSymbols.push(newSymbolData);
@@ -502,3 +521,4 @@ class CascadeProcessor {
 }
 
 module.exports = CascadeProcessor;
+

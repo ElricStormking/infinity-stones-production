@@ -142,5 +142,6 @@
     "additionalDirectories": [
       "D:\\d\\infinity-gauntlet"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }

@@ -820,13 +820,16 @@ describe('Performance and Load Testing Suite', () => {
           for (let i = 0; i < batchSize; i++) {
             const requestStartTime = Date.now();
 
-            const promise = gridEngine.generateSpinResult(betAmount, {
-              enableSync: true,
-              playerId: `response-time-${concurrency}-${batch}-${i}`
+            const promise = GridEngine.generateSpinResultAsync({
+              bet: betAmount,
+              quickSpinMode: true,
+              freeSpinsActive: false,
+              accumulatedMultiplier: 1,
+              spinId: `response-time-${concurrency}-${batch}-${i}`
             }).then(result => ({
               success: true,
               responseTime: Date.now() - requestStartTime,
-              steps: result.steps.length
+              steps: result.cascadeSteps ? result.cascadeSteps.length : 0
             })).catch(error => ({
               success: false,
               responseTime: Date.now() - requestStartTime,

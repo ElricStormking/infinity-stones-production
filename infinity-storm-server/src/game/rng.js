@@ -181,12 +181,13 @@ class CryptoRNG extends EventEmitter {
       throw new Error('Invalid seed: must be non-empty string');
     }
 
-    // Validate seed format (hex)
-    if (!/^[0-9a-f]+$/i.test(seed)) {
-      throw new Error('Invalid seed format: must be hexadecimal');
+    // Accept any string: if not hex, derive a hex seed deterministically
+    let normalizedSeed = seed;
+    if (!/^[0-9a-f]+$/i.test(normalizedSeed)) {
+      normalizedSeed = this.hashSeed(String(seed));
     }
 
-    const seedId = this.hashSeed(seed);
+    const seedId = this.hashSeed(normalizedSeed);
     this.logAuditEvent('SEEDED_RNG_CREATED', {
       seed_id: seedId,
       seed_length: seed.length
@@ -199,7 +200,7 @@ class CryptoRNG extends EventEmitter {
       counter++;
 
       const hash = crypto.createHash('sha256');
-      hash.update(seed);
+      hash.update(normalizedSeed);
       hash.update(counter.toString());
 
       const hashBytes = hash.digest();

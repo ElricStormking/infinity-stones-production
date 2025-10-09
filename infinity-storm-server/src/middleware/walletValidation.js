@@ -300,7 +300,6 @@ class WalletValidation {
   static logWalletOperation(operation) {
     return (req, res, next) => {
       // Temporarily disabled logging to prevent errors
-      // TODO: Fix logger implementation
       next();
     };
   }

@@ -30,6 +30,11 @@ window.BonusManager = class BonusManager {
             return;
         }
         
+        // Server-authoritative mode: do not trigger client RNG events
+        if (window.NetworkService && typeof window.NetworkService.isDemoMode === 'function' && !window.NetworkService.isDemoMode()) {
+            return;
+        }
+
         // SECURITY: Use controlled RNG for Random Multiplier trigger
         if (!window.RNG) {
             throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
@@ -109,7 +114,29 @@ window.BonusManager = class BonusManager {
         // Suppress character callout text under WIN banner
     }
 
+    clearAllRandomMultiplierOverlays() {
+        // Clear all multiplier overlays (called at start of new spin to prevent stale overlays)
+        const count = Object.keys(this.randomMultiplierOverlays).length;
+        if (count > 0) {
+            console.log(`🧹 Clearing ${count} existing multiplier overlays`);
+        }
+        Object.keys(this.randomMultiplierOverlays).forEach(key => {
+            const overlay = this.randomMultiplierOverlays[key];
+            if (overlay) {
+                if (overlay.container && !overlay.container.destroyed) {
+                    overlay.container.destroy();
+                }
+                if (overlay.symbol && overlay.symbol.destroy && !overlay.symbol.destroyed) {
+                    overlay.symbol.destroy();
+                }
+            }
+        });
+        this.randomMultiplierOverlays = {};
+    }
+
     placeRandomMultiplierOverlay(col, row, multiplier) {
+        console.log(`🎯 Placing multiplier overlay: x${multiplier} at (${col}, ${row})`);
+        
         const x = this.scene.gridManager.getSymbolScreenX(col);
         const y = this.scene.gridManager.getSymbolScreenY(row);
 
@@ -117,6 +144,7 @@ window.BonusManager = class BonusManager {
         const key = `${col},${row}`;
         const prev = this.randomMultiplierOverlays[key];
         if (prev && prev.container && !prev.container.destroyed) {
+            console.log(`  Removing previous overlay at (${col}, ${row})`);
             prev.container.destroy();
         }
 
@@ -330,6 +358,11 @@ window.BonusManager = class BonusManager {
             return;
         }
         
+        // Server-authoritative mode: do not trigger client RNG events
+        if (window.NetworkService && typeof window.NetworkService.isDemoMode === 'function' && !window.NetworkService.isDemoMode()) {
+            return;
+        }
+
         // SECURITY: Use controlled RNG for Cascading Random Multipliers
         if (!window.RNG) {
             throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
@@ -424,56 +457,214 @@ window.BonusManager = class BonusManager {
         }
     }
     
-    async showCascadingRandomMultipliers(positions, multipliers) {
+    async showRandomMultiplierResult(summary) {
+        // Clear any existing multiplier overlays from previous spins
+        this.clearAllRandomMultiplierOverlays();
+        
+        if (!summary) {
+            return;
+        }
+
+        const events = Array.isArray(summary.events) ? [...summary.events] : [];
+        if (events.length === 0) {
+            if (typeof summary.finalWin === 'number') {
+                this.scene.totalWin = summary.finalWin;
+                this.scene.updateWinDisplay();
+            }
+            return;
+        }
+
+        events.sort((a, b) => {
+            const aIdx = typeof a.sequenceIndex === 'number' ? a.sequenceIndex : events.indexOf(a);
+            const bIdx = typeof b.sequenceIndex === 'number' ? b.sequenceIndex : events.indexOf(b);
+            return aIdx - bIdx;
+        });
+
+        const baseWin = typeof summary.originalWin === 'number'
+            ? summary.originalWin
+            : (this.scene.baseWinForFormula || this.scene.totalWin || 0);
+
+        if (typeof baseWin === 'number') {
+            this.scene.baseWinForFormula = Math.round(baseWin * 100) / 100;
+        }
+
+        // Calculate total applied multiplier - use server's calculation if available
+        // Server uses: totalAppliedMultiplier = finalWin / originalWin
+        const appliedMultiplier = typeof summary.totalAppliedMultiplier === 'number'
+            ? summary.totalAppliedMultiplier
+            : ((baseWin > 0 && typeof summary.finalWin === 'number') ? (summary.finalWin / baseWin) : (this.scene.spinAppliedMultiplier || 1));
+        const appliedRounded = Math.round((appliedMultiplier || 1) * 100) / 100;
+        this.scene.spinAppliedMultiplier = appliedRounded || 1;
+        // Initialize spinAccumulatedRM to server's total for immediate correct display
+        // Shooting stars will just be visual effects, not changing the value
+        this.scene.spinAccumulatedRM = appliedRounded || 0;
+        
+        console.log(`📊 Server multiplier: x${appliedRounded} (from ${events.length} events, base: $${baseWin.toFixed(2)} → final: $${(summary.finalWin || 0).toFixed(2)})`);
+
+        for (const rawEvent of events) {
+            console.log(`🔍 Processing multiplier event:`, rawEvent);
+            const event = this.normalizeServerMultiplierEvent(rawEvent);
+            if (!event || event.multipliers.length === 0) {
+                console.warn(`⚠️ Skipping event - no multipliers found`);
+                continue;
+            }
+
+            if (event.type === 'cascade_random_multiplier' && event.multipliers.length > 1) {
+                const positions = event.multipliers.map(m => ({ col: m.col, row: m.row }));
+                const values = event.multipliers.map(m => m.multiplier);
+                const characters = event.multipliers.map(m => m.character);
+                
+                console.log(`  🎲 CASCADE MULTIPLIER EVENT: ${event.multipliers.length} multipliers`);
+                event.multipliers.forEach((m, i) => {
+                    console.log(`    ${i}: x${m.multiplier} at (${m.col},${m.row})`);
+                });
+                
+                console.log(`📦 Cascade event with ${event.multipliers.length} multipliers:`, values);
+
+                if (this.scene.freeSpinsManager && typeof this.scene.freeSpinsManager.applyCascadingMultipliers === 'function') {
+                    this.scene.freeSpinsManager.applyCascadingMultipliers(values);
+                }
+
+                await this.showCascadingRandomMultipliers(positions, values, characters);
+            } else {
+                const entry = event.multipliers[0];
+                if (this.scene.freeSpinsManager && typeof this.scene.freeSpinsManager.applyFreeSpinsMultiplier === 'function') {
+                    this.scene.freeSpinsManager.applyFreeSpinsMultiplier(entry.multiplier);
+                }
+                if (entry.appearDelay && entry.appearDelay > 0 && this.scene.delay) {
+                    await this.scene.delay(entry.appearDelay);
+                }
+                await this.showServerRandomMultiplierEntry(entry);
+            }
+        }
+
+        if (typeof summary.finalWin === 'number') {
+            this.scene.totalWin = summary.finalWin;
+        }
+        this.scene.updateWinDisplay();
+    }
+
+    normalizeServerMultiplierEvent(rawEvent) {
+        if (!rawEvent) {
+            return null;
+        }
+        const type = rawEvent.type || (Array.isArray(rawEvent.multipliers) && rawEvent.multipliers.length > 1 ? 'cascade_random_multiplier' : 'random_multiplier');
+        const multipliers = Array.isArray(rawEvent.multipliers)
+            ? rawEvent.multipliers.map((entry, index) => this.normalizeServerMultiplierEntry(entry, index))
+            : [];
+        return {
+            type,
+            multipliers,
+            totalMultiplier: typeof rawEvent.totalMultiplier === 'number'
+                ? rawEvent.totalMultiplier
+                : multipliers.reduce((sum, item) => sum + (item.multiplier || 0), 0),
+            originalWin: typeof rawEvent.originalWin === 'number' ? rawEvent.originalWin : null,
+            finalWin: typeof rawEvent.finalWin === 'number' ? rawEvent.finalWin : null
+        };
+    }
+
+    normalizeServerMultiplierEntry(entry, index = 0) {
+        const grid = this.scene.gridManager || {};
+        const cols = typeof grid.cols === 'number' ? grid.cols : 6;
+        const rows = typeof grid.rows === 'number' ? grid.rows : 5;
+        const fallbackId = `server-rm-${Date.now()}-${index}`;
+
+        if (!entry) {
+            console.warn(`⚠️ Empty multiplier entry at index ${index}`);
+            return {
+                id: fallbackId,
+                col: 0,
+                row: 0,
+                multiplier: 0,
+                character: 'thanos',
+                sequenceIndex: index,
+                appearDelay: 0
+            };
+        }
+
+        const position = entry.position || {};
+        const col = Math.max(0, Math.min(cols - 1, Math.round(position.col ?? position.x ?? position.column ?? 0)));
+        const row = Math.max(0, Math.min(rows - 1, Math.round(position.row ?? position.y ?? position.r ?? 0)));
+        const normalized = {
+            id: entry.id || entry.eventId || entry.metadata?.eventId || fallbackId,
+            col,
+            row,
+            multiplier: Number(entry.multiplier) || 0,
+            character: entry.character === 'scarlet_witch' ? 'scarlet_witch' : 'thanos',
+            sequenceIndex: entry.sequenceIndex ?? index,
+            appearDelay: entry.appearDelay ?? 0
+        };
+        
+        console.log(`  📋 Normalized entry ${index}: x${normalized.multiplier} at (${normalized.col},${normalized.row}) - Raw server value: ${entry.multiplier}`);
+        
+        return normalized;
+    }
+
+    async showServerRandomMultiplierEntry(entry) {
+        const col = entry.col ?? 0;
+        const row = entry.row ?? 0;
+        const multiplier = entry.multiplier ?? 0;
+
+        if (entry.character === 'scarlet_witch') {
+            this.triggerScarletWitchAttack();
+            await this.showScarletWitchRandomMultiplier(col, row, multiplier);
+        } else {
+            this.triggerThanosAttack();
+            await this.showThanosRandomMultiplier(col, row, multiplier);
+        }
+    }
+
+    async showCascadingRandomMultipliers(positions, multipliers, characters = []) {
+        const totalSum = multipliers.reduce((sum, m) => sum + m, 0);
+        console.log(`🎲 showCascadingRandomMultipliers called with ${positions.length} multipliers (sum: x${totalSum}):`, 
+            positions.map((p, i) => `x${multipliers[i]} at (${p.col},${p.row})`).join(', '));
+        
         return new Promise(resolve => {
             const promises = [];
-            
+
             positions.forEach((pos, index) => {
-                const promise = this.showSingleCascadingMultiplier(pos.col, pos.row, multipliers[index], index * 300);
+                const forcedCharacter = characters[index] || null;
+                const delay = index * 300;
+                console.log(`  Scheduling multiplier ${index + 1}/${positions.length}: x${multipliers[index]} at (${pos.col},${pos.row}) with ${delay}ms delay`);
+                const promise = this.showSingleCascadingMultiplier(pos.col, pos.row, multipliers[index], delay, forcedCharacter);
                 promises.push(promise);
             });
-            
-            Promise.all(promises).then(resolve);
+
+            Promise.all(promises).then(() => {
+                console.log(`✅ All ${positions.length} cascading multipliers completed. Total displayed: x${totalSum}`);
+                resolve();
+            });
         });
     }
     
-    async showSingleCascadingMultiplier(col, row, multiplier, delay) {
+    async showSingleCascadingMultiplier(col, row, multiplier, delay, forcedCharacter = null) {
         return new Promise(resolve => {
-            // Delay for staggered effect
             this.scene.time.delayedCall(delay, () => {
-                // SECURITY: Use controlled RNG for character selection
-                if (!window.RNG) {
-                    throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+                let characterChoice = forcedCharacter;
+                if (!characterChoice) {
+                    if (!window.RNG) {
+                        throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
+                    }
+                    const rng = new window.RNG();
+                    characterChoice = rng.chance(0.5) ? 'thanos' : 'scarlet_witch';
                 }
-                const rng = new window.RNG();
-                
-                // Get the symbol position on screen
+
+                const useThanos = characterChoice !== 'scarlet_witch';
                 const symbolX = this.scene.gridManager.getSymbolScreenX(col);
                 const symbolY = this.scene.gridManager.getSymbolScreenY(row);
-                
-                // Randomly choose between Thanos and Scarlet Witch animation
-                // 50/50 distribution between characters for cascading multipliers
-                const useThanos = rng.chance(0.5); // 50% Thanos, 50% Scarlet Witch
-                const characterKey = useThanos ? 'thanos' : 'scarlet_witch';
                 const characterTint = useThanos ? 0x6B46C1 : 0xFF1493; // Purple for Thanos, Pink for Scarlet Witch
-                
-                // Trigger character attack animation based on which one is shown
+
                 if (useThanos) {
                     this.triggerThanosAttack();
-                    
-                    // Use the new Thanos Power Grip effect
                     if (!this.thanosPowerGripEffect) {
                         this.thanosPowerGripEffect = new window.ThanosPowerGripEffect(this.scene);
                     }
-                    
-                    // Trigger the magic circle effect
                     const positions = [{ row, col }];
                     this.thanosPowerGripEffect.triggerEffect(positions, multiplier);
-                    
-                    // Remove the original symbol and replace with Random Mult tile immediately
+
                     const originalSymbol = this.scene.gridManager.grid[col][row];
                     if (originalSymbol) {
-                        originalSymbol.setTint(0x6B46C1);
+                        originalSymbol.setTint(characterTint);
                         this.scene.tweens.add({
                             targets: originalSymbol,
                             alpha: 0,
@@ -484,26 +675,17 @@ window.BonusManager = class BonusManager {
                             ease: 'Power2.in',
                             onComplete: () => {
                                 this.scene.gridManager.grid[col][row] = null;
-                                if (originalSymbol.destroy) originalSymbol.destroy();
+                                if (originalSymbol.destroy) { originalSymbol.destroy(); }
                             }
                         });
                     }
-                    // Place the Random Multiplier symbol grid now
                     this.placeRandomMultiplierOverlay(col, row, multiplier);
-                    
-                    // Wait for effect to complete
-                    this.scene.time.delayedCall(1500, () => {
-                        resolve();
-                    });
-                    
-                    // Play Thanos power sound
+                    this.scene.time.delayedCall(1500, resolve);
                     window.SafeSound.play(this.scene, 'thanos_power');
                 } else {
-                    // Scarlet Witch branch uses Thunder FX instead of shader lightning
                     this.triggerScarletWitchAttack();
                     const thunderPromise = this.playThunderStrikeAt(symbolX, symbolY);
-                    
-                    // Create multiplier text (keep existing visual)
+
                     const multiplierText = this.scene.add.text(symbolX, symbolY - 60, `x${multiplier}`, {
                         fontSize: '36px',
                         fontFamily: 'Arial Black',
@@ -514,8 +696,7 @@ window.BonusManager = class BonusManager {
                     multiplierText.setOrigin(0.5);
                     multiplierText.setScale(0);
                     multiplierText.setDepth(1001);
-                    
-                    // Create energy particles
+
                     const particles = this.scene.add.particles(symbolX, symbolY, 'reality_gem', {
                         speed: { min: 30, max: 100 },
                         scale: { start: 0.2, end: 0 },
@@ -526,16 +707,14 @@ window.BonusManager = class BonusManager {
                         tint: characterTint
                     });
                     particles.setDepth(999);
-                    
-                    // Immediately remove/replace symbol as part of thunder effect
+
                     const existing = this.scene.gridManager.grid[col][row];
                     if (existing) {
                         this.scene.gridManager.grid[col][row] = null;
-                        if (existing.destroy) existing.destroy();
+                        if (existing.destroy) { existing.destroy(); }
                     }
                     this.placeRandomMultiplierOverlay(col, row, multiplier);
-                    
-                    // Animation sequence - only show multiplier text
+
                     this.scene.tweens.add({
                         targets: multiplierText,
                         scaleX: 1,
@@ -543,7 +722,6 @@ window.BonusManager = class BonusManager {
                         duration: 300,
                         ease: 'Back.out',
                         onComplete: () => {
-                            // Brief pulsing effect
                             this.scene.tweens.add({
                                 targets: multiplierText,
                                 scaleX: 1.1,
@@ -553,7 +731,6 @@ window.BonusManager = class BonusManager {
                                 repeat: 1,
                                 ease: 'Sine.easeInOut',
                                 onComplete: () => {
-                                    // Fade out
                                     particles.stop();
                                     this.scene.tweens.add({
                                         targets: multiplierText,
@@ -565,7 +742,6 @@ window.BonusManager = class BonusManager {
                                         onComplete: () => {
                                             multiplierText.destroy();
                                             particles.destroy();
-                                            // Ensure thunder FX completed before resolving
                                             Promise.resolve(thunderPromise).then(resolve);
                                         }
                                     });
@@ -574,8 +750,13 @@ window.BonusManager = class BonusManager {
                         }
                     });
                 }
-                
-                // Play bonus sound
+
+                if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+                    this.scene.time.delayedCall(200, () => {
+                        this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
+                    });
+                }
+
                 window.SafeSound.play(this.scene, 'bonus');
             });
         });

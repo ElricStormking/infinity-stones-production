@@ -17,7 +17,7 @@
  */
 
 const { GameState, Player, Session } = require('../models');
-const { getRedisClient } = require('../config/redis');
+const { getRedisClient, shouldSkipRedis } = require('../config/redis');
 const AntiCheat = require('./antiCheat');
 const StateValidator = require('./stateValidator');
 const AuditLogger = require('./auditLogger');
@@ -32,10 +32,13 @@ class StateManager {
     this.antiCheat = new AntiCheat();
     this.stateValidator = new StateValidator();
     this.auditLogger = new AuditLogger();
+    this.demoState = null;
+    this.demoSession = null;
 
     // State change event emitters
     this.eventHandlers = new Map();
 
+    this.redisEnabled = !shouldSkipRedis;
     // Initialize Redis connection
     this.initializeRedis();
 
@@ -47,6 +50,12 @@ class StateManager {
      * Initialize Redis connection for caching
      */
   async initializeRedis() {
+    if (!this.redisEnabled) {
+      this.redis = null;
+      console.log('StateManager: Redis disabled (SKIP_REDIS)');
+      return;
+    }
+
     try {
       this.redis = getRedisClient();
       await this.redis.ping();
@@ -54,6 +63,8 @@ class StateManager {
     } catch (error) {
       console.error('StateManager: Redis connection failed:', error.message);
       // Continue without Redis - fallback to database only
+      this.redis = null;
+      this.redisEnabled = false;
     }
   }
 
@@ -192,6 +203,9 @@ class StateManager {
      * @returns {Promise<GameState|null>} Game state or null
      */
   async getPlayerState(playerId) {
+    if (playerId === 'demo-player' && this.demoState) {
+      return this.demoState;
+    }
     try {
       // Check cache first
       const cachedState = this.stateCache.get(playerId);
@@ -414,16 +428,28 @@ class StateManager {
       updates.accumulated_multiplier = currentState.accumulated_multiplier + spinResult.multiplier;
     }
 
-    // Update state data with spin information
-    updates.state_data = {
-      ...currentState.state_data,
+    const currentStateData = currentState.state_data || {};
+    const nextStateData = {
+      ...currentStateData,
       last_spin: {
         spin_id: spinResult.id,
         timestamp: new Date().toISOString(),
         win_amount: spinResult.totalWin,
-        features: spinResult.features || {}
+        bet_amount: spinResult.betAmount,
+        rng_seed: spinResult.rngSeed || spinResult.seed || null,
+        features: spinResult.features || {},
+        cascade_count: Array.isArray(spinResult.cascadeSteps) ? spinResult.cascadeSteps.length : 0
       }
     };
+
+    if (Array.isArray(spinResult.finalGrid)) {
+      nextStateData.current_grid = JSON.parse(JSON.stringify(spinResult.finalGrid));
+    }
+    if (spinResult.rngSeed || spinResult.seed) {
+      nextStateData.last_rng_seed = spinResult.rngSeed || spinResult.seed;
+    }
+
+    updates.state_data = nextStateData;
 
     return updates;
   }
@@ -433,6 +459,9 @@ class StateManager {
      * @param {GameState} gameState - Game state to cache
      */
   async cacheState(gameState) {
+    if (gameState?.id === undefined && this.demoState && gameState === this.demoState) {
+      return;
+    }
     try {
       // Memory cache
       this.stateCache.set(gameState.player_id, {
@@ -520,7 +549,41 @@ class StateManager {
      * @returns {Object|null} Session information or null
      */
   getActiveSession(sessionId) {
+    if (sessionId === 'demo-session' && this.demoSession) {
+      return this.demoSession;
+    }
     return this.activeSessions.get(sessionId) || null;
+  }
+
+  async setDemoState(playerId, stateData, sessionInfo) {
+    if (playerId !== 'demo-player') {return;}
+
+    const safeData = {
+      balance: stateData.balance ?? 5000,
+      free_spins_remaining: stateData.free_spins_remaining ?? 0,
+      accumulated_multiplier: stateData.accumulated_multiplier ?? 1,
+      game_mode: stateData.game_mode || 'base',
+      updated_at: stateData.updated_at || new Date().toISOString()
+    };
+
+    this.demoState = {
+      player_id: 'demo-player',
+      getSafeData: () => safeData,
+      game_mode: safeData.game_mode,
+      free_spins_remaining: safeData.free_spins_remaining,
+      accumulated_multiplier: safeData.accumulated_multiplier,
+      updated_at: safeData.updated_at
+    };
+
+    this.demoSession = sessionInfo ? {
+      ...sessionInfo,
+      id: sessionInfo.id || 'demo-session',
+      playerId: 'demo-player'
+    } : {
+      id: 'demo-session',
+      playerId: 'demo-player',
+      lastActivity: Date.now()
+    };
   }
 
   /**
@@ -558,109 +621,134 @@ class StateManager {
       }
 
       if (expiredSessions.length > 0) {
-        console.log(`StateManager: Cleaned up ${expiredSessions.length} expired sessions`);
+        console.log(`StateManager: cleaned up ${expiredSessions.length} expired sessions`);
       }
 
     } catch (error) {
-      console.error('StateManager: Error during session cleanup:', error);
+      console.error('StateManager: Error cleaning up sessions:', error);
     }
   }
 
   /**
      * Clean up state cache
      */
-  cleanupStateCache() {
+  async cleanupStateCache() {
     const now = Date.now();
-    const maxAge = 5 * 60 * 1000; // 5 minutes
+    const staleCacheEntries = [];
 
-    for (const [playerId, cached] of this.stateCache) {
-      if (now - cached.cached_at > maxAge) {
-        this.stateCache.delete(playerId);
+    for (const [playerId, cacheEntry] of this.stateCache) {
+      if (now - cacheEntry.cached_at > 10 * 60 * 1000) { // 10 minutes
+        staleCacheEntries.push(playerId);
       }
     }
-  }
 
-  /**
-     * Update existing session
-     * @param {Session} session - Existing session
-     * @param {Object} sessionData - New session data
-     * @returns {Promise<Session>} Updated session
-     */
-  async updateSession(session, sessionData) {
-    session.session_data = {
-      ...session.session_data,
-      ...sessionData.session_data,
-      updated_at: new Date().toISOString()
-    };
-
-    if (sessionData.expires_at) {
-      session.expires_at = sessionData.expires_at;
+    for (const playerId of staleCacheEntries) {
+      this.stateCache.delete(playerId);
+      if (this.redis) {
+        await this.redis.del(`game_state:${playerId}`);
+      }
     }
-
-    await session.save();
-    return session;
+    console.log(`StateManager: Cleaned up ${staleCacheEntries.length} stale state cache entries.`);
   }
 
   /**
      * Register event handler
-     * @param {string} eventType - Event type
+     * @param {string} eventName - Event name
      * @param {Function} handler - Event handler function
      */
-  onEvent(eventType, handler) {
-    if (!this.eventHandlers.has(eventType)) {
-      this.eventHandlers.set(eventType, []);
+  on(eventName, handler) {
+    if (!this.eventHandlers.has(eventName)) {
+      this.eventHandlers.set(eventName, []);
     }
-    this.eventHandlers.get(eventType).push(handler);
+    this.eventHandlers.get(eventName).push(handler);
   }
 
   /**
-     * Emit event to registered handlers
-     * @param {string} eventType - Event type
+     * Emit event
+     * @param {string} eventName - Event name
      * @param {Object} data - Event data
      */
-  emitEvent(eventType, data) {
-    const handlers = this.eventHandlers.get(eventType) || [];
-    for (const handler of handlers) {
-      try {
-        handler(data);
-      } catch (error) {
-        console.error(`StateManager: Error in event handler for ${eventType}:`, error);
-      }
+  emitEvent(eventName, data) {
+    if (this.eventHandlers.has(eventName)) {
+      this.eventHandlers.get(eventName).forEach(handler => handler(data));
     }
   }
 
   /**
-     * Get state manager statistics
-     * @returns {Promise<Object>} State manager statistics
+     * Get audit logger
+     * @returns {AuditLogger} Audit logger instance
      */
-  async getStats() {
-    const activeSessions = this.activeSessions.size;
-    const cachedStates = this.stateCache.size;
-    const gameStateStats = await GameState.getStateStats();
+  getAuditLogger() {
+    return this.auditLogger;
+  }
 
-    return {
-      active_sessions: activeSessions,
-      cached_states: cachedStates,
-      redis_connected: !!this.redis,
-      ...gameStateStats
+  /**
+     * Get state validator
+     * @returns {StateValidator} State validator instance
+     */
+  getStateValidator() {
+    return this.stateValidator;
+  }
+
+  /**
+     * Get anti-cheat
+     * @returns {AntiCheat} Anti-cheat instance
+     */
+  getAntiCheat() {
+    return this.antiCheat;
+  }
+
+  /**
+     * Get demo state
+     * @returns {GameState|null} Demo game state or null
+     */
+  getDemoState() {
+    return this.demoState;
+  }
+
+  /**
+     * Get demo session
+     * @returns {Object|null} Demo session information or null
+     */
+  getDemoSession() {
+    return this.demoSession;
+  }
+
+  /**
+     * Set demo state
+     * @param {string} playerId - Demo player ID
+     * @param {Object} stateData - State data for demo
+     * @param {Object} sessionInfo - Session info for demo
+     */
+  setDemoState(playerId, stateData, sessionInfo) {
+    if (playerId !== 'demo-player') {return;}
+
+    const safeData = {
+      balance: stateData.balance ?? 5000,
+      free_spins_remaining: stateData.free_spins_remaining ?? 0,
+      accumulated_multiplier: stateData.accumulated_multiplier ?? 1,
+      game_mode: stateData.game_mode || 'base',
+      updated_at: stateData.updated_at || new Date().toISOString()
     };
-  }
 
-  /**
-     * Shutdown state manager
-     */
-  async shutdown() {
-    console.log('StateManager: Shutting down...');
+    this.demoState = {
+      player_id: 'demo-player',
+      getSafeData: () => safeData,
+      game_mode: safeData.game_mode,
+      free_spins_remaining: safeData.free_spins_remaining,
+      accumulated_multiplier: safeData.accumulated_multiplier,
+      updated_at: safeData.updated_at
+    };
 
-    // Clean up active sessions
-    for (const sessionId of this.activeSessions.keys()) {
-      await this.handleDisconnection(sessionId, 'server_shutdown');
-    }
-
-    // Close audit logger
-    await this.auditLogger.close();
-
-    console.log('StateManager: Shutdown complete');
+    this.demoSession = sessionInfo ? {
+      ...sessionInfo,
+      id: sessionInfo.id || 'demo-session',
+      playerId: 'demo-player'
+    } : {
+      id: 'demo-session',
+      playerId: 'demo-player',
+      lastActivity: Date.now()
+    };
   }
 }
 

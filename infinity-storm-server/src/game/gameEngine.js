@@ -14,6 +14,7 @@
  * for seamless gameplay transition while maintaining 96.5% RTP.
  */
 
+const crypto = require('crypto');
 const WinCalculator = require('./winCalculator');
 const CascadeProcessor = require('./cascadeProcessor');
 const MultiplierEngine = require('./multiplierEngine');
@@ -87,6 +88,14 @@ const GAME_CONFIG = {
       Array(10).fill(100),
       Array(3).fill(500)
     )
+  },
+
+  // Cascading random multiplier configuration
+  CASCADE_RANDOM_MULTIPLIER: {
+    TRIGGER_CHANCE: 0.20,
+    MIN_MULTIPLIERS: 1,
+    MAX_MULTIPLIERS: 3,
+    MIN_WIN_REQUIRED: 0.01
   }
 };
 
@@ -135,7 +144,8 @@ class GameEngine {
       freeSpinsRemaining = 0,
       accumulatedMultiplier = 1,
       quickSpinMode = false,
-      spinId = this.generateSpinId()
+      spinId = this.generateSpinId(),
+      rngSeed: providedSeed
     } = spinRequest;
 
     try {
@@ -148,15 +158,19 @@ class GameEngine {
         accumulated_multiplier: accumulatedMultiplier
       });
 
-      // Generate initial grid state
-      const rngSeed = this.rng.generateSeed();
+      // Generate initial grid state (allow deterministic override for testing/replay)
+      const rngSeed = (providedSeed && typeof providedSeed === 'string' && providedSeed.length > 0)
+        ? providedSeed
+        : this.rng.generateSeed();
       const initialGridResult = this.gridGenerator.generateGrid({
         seed: rngSeed,
         freeSpinsMode: freeSpinsActive,
         accumulatedMultiplier: accumulatedMultiplier
       });
 
-      let currentGrid = initialGridResult.grid;
+      const initialGridSnapshot = this.cloneGrid(initialGridResult.grid);
+
+      let currentGrid = this.cloneGrid(initialGridResult.grid);
       let totalWin = 0;
       const cascadeSteps = [];
       let cascadeCount = 0;
@@ -182,6 +196,7 @@ class GameEngine {
           randomMultipliers: [],
           specialFeatures: []
         },
+        features: {},
         timing: {
           spinStartTime: Date.now(),
           cascadeDuration: 0,
@@ -194,13 +209,11 @@ class GameEngine {
       };
 
       // Process all cascading cycles
-      while (true) {
-        const matches = this.winCalculator.findConnectedMatches(currentGrid);
+      let matches = this.winCalculator.findConnectedMatches(currentGrid);
+      let pendingFreeSpinsCount = null;
+      let freeSpinsTriggerDetails = null;
 
-        if (matches.length === 0) {
-          break; // No more matches, cascading complete
-        }
-
+      while (matches.length > 0) {
         cascadeCount++;
 
         // Calculate wins for current cascade
@@ -215,28 +228,89 @@ class GameEngine {
         totalWin += cascadeWinTotal;
 
         // Process symbol removal and dropping
+        // Derive deterministic hex seed per cascade from spin rngSeed and step number
+        const cascadeSeed = `${rngSeed}${String(cascadeCount).padStart(2, '0')}`;
+
+        const gridStateBefore = this.cloneGrid(currentGrid);
+
         const cascadeResult = await this.cascadeProcessor.processCascade(
           currentGrid,
           matches,
           cascadeCount,
-          quickSpinMode
+          quickSpinMode,
+          cascadeSeed
         );
 
+        if (!cascadeResult || (Array.isArray(cascadeResult.removedPositions) && cascadeResult.removedPositions.length === 0)) {
+          this.logAuditEvent('CASCADE_NO_REMOVALS_DETECTED', {
+            spin_id: spinId,
+            cascade_number: cascadeCount,
+            matches_found: matches.length
+          });
+        }
+
         // Store cascade step data
+        const gridAfterRemoval = this.cloneGrid(cascadeResult.gridAfterRemoval || currentGrid);
+        const gridStateAfter = this.cloneGrid(cascadeResult.newGrid);
+        const matchedClusters = matches.map(match => ({
+          symbolType: match.symbolType,
+          positions: match.positions,
+          clusterSize: match.positions.length,
+          payout: cascadeWins.find(w => w.symbolType === match.symbolType)?.payout || 0
+        }));
+        const removalCount = Array.isArray(cascadeResult.removedPositions) ? cascadeResult.removedPositions.length : 0;
+        const newSymbolCount = Array.isArray(cascadeResult.newSymbols) ? cascadeResult.newSymbols.length : 0;
+
         const cascadeStep = {
           stepNumber: cascadeCount,
-          gridStateBefore: this.cloneGrid(currentGrid),
-          gridStateAfter: this.cloneGrid(cascadeResult.newGrid),
-          matchedClusters: matches.map(match => ({
-            symbolType: match.symbolType,
-            positions: match.positions,
-            clusterSize: match.positions.length,
-            payout: cascadeWins.find(w => w.symbolType === match.symbolType)?.payout || 0
+          stepIndex: cascadeCount - 1,
+          rngSeed: cascadeSeed,
+          rngStepSeed: cascadeSeed,
+          gridStateBefore,
+          gridStateBeforeHash: this.hashGridState(gridStateBefore),
+          gridAfterRemoval,
+          gridAfterRemovalHash: this.hashGridState(gridAfterRemoval),
+          gridStateAfter,
+          gridStateAfterHash: this.hashGridState(gridStateAfter),
+          winningClusters: matchedClusters,
+          matchedClusters,
+          symbolsToRemove: matchedClusters,
+          removedPositions: (cascadeResult.removedPositions || []).map(pos => ({
+            col: pos.col,
+            row: pos.row,
+            symbolType: pos.symbolType || (Array.isArray(gridStateBefore) && Array.isArray(gridStateBefore[pos.col]) ? gridStateBefore[pos.col][pos.row] : null)
           })),
           cascadeWin: cascadeWinTotal,
+          winAmount: cascadeWinTotal,
+          totalWinSoFar: totalWin,
           dropPatterns: cascadeResult.dropPatterns,
-          timing: cascadeResult.timing
+          newSymbols: (cascadeResult.newSymbols || []).map(entry => ({
+            position: { col: entry.position?.col ?? entry.col, row: entry.position?.row ?? entry.row },
+            column: entry.position?.col ?? entry.col,
+            row: entry.position?.row ?? entry.row,
+            symbol: entry.symbol,
+            symbolType: entry.symbolType || entry.symbol,
+            type: entry.type || entry.symbolType || entry.symbol,
+            dropFromRow: entry.dropFromRow,
+            dropTime: entry.dropTime,
+            emptyRowsAbove: entry.emptyRowsAbove,
+            isNewSymbol: entry.isNewSymbol !== false,
+            rngSeed: entry.rngSeed || cascadeSeed
+          })),
+          timing: cascadeResult.timing,
+          metadata: {
+            ...(cascadeResult.metadata || {}),
+            rngStepSeed: cascadeSeed,
+            removedSymbolCount: removalCount,
+            newSymbolCount
+          }
         };
+
+        // Provide canonical aliases expected by some clients/tools
+        // Ensures no consumer sees "missing grid" due to field name drift
+        cascadeStep.gridBefore = cascadeStep.gridStateBefore;
+        cascadeStep.gridAfter = cascadeStep.gridStateAfter;
+        cascadeStep.gridMid = cascadeStep.gridAfterRemoval;
 
         cascadeSteps.push(cascadeStep);
 
@@ -274,29 +348,182 @@ class GameEngine {
           });
           break;
         }
+
+        matches = this.winCalculator.findConnectedMatches(currentGrid);
       }
 
       // Check for scatter-triggered free spins on initial grid
-      const scatterCount = this.countScatters(initialGridResult.grid);
-      if (scatterCount >= 4) {
-        const freeSpinsResult = this.freeSpinsEngine.triggerFreeSpins(scatterCount, freeSpinsActive);
-        spinResult.bonusFeatures.freeSpinsTriggered = true;
-        spinResult.bonusFeatures.freeSpinsAwarded = freeSpinsResult.spinsAwarded;
+      const scatterCount = this.countScatters(initialGridSnapshot);
+      console.log(`🎰 FREE SPINS CHECK (initial): Found ${scatterCount} scatters on initial grid (need 4+)`);
+      console.log(`  Initial grid:`, this.gridToString(initialGridSnapshot));
+      if (scatterCount >= 4 && !freeSpinsActive) {
+        console.log(`✨ ${scatterCount} scatters found on INITIAL grid! Triggering free spins...`);
+        const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(scatterCount, freeSpinsActive);
+        console.log(`  Free spins result:`, freeSpinsResult);
+        if (freeSpinsResult.triggered && freeSpinsResult.spinsAwarded > 0) {
+          spinResult.bonusFeatures.freeSpinsTriggered = true;
+          spinResult.bonusFeatures.freeSpinsAwarded = freeSpinsResult.spinsAwarded;
+          console.log(`  ✅ FREE SPINS TRIGGERED (initial): ${freeSpinsResult.spinsAwarded} spins awarded`);
+          pendingFreeSpinsCount = freeSpinsResult.spinsAwarded;
+          freeSpinsTriggerDetails = {
+            trigger: 'scatter_trigger',
+            type: 'initial',
+            scatterCount,
+            spinsAwarded: freeSpinsResult.spinsAwarded,
+            previousRemaining: Number.isFinite(freeSpinsRemaining) ? freeSpinsRemaining : 0,
+            retrigger: false
+          };
 
-        // Add scatter payout
-        const scatterPayout = this.winCalculator.calculateScatterPayout(scatterCount, betAmount);
-        totalWin += scatterPayout;
+          // Add scatter payout
+          const scatterPayout = this.winCalculator.calculateScatterPayout(scatterCount, betAmount);
+          totalWin += scatterPayout;
+        }
+      }
+      
+      // NEW: Also check for scatters AFTER cascades complete (post-cascade scatters)
+      // This allows scatters that appear during cascades to trigger free spins
+      if (!freeSpinsActive && !pendingFreeSpinsCount) {
+        const postCascadeScatterCount = this.countScatters(currentGrid);
+        console.log(`🎰 FREE SPINS CHECK (post-cascade): Found ${postCascadeScatterCount} scatters on final grid (need 4+)`);
+        console.log(`  Final grid:`, this.gridToString(currentGrid));
+        if (postCascadeScatterCount >= 4) {
+          console.log(`✨ ${postCascadeScatterCount} scatters found on FINAL grid! Triggering free spins...`);
+          const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(postCascadeScatterCount, false);
+          console.log(`  Free spins result:`, freeSpinsResult);
+          if (freeSpinsResult.triggered && freeSpinsResult.spinsAwarded > 0) {
+            spinResult.bonusFeatures.freeSpinsTriggered = true;
+            spinResult.bonusFeatures.freeSpinsAwarded = freeSpinsResult.spinsAwarded;
+            console.log(`  ✅ FREE SPINS TRIGGERED (post-cascade): ${freeSpinsResult.spinsAwarded} spins awarded`);
+            pendingFreeSpinsCount = freeSpinsResult.spinsAwarded;
+            freeSpinsTriggerDetails = {
+              trigger: 'scatter_post_cascade',
+              type: 'post_cascade',
+              scatterCount: postCascadeScatterCount,
+              spinsAwarded: freeSpinsResult.spinsAwarded,
+              previousRemaining: 0,
+              retrigger: false
+            };
+
+            // Add scatter payout
+            const scatterPayout = this.winCalculator.calculateScatterPayout(postCascadeScatterCount, betAmount);
+            totalWin += scatterPayout;
+          }
+        }
       }
 
-      // Process post-cascade random multipliers (base game)
-      if (!freeSpinsActive && totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
+      if (freeSpinsActive) {
+        const postCascadeScatterCount = this.countScatters(currentGrid);
+        if (postCascadeScatterCount >= 4) {
+          const retriggerResult = this.freeSpinsEngine.checkFreeSpinsRetrigger(postCascadeScatterCount);
+          if (retriggerResult.triggered && retriggerResult.spinsAwarded > 0) {
+            spinResult.bonusFeatures.freeSpinsRetriggered = true;
+            spinResult.bonusFeatures.freeSpinsAwarded = (spinResult.bonusFeatures.freeSpinsAwarded || 0) + retriggerResult.spinsAwarded;
+
+            const previousRemaining = Number.isFinite(freeSpinsRemaining) ? freeSpinsRemaining : 0;
+            const remainingAfterSpin = Math.max(0, previousRemaining - 1);
+            pendingFreeSpinsCount = remainingAfterSpin + retriggerResult.spinsAwarded;
+            freeSpinsTriggerDetails = {
+              trigger: 'scatter_retrigger',
+              type: 'retrigger',
+              scatterCount: postCascadeScatterCount,
+              spinsAwarded: retriggerResult.spinsAwarded,
+              previousRemaining,
+              retrigger: true
+            };
+          }
+        }
+      }
+
+      const multiplierEvents = [];
+      const baseWinBeforeMultipliers = totalWin;
+      let accumulatedRandomMultiplier = 0; // Sum of all RANDOM multipliers (additive, not multiplicative)
+      // NOTE: DO NOT confuse with `accumulatedMultiplier` parameter which is the FREE SPINS multiplier!
+
+      if (cascadeSteps.length > 0) {
+        console.log(`🎲 Checking cascade multipliers: ${cascadeSteps.length} cascades completed, totalWin=$${totalWin.toFixed(2)}`);
+        const cascadingMultiplierResult = await this.multiplierEngine.processCascadingRandomMultipliers(
+          totalWin,
+          cascadeSteps.length,
+          { betAmount, freeSpinsActive }
+        );
+
+        if (cascadingMultiplierResult.triggered) {
+          console.log(`  ✅ Cascade multipliers triggered:`, {
+            count: cascadingMultiplierResult.multipliers.length,
+            values: cascadingMultiplierResult.multipliers.map(m => m.multiplier),
+            totalMultiplier: cascadingMultiplierResult.totalMultiplier,
+            originalWin: cascadingMultiplierResult.originalWin
+          });
+          // CRITICAL FIX: Don't apply yet, just accumulate the multiplier value
+          accumulatedRandomMultiplier += cascadingMultiplierResult.totalMultiplier;
+          spinResult.bonusFeatures.randomMultipliers.push(...cascadingMultiplierResult.multipliers);
+          multiplierEvents.push({
+            type: 'cascade_random_multiplier',
+            totalMultiplier: cascadingMultiplierResult.totalMultiplier,
+            multipliers: cascadingMultiplierResult.multipliers,
+            originalWin: baseWinBeforeMultipliers,
+            finalWin: null // Will be set after all multipliers are accumulated
+          });
+        } else {
+          console.log(`  ❌ Cascade multipliers NOT triggered:`, cascadingMultiplierResult.reason || 'unknown');
+        }
+      }
+
+      if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
         const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount);
 
         if (randomMultiplierResult.triggered) {
-          totalWin *= randomMultiplierResult.multiplier;
+          // CRITICAL FIX: Don't apply yet, just accumulate the multiplier value
+          accumulatedRandomMultiplier += randomMultiplierResult.multiplier;
           spinResult.bonusFeatures.randomMultipliers.push(randomMultiplierResult);
+          multiplierEvents.push({
+            type: 'random_multiplier',
+            totalMultiplier: randomMultiplierResult.multiplier,
+            multipliers: [randomMultiplierResult],
+            originalWin: baseWinBeforeMultipliers,
+            finalWin: null // Will be set after all multipliers are accumulated
+          });
         }
       }
+      
+      // CRITICAL FIX: Apply accumulated multipliers together (additive)
+      if (accumulatedRandomMultiplier > 0) {
+        console.log(`  🔍 BEFORE applying multipliers:`, {
+          baseWinBeforeMultipliers: baseWinBeforeMultipliers.toFixed(2),
+          accumulatedRandomMultiplier,
+          totalWin: totalWin.toFixed(2),
+          multiplierEvents: multiplierEvents.map(e => ({ type: e.type, total: e.totalMultiplier }))
+        });
+        
+        totalWin = baseWinBeforeMultipliers * accumulatedRandomMultiplier;
+        console.log(`  ✅ Total accumulated RANDOM multiplier: x${accumulatedRandomMultiplier} applied to base $${baseWinBeforeMultipliers.toFixed(2)} = $${totalWin.toFixed(2)}`);
+        
+        // Update finalWin for all multiplier events
+        multiplierEvents.forEach(evt => {
+          evt.finalWin = totalWin;
+        });
+      }
+
+      spinResult.multiplierEvents = multiplierEvents;
+
+      if (multiplierEvents.length > 0) {
+        const finalWinAfterMultipliers = totalWin;
+        const totalAppliedMultiplier = baseWinBeforeMultipliers > 0
+          ? finalWinAfterMultipliers / baseWinBeforeMultipliers
+          : multiplierEvents.reduce((sum, evt) => sum + (evt.totalMultiplier || 0), 0);
+
+        spinResult.multiplierAwarded = {
+          events: multiplierEvents,
+          originalWin: baseWinBeforeMultipliers,
+          finalWin: finalWinAfterMultipliers,
+          totalAppliedMultiplier,
+          hasCascade: multiplierEvents.some(evt => evt.type === 'cascade_random_multiplier'),
+          hasRandom: multiplierEvents.some(evt => evt.type === 'random_multiplier')
+        };
+      } else {
+        spinResult.multiplierAwarded = null;
+      }
+
 
       // Apply win limits and rounding
       totalWin = this.applyWinLimits(totalWin, betAmount);
@@ -304,11 +531,36 @@ class GameEngine {
 
       // Complete spin result
       spinResult.cascadeSteps = cascadeSteps;
+      spinResult.cascadeCount = cascadeSteps.length;
+      spinResult.metadata.cascadeCount = cascadeSteps.length;
       spinResult.totalWin = totalWin;
       spinResult.baseWin = baseWin;
       spinResult.finalGrid = currentGrid;
       spinResult.timing.cascadeDuration = cascadeSteps.reduce((sum, step) => sum + (step.timing?.totalDuration || 0), 0);
       spinResult.timing.totalDuration = spinResult.timing.cascadeDuration + 1000; // Buffer time
+
+      if (freeSpinsTriggerDetails && Number.isFinite(pendingFreeSpinsCount)) {
+        const baseMultiplier = GAME_CONFIG.FREE_SPINS.BASE_MULTIPLIER;
+        const resolvedMultiplier = freeSpinsActive
+          ? (Number.isFinite(accumulatedMultiplier) ? accumulatedMultiplier : baseMultiplier)
+          : baseMultiplier;
+
+        spinResult.features.free_spins = {
+          count: pendingFreeSpinsCount,
+          multiplier: resolvedMultiplier,
+          trigger: freeSpinsTriggerDetails.trigger,
+          scatterCount: freeSpinsTriggerDetails.scatterCount,
+          spinsAwarded: freeSpinsTriggerDetails.spinsAwarded,
+          retrigger: Boolean(freeSpinsTriggerDetails.retrigger),
+          previousRemaining: freeSpinsTriggerDetails.previousRemaining
+        };
+
+        spinResult.metadata.freeSpins = {
+          ...freeSpinsTriggerDetails,
+          nextCount: pendingFreeSpinsCount
+        };
+        spinResult.freeSpinsNextCount = pendingFreeSpinsCount;
+      }
 
       // Update session statistics
       this.updateSessionStats(spinResult);
@@ -457,6 +709,19 @@ class GameEngine {
     return grid.map(column => [...column]);
   }
 
+  hashGridState(grid) {
+    if (!Array.isArray(grid)) {
+      return null;
+    }
+
+    try {
+      const serialized = JSON.stringify(grid);
+      return crypto.createHash('sha256').update(serialized).digest('hex');
+    } catch (error) {
+      return null;
+    }
+  }
+
   countScatters(grid) {
     let count = 0;
     for (let col = 0; col < GAME_CONFIG.GRID_COLS; col++) {
@@ -467,6 +732,31 @@ class GameEngine {
       }
     }
     return count;
+  }
+  
+  gridToString(grid) {
+    // Convert grid to readable string for logging
+    const symbolShort = {
+      'time_gem': 'TI',
+      'space_gem': 'SP',
+      'mind_gem': 'MI',
+      'power_gem': 'PO',
+      'reality_gem': 'RE',
+      'soul_gem': 'SO',
+      'thanos_weapon': 'TW',
+      'scarlet_witch': 'SW',
+      'thanos': 'TH',
+      'infinity_glove': '🎰'
+    };
+    let result = '\n';
+    for (let row = 0; row < GAME_CONFIG.GRID_ROWS; row++) {
+      for (let col = 0; col < GAME_CONFIG.GRID_COLS; col++) {
+        const symbol = grid[col][row];
+        result += (symbolShort[symbol] || '??') + ' ';
+      }
+      result += '\n';
+    }
+    return result;
   }
 
   applyWinLimits(win, betAmount) {

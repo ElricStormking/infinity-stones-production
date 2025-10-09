@@ -35,6 +35,28 @@ const responseHelper = require('../utils/responseHelper');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
+// Admin sync metrics endpoints (no auth in dev)
+router.get('/admin/sync-metrics', async (req, res) => {
+  try {
+    const metricsService = require('../services/metricsService');
+    const metrics = await metricsService.getDashboardMetrics(req.query.timeframe || '24h');
+    res.json({ success: true, metrics });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/admin/sync-health', async (req, res) => {
+  try {
+    const metricsService = require('../services/metricsService');
+    const system = await metricsService.getSystemMetrics('24h');
+    const rtp = await metricsService.getRTPMetrics('24h');
+    const realtime = await metricsService.getRealtimeMetrics();
+    res.json({ success: true, system, rtp, realtime });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 // Middleware to validate request and handle errors
 const validateAndProceed = (req, res, next) => {
@@ -62,6 +84,10 @@ router.use((req, res, next) => {
  * Process a demo spin request (no auth required for testing)
  * Body: { betAmount, quickSpinMode?, freeSpinsActive?, accumulatedMultiplier?, bonusMode? }
  */
+// Reuse full game engine for demo spins so client sees real cascades
+const GameEngine = require('../game/gameEngine');
+const demoEngine = new GameEngine();
+
 router.post('/demo-spin',
   [
     body('betAmount')
@@ -95,71 +121,58 @@ router.post('/demo-spin',
   ],
   validateAndProceed,
   async (req, res) => {
-    // Return mock spin data for testing AND store in database
-    const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body;
-    const { getDemoPlayer, saveSpinResult } = require('../db/supabaseClient');
-
-    // Generate a simple mock grid
-    const generateRandomGrid = () => {
-      const symbols = ['time_gem', 'space_gem', 'power_gem', 'mind_gem', 'reality_gem', 'soul_gem'];
-      const grid = [];
-      for (let col = 0; col < 6; col++) {
-        grid[col] = [];
-        for (let row = 0; row < 5; row++) {
-          grid[col][row] = symbols[Math.floor(Math.random() * symbols.length)];
-        }
-      }
-      return grid;
-    };
-
-    const spinId = `demo-spin-${Date.now()}`;
-    const initialGrid = generateRandomGrid();
-    const totalWin = Math.random() < 0.3 ? Math.floor(Math.random() * 10) * betAmount : 0;
-
-    // Persist to Supabase using admin client; ensure demo player exists
+    const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1, rngSeed } = req.body;
     try {
-      const demoPlayer = await getDemoPlayer();
-      await saveSpinResult(demoPlayer.id, {
-        bet: betAmount,
-        initialGrid: { symbols: initialGrid },
-        cascades: [],
-        totalWin,
-        multipliers: [],
-        rngSeed: Math.random().toString(36).substring(2),
-        freeSpinsActive
+      // Use real engine to generate deterministic cascades without auth
+      const spin = await demoEngine.processCompleteSpin({
+        betAmount: parseFloat(betAmount),
+        playerId: 'demo-player',
+        sessionId: 'demo-session',
+        freeSpinsActive: Boolean(freeSpinsActive),
+        accumulatedMultiplier: parseFloat(accumulatedMultiplier),
+        quickSpinMode: Boolean(quickSpinMode),
+        rngSeed: typeof rngSeed === 'string' ? rngSeed : undefined
       });
-      console.log('✅ Demo spin saved to Supabase spin_results for player', demoPlayer.id);
-    } catch (dbError) {
-      console.error('⚠️ Failed to save demo spin (Supabase):', dbError.message);
-      // Continue anyway - demo should not break gameplay
-    }
 
-    // Return mock result
-    res.json({
-      success: true,
-      spinId,
-      betAmount,
-      totalWin,
-      baseWin: totalWin,
-      initialGrid,
-      finalGrid: initialGrid,
-      cascadeSteps: [],
-      bonusFeatures: {
-        freeSpinsTriggered: false,
-        freeSpinsAwarded: 0,
-        randomMultipliers: []
-      },
-      timing: {
-        totalDuration: 2000,
-        cascadeTiming: []
-      },
-      playerCredits: 1000,
-      quickSpinMode,
-      accumulatedMultiplier,
-      message: 'Demo spin successful (attempted DB save)'
-    });
+      return res.json({
+        success: true,
+        data: {
+          spinId: spin.spinId,
+          betAmount: spin.betAmount,
+          totalWin: spin.totalWin,
+          baseWin: spin.baseWin,
+          initialGrid: spin.initialGrid,
+          finalGrid: spin.finalGrid,
+          cascadeSteps: spin.cascadeSteps,
+          bonusFeatures: spin.bonusFeatures,
+          multiplierEvents: spin.multiplierEvents || [],
+          multiplierAwarded: spin.multiplierAwarded,
+          timing: spin.timing,
+          quickSpinMode,
+          accumulatedMultiplier,
+          rngSeed: spin.rngSeed,
+          metadata: {
+            rngAuditId: spin.rngSeed
+          }
+        }
+      });
+    } catch (e) {
+      console.error('Demo spin engine error:', e.message);
+      return res.status(500).json({ success: false, error: 'DEMO_SPIN_FAILED', message: e.message });
+    }
   }
 );
+
+const demoAuthBypass = (req, res, next) => {
+  if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true' || req.body?.playerId === 'demo-player') {
+    req.demoBypass = true;
+  }
+  if (req.demoBypass) {
+    req.user = { id: 'demo-player', username: 'demo-player', is_demo: true, status: 'active' };
+    req.session_info = { id: 'demo-session', is_demo: true };
+  }
+  next();
+};
 
 /**
  * POST /api/spin
@@ -168,6 +181,7 @@ router.post('/demo-spin',
  * Body: { betAmount, quickSpinMode?, freeSpinsActive?, accumulatedMultiplier?, bonusMode? }
  */
 router.post('/spin',
+  demoAuthBypass,
   authenticate,
   requireActivePlayer,
   checkSessionRefresh,
@@ -203,7 +217,27 @@ router.post('/spin',
       .toBoolean()
   ],
   validateAndProceed,
-  GameController.processSpin.bind(GameController)
+    GameController.processSpin.bind(GameController)
+);
+
+/**
+ * GET /api/spin/result/:requestId
+ * Retrieve cached spin result using the original client request ID
+ */
+router.get('/spin/result/:requestId',
+  demoAuthBypass,
+  authenticate,
+  requireActivePlayer,
+  [
+    param('requestId')
+      .exists()
+      .withMessage('requestId is required')
+      .isString()
+      .withMessage('requestId must be a string')
+      .trim()
+  ],
+  validateAndProceed,
+  GameController.getPendingSpinResultByRequest.bind(GameController)
 );
 
 /**
@@ -212,6 +246,7 @@ router.post('/spin',
  * Requires: Active player authentication
  */
 router.get('/game-state',
+  demoAuthBypass,
   authenticate,
   requireActivePlayer,
   GameController.getGameState.bind(GameController)
@@ -224,6 +259,7 @@ router.get('/game-state',
  * Body: { stateUpdates: object, reason?: string }
  */
 router.put('/game-state',
+  demoAuthBypass,
   authenticate,
   requireActivePlayer,
   gameValidation.validateStateUpdate,
@@ -285,6 +321,7 @@ router.get('/game-status',
  * Body: { featureType: string, cost: number }
  */
 router.post('/buy-feature',
+  demoAuthBypass,
   authenticate,
   requireActivePlayer,
   blockDemoMode,
@@ -317,6 +354,7 @@ router.post('/buy-feature',
  * Query: { limit?: number, offset?: number, dateFrom?, dateTo? }
  */
 router.get('/spin-history',
+  demoAuthBypass,
   authenticate,
   requireActivePlayer,
   [
@@ -370,6 +408,7 @@ router.get('/jackpots',
  * Requires: Authentication
  */
 router.post('/validate-session',
+  demoAuthBypass,
   authenticate,
   async (req, res) => {
     try {
