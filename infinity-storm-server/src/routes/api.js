@@ -149,7 +149,8 @@ router.post('/demo-spin',
           multiplierAwarded: spin.multiplierAwarded,
           timing: spin.timing,
           quickSpinMode,
-          accumulatedMultiplier,
+          // CRITICAL FIX: Return the NEW accumulated multiplier from game engine, not the old input value!
+          accumulatedMultiplier: spin.newAccumulatedMultiplier || accumulatedMultiplier,
           rngSeed: spin.rngSeed,
           metadata: {
             rngAuditId: spin.rngSeed

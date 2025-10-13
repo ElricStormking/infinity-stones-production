@@ -403,6 +403,16 @@ class StateManager {
      * @returns {Object} State updates to apply
      */
   calculateStateUpdates(currentState, spinResult) {
+    console.log(`🎰 STATE MANAGER: calculateStateUpdates called for player`, {
+      playerId: currentState.player_id,
+      gameMode: currentState.game_mode,
+      freeSpinsRemaining: currentState.free_spins_remaining,
+      currentAccumulated: currentState.accumulated_multiplier,
+      hasSpinResult: !!spinResult,
+      hasBonusFeatures: !!spinResult.bonusFeatures,
+      hasRandomMultipliers: spinResult.bonusFeatures?.randomMultipliers?.length || 0
+    });
+    
     const updates = {};
 
     // Handle free spins mode
@@ -424,8 +434,33 @@ class StateManager {
     }
 
     // Handle multiplier updates during free spins
-    if (currentState.isInFreeSpins() && spinResult.multiplier) {
+    // Check for new accumulated multiplier from game engine (includes all random multipliers from this spin)
+    console.log(`🎰 STATE MANAGER: Checking accumulated multiplier update:`, {
+      isInFreeSpins: currentState.isInFreeSpins(),
+      hasNewAccumulatedMultiplier: typeof spinResult.newAccumulatedMultiplier === 'number',
+      newAccumulatedMultiplierValue: spinResult.newAccumulatedMultiplier,
+      currentAccumulated: currentState.accumulated_multiplier,
+      randomMultipliersCount: spinResult.bonusFeatures?.randomMultipliers?.length || 0
+    });
+    
+    if (currentState.isInFreeSpins() && typeof spinResult.newAccumulatedMultiplier === 'number') {
+      // Use the game engine's calculated accumulated multiplier (includes current spin's multipliers)
+      updates.accumulated_multiplier = spinResult.newAccumulatedMultiplier;
+      console.log(`🎰 STATE MANAGER: ✅ Updating accumulated multiplier:`, {
+        before: currentState.accumulated_multiplier,
+        after: spinResult.newAccumulatedMultiplier,
+        randomMultipliers: spinResult.bonusFeatures?.randomMultipliers?.length || 0
+      });
+    } else if (currentState.isInFreeSpins() && spinResult.multiplier) {
+      // Legacy fallback for single multiplier field
       updates.accumulated_multiplier = currentState.accumulated_multiplier + spinResult.multiplier;
+      console.log(`🎰 STATE MANAGER: ✅ Updating accumulated multiplier (legacy):`, {
+        before: currentState.accumulated_multiplier,
+        adding: spinResult.multiplier,
+        after: updates.accumulated_multiplier
+      });
+    } else {
+      console.log(`🎰 STATE MANAGER: ❌ NOT updating accumulated multiplier (conditions not met)`);
     }
 
     const currentStateData = currentState.state_data || {};

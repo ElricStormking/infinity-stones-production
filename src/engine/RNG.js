@@ -92,9 +92,14 @@
   if (typeof window !== 'undefined' && window.Math && window.Math.random) {
     var originalMathRandom = window.Math.random;
     window.Math.random = function() {
-      if (securityLogging) {
-        console.warn('SECURITY: Math.random() call detected - use window.RNG for game logic');
-        // Don't throw error, just warn for now to allow initialization
+      // Quiet by default to avoid console spam. Enable warnings only when explicitly requested.
+      // Toggle by setting window.DEBUG_SECURITY_RNG = true at runtime.
+      if (securityLogging && typeof window !== 'undefined' && window.DEBUG_SECURITY_RNG === true) {
+        // Warn only once per session to further reduce noise
+        if (!window.__MATH_RANDOM_WARNED__) {
+          console.warn('SECURITY: Math.random() call detected - use window.RNG for game logic');
+          window.__MATH_RANDOM_WARNED__ = true;
+        }
       }
       return originalMathRandom();
     };

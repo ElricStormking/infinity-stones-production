@@ -100,16 +100,16 @@ window.BonusManager = class BonusManager {
         console.log(`New Win: $${this.scene.totalWin.toFixed(2)}`);
         console.log(`=== END RANDOM MULTIPLIER ===`);
         
-        // Update win display
-        this.scene.updateWinDisplay();
+        // NOTE: Do NOT call updateWinDisplay() here - let shooting stars handle progressive updates
         
         // Place persistent multiplier frame on replaced symbol
         this.placeRandomMultiplierOverlay(col, row, multiplier);
 
         // FX: shooting star to plaque and incremental sum update
-        if (this.scene && this.scene.playRandomMultiplierShootingStar) {
-            this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
-        }
+        // REMOVED: This OLD function shouldn't fire stars. Stars are fired by showServerRandomMultiplierEntry() with deduplication.
+        // if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+        //     this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
+        // }
 
         // Suppress character callout text under WIN banner
     }
@@ -440,33 +440,47 @@ window.BonusManager = class BonusManager {
         console.log(`New Win: $${this.scene.totalWin.toFixed(2)}`);
         console.log(`=== END CASCADING RANDOM MULTIPLIERS ===`);
         
-        // Update win display
-        this.scene.updateWinDisplay();
+        // NOTE: Do NOT call updateWinDisplay() here - let shooting stars handle progressive updates
         
         // Optional cascade message removed for cleaner presentation
 
         // Fire a shooting star per applied multiplier to build the plaque sum visually, arrival controls sum
-        if (this.scene && this.scene.playRandomMultiplierShootingStar) {
-            positions.forEach((pos, idx) => {
-                const m = multipliers[idx];
-                // stagger each star slightly
-                this.scene.time.delayedCall(140 * idx, () => {
-                    this.scene.playRandomMultiplierShootingStar(pos.col, pos.row, m);
-                });
-            });
-        }
+        // REMOVED: This OLD function shouldn't fire stars. Stars are fired by showCascadingRandomMultipliers() with deduplication.
+        // if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+        //     positions.forEach((pos, idx) => {
+        //         const m = multipliers[idx];
+        //         // stagger each star slightly
+        //         this.scene.time.delayedCall(140 * idx, () => {
+        //             this.scene.playRandomMultiplierShootingStar(pos.col, pos.row, m);
+        //         });
+        //     });
+        // }
     }
     
     async showRandomMultiplierResult(summary) {
         // Clear any existing multiplier overlays from previous spins
         this.clearAllRandomMultiplierOverlays();
         
+        // Clear the set of fired star IDs for this new spin
+        if (this.scene && this.scene.firedStarIds) {
+            this.scene.firedStarIds.clear();
+            console.log(`🧹 Cleared fired star IDs for new spin`);
+        }
+        
+        // Reset star counter and texture choice for this spin
+        if (this.scene) {
+            this.scene.starIdCounter = 0;
+            this.scene.currentShootingStarTexture = null; // Reset texture choice for new spin to avoid flickering
+        }
+        
         if (!summary) {
             return;
         }
 
         const events = Array.isArray(summary.events) ? [...summary.events] : [];
+        console.log(`📦 showRandomMultiplierResult: events.length=${events.length}`);
         if (events.length === 0) {
+            console.log(`⚠️ No multiplier events - calling updateWinDisplay() immediately`);
             if (typeof summary.finalWin === 'number') {
                 this.scene.totalWin = summary.finalWin;
                 this.scene.updateWinDisplay();
@@ -495,11 +509,24 @@ window.BonusManager = class BonusManager {
             : ((baseWin > 0 && typeof summary.finalWin === 'number') ? (summary.finalWin / baseWin) : (this.scene.spinAppliedMultiplier || 1));
         const appliedRounded = Math.round((appliedMultiplier || 1) * 100) / 100;
         this.scene.spinAppliedMultiplier = appliedRounded || 1;
-        // Initialize spinAccumulatedRM to server's total for immediate correct display
-        // Shooting stars will just be visual effects, not changing the value
-        this.scene.spinAccumulatedRM = appliedRounded || 0;
         
-        console.log(`📊 Server multiplier: x${appliedRounded} (from ${events.length} events, base: $${baseWin.toFixed(2)} → final: $${(summary.finalWin || 0).toFixed(2)})`);
+        // PROGRESSIVE UPDATE: Start at 0, let shooting stars increment to server's total
+        // Store server's target value for verification after all stars arrive
+        this.scene.normalModeTargetMultiplier = appliedRounded || 0;
+        this.scene.spinAccumulatedRM = 0; // Will increment as each star arrives
+        
+        // CRITICAL: Pre-count total multipliers across ALL events BEFORE processing any events
+        // This prevents race condition where updateWinDisplay() sees 0 pending stars and shows formula too early
+        let totalMultiplierCount = 0;
+        events.forEach(rawEvent => {
+            const normalized = this.normalizeServerMultiplierEvent(rawEvent);
+            if (normalized && normalized.multipliers && normalized.multipliers.length > 0) {
+                totalMultiplierCount += normalized.multipliers.length;
+            }
+        });
+        this.scene.normalModePendingStars = totalMultiplierCount;
+        
+        console.log(`📊 Server multiplier: x${appliedRounded} (from ${events.length} events with ${totalMultiplierCount} total multipliers, base: $${baseWin.toFixed(2)} → final: $${(summary.finalWin || 0).toFixed(2)})`);
 
         for (const rawEvent of events) {
             console.log(`🔍 Processing multiplier event:`, rawEvent);
@@ -541,7 +568,10 @@ window.BonusManager = class BonusManager {
         if (typeof summary.finalWin === 'number') {
             this.scene.totalWin = summary.finalWin;
         }
-        this.scene.updateWinDisplay();
+        // NOTE: Do NOT call updateWinDisplay() here - let shooting stars handle progressive updates
+        // updateWinDisplay will be called either:
+        // 1. By each shooting star as it arrives (normal mode progressive update)
+        // 2. After all shooting stars complete (safety check in GameScene.js line 1215)
     }
 
     normalizeServerMultiplierEvent(rawEvent) {
@@ -549,9 +579,29 @@ window.BonusManager = class BonusManager {
             return null;
         }
         const type = rawEvent.type || (Array.isArray(rawEvent.multipliers) && rawEvent.multipliers.length > 1 ? 'cascade_random_multiplier' : 'random_multiplier');
-        const multipliers = Array.isArray(rawEvent.multipliers)
+        let multipliers = Array.isArray(rawEvent.multipliers)
             ? rawEvent.multipliers.map((entry, index) => this.normalizeServerMultiplierEntry(entry, index))
             : [];
+        // Fallback: some server events include only a total (no per-multiplier entries)
+        // Create a single synthetic entry so we can animate at least one shooting star
+        if ((!multipliers || multipliers.length === 0)) {
+            const total = Number(rawEvent.totalMultiplier ?? rawEvent.total ?? 0);
+            if (total > 0) {
+                const grid = this.scene.gridManager || {};
+                const cols = typeof grid.cols === 'number' ? grid.cols : 6;
+                const rows = typeof grid.rows === 'number' ? grid.rows : 5;
+                const col = Math.floor(cols / 2);
+                const row = Math.floor(rows / 2);
+                const syntheticEntry = this.normalizeServerMultiplierEntry({
+                    position: { col, row },
+                    multiplier: total,
+                    character: 'thanos',
+                    synthetic: true
+                }, 0);
+                multipliers = [syntheticEntry];
+                console.warn('⚠️ Server event missing per-multiplier data; generated synthetic star entry:', syntheticEntry);
+            }
+        }
         return {
             type,
             multipliers,
@@ -592,7 +642,8 @@ window.BonusManager = class BonusManager {
             multiplier: Number(entry.multiplier) || 0,
             character: entry.character === 'scarlet_witch' ? 'scarlet_witch' : 'thanos',
             sequenceIndex: entry.sequenceIndex ?? index,
-            appearDelay: entry.appearDelay ?? 0
+            appearDelay: entry.appearDelay ?? 0,
+            synthetic: !!entry.synthetic
         };
         
         console.log(`  📋 Normalized entry ${index}: x${normalized.multiplier} at (${normalized.col},${normalized.row}) - Raw server value: ${entry.multiplier}`);
@@ -604,13 +655,37 @@ window.BonusManager = class BonusManager {
         const col = entry.col ?? 0;
         const row = entry.row ?? 0;
         const multiplier = entry.multiplier ?? 0;
-
+        
+        // Create unique ID using counter to prevent duplicates (more reliable than timestamp)
+        if (!this.scene.starIdCounter) {
+            this.scene.starIdCounter = 0;
+        }
+        const starId = `star_${col}_${row}_${multiplier}_${this.scene.starIdCounter++}`;
+        
         if (entry.character === 'scarlet_witch') {
             this.triggerScarletWitchAttack();
             await this.showScarletWitchRandomMultiplier(col, row, multiplier);
         } else {
             this.triggerThanosAttack();
             await this.showThanosRandomMultiplier(col, row, multiplier);
+        }
+        
+        // CRITICAL FIX: Fire shooting star after character animation completes
+        // Count pending stars for progressive formula update
+        // Only fire if we haven't fired this exact star already
+        if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+            if (!this.scene.firedStarIds) {
+                this.scene.firedStarIds = new Set();
+            }
+            
+            if (!this.scene.firedStarIds.has(starId)) {
+                console.log(`⭐ Firing shooting star for single multiplier: x${multiplier} from (${col},${row}) [ID: ${starId}]`);
+                this.scene.firedStarIds.add(starId);
+                // No need to increment here - already pre-counted in showRandomMultiplierResult
+                this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
+            } else {
+                console.warn(`⚠️ Duplicate shooting star prevented: x${multiplier} from (${col},${row}) [ID: ${starId}]`);
+            }
         }
     }
 
@@ -632,6 +707,37 @@ window.BonusManager = class BonusManager {
 
             Promise.all(promises).then(() => {
                 console.log(`✅ All ${positions.length} cascading multipliers completed. Total displayed: x${totalSum}`);
+                
+                // CRITICAL FIX: Fire shooting stars AFTER all character animations complete
+                // Count pending stars for progressive formula update
+                if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+                    if (!this.scene.firedStarIds) {
+                        this.scene.firedStarIds = new Set();
+                    }
+                    if (!this.scene.starIdCounter) {
+                        this.scene.starIdCounter = 0;
+                    }
+                    // No need to increment here - already pre-counted in showRandomMultiplierResult
+                    
+                    positions.forEach((pos, idx) => {
+                        const m = multipliers[idx];
+                        // Use counter instead of timestamp for guaranteed uniqueness
+                        const starId = `star_${pos.col}_${pos.row}_${m}_${this.scene.starIdCounter++}`;
+                        
+                        // Stagger each star slightly for visual effect
+                        this.scene.time.delayedCall(140 * idx, () => {
+                            // Only fire if we haven't fired this exact star already
+                            if (!this.scene.firedStarIds.has(starId)) {
+                                console.log(`⭐ Firing shooting star ${idx + 1}/${positions.length}: x${m} from (${pos.col},${pos.row}) [ID: ${starId}]`);
+                                this.scene.firedStarIds.add(starId);
+                                this.scene.playRandomMultiplierShootingStar(pos.col, pos.row, m);
+                            } else {
+                                console.warn(`⚠️ Duplicate shooting star prevented: x${m} from (${pos.col},${pos.row}) [ID: ${starId}]`);
+                            }
+                        });
+                    });
+                }
+                
                 resolve();
             });
         });
@@ -751,11 +857,13 @@ window.BonusManager = class BonusManager {
                     });
                 }
 
-                if (this.scene && this.scene.playRandomMultiplierShootingStar) {
-                    this.scene.time.delayedCall(200, () => {
-                        this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
-                    });
-                }
+                // REMOVED: This OLD function in showSingleCascadingMultiplier shouldn't fire stars. 
+                // Stars are fired by showCascadingRandomMultipliers() Promise.all callback with deduplication.
+                // if (this.scene && this.scene.playRandomMultiplierShootingStar) {
+                //     this.scene.time.delayedCall(200, () => {
+                //         this.scene.playRandomMultiplierShootingStar(col, row, multiplier);
+                //     });
+                // }
 
                 window.SafeSound.play(this.scene, 'bonus');
             });

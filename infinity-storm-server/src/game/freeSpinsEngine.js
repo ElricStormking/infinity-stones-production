@@ -342,9 +342,10 @@ class FreeSpinsEngine {
      * @param {number} cascadeCount - Current cascade number
      * @param {number} cascadeWin - Win from current cascade
      * @param {number} betAmount - Current bet amount
+     * @param {string} cascadeSeed - Deterministic seed for this cascade's RNG
      * @returns {Object} Cascade multiplier result
      */
-  async processCascadeMultiplier(cascadeCount, cascadeWin, betAmount) {
+  async processCascadeMultiplier(cascadeCount, cascadeWin, betAmount, cascadeSeed) {
     // Only trigger in cascades after the first one
     if (cascadeCount <= 1) {
       return {
@@ -353,32 +354,38 @@ class FreeSpinsEngine {
       };
     }
 
+    // CRITICAL FIX: Use deterministic RNG seeded from cascade seed
+    // This ensures multipliers are consistent across server restarts and client replays
+    const { getRNG } = require('./rng');
+    const cascadeRng = getRNG(cascadeSeed + '_multiplier');  // Seed specific to multiplier generation
+
     // Check trigger probability
-    const triggerRoll = this.rng.random();
+    const triggerRoll = cascadeRng.random();
     if (triggerRoll > this.config.accumTriggerChance) {
       return {
         triggered: false,
         reason: 'probability_not_met',
         triggerRoll,
         triggerChance: this.config.accumTriggerChance,
-        cascadeCount
+        cascadeCount,
+        rngSeed: cascadeSeed
       };
     }
 
     // Use the same multiplier table as regular random multipliers
     const multiplierTable = this.gameConfig.RANDOM_MULTIPLIER.TABLE;
     const randomMultiplier = multiplierTable[
-      this.rng.randomInt(0, multiplierTable.length - 1)
+      cascadeRng.randomInt(0, multiplierTable.length - 1)
     ];
 
     // Select random position for effect
     const position = {
-      col: this.rng.randomInt(0, this.gameConfig.GRID_COLS - 1),
-      row: this.rng.randomInt(0, this.gameConfig.GRID_ROWS - 1)
+      col: cascadeRng.randomInt(0, this.gameConfig.GRID_COLS - 1),
+      row: cascadeRng.randomInt(0, this.gameConfig.GRID_ROWS - 1)
     };
 
     // Select character for animation (80% Thanos, 20% Scarlet Witch)
-    const character = this.rng.random() < 0.8 ? 'thanos' : 'scarlet_witch';
+    const character = cascadeRng.random() < 0.8 ? 'thanos' : 'scarlet_witch';
 
     const result = {
       triggered: true,
@@ -389,9 +396,11 @@ class FreeSpinsEngine {
       cascadeWin,
       type: 'free_spins_cascade_multiplier',
       animationDuration: this.gameConfig.RANDOM_MULTIPLIER.ANIMATION_DURATION,
+      rngSeed: cascadeSeed,  // Store seed for audit trail
       metadata: {
         triggerRoll,
-        triggerChance: this.config.accumTriggerChance
+        triggerChance: this.config.accumTriggerChance,
+        cascadeSeed  // Include seed in metadata
       }
     };
 
@@ -401,7 +410,8 @@ class FreeSpinsEngine {
       position: `${position.col},${position.row}`,
       character,
       cascade_win: cascadeWin,
-      trigger_roll: triggerRoll
+      trigger_roll: triggerRoll,
+      rng_seed: cascadeSeed  // Log seed for reproducibility
     });
 
     return result;

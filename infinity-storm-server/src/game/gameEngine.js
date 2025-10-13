@@ -222,7 +222,11 @@ class GameEngine {
 
         // Apply free spins accumulated multiplier
         if (freeSpinsActive && accumulatedMultiplier > 1) {
+          const originalCascadeWin = cascadeWinTotal;
           cascadeWinTotal *= accumulatedMultiplier;
+          console.log(`🎰 FREE SPINS: Applying accumulated multiplier x${accumulatedMultiplier} to cascade ${cascadeCount} win: $${originalCascadeWin.toFixed(2)} → $${cascadeWinTotal.toFixed(2)}`);
+        } else if (freeSpinsActive) {
+          console.log(`🎰 FREE SPINS: Cascade ${cascadeCount} win $${cascadeWinTotal.toFixed(2)} (no multiplier yet, accumulated = x${accumulatedMultiplier})`);
         }
 
         totalWin += cascadeWinTotal;
@@ -314,28 +318,9 @@ class GameEngine {
 
         cascadeSteps.push(cascadeStep);
 
-        // Process random multipliers during free spins cascades
-        if (freeSpinsActive && cascadeCount > 1) {
-          const cascadeMultiplierResult = await this.freeSpinsEngine.processCascadeMultiplier(
-            cascadeCount,
-            cascadeWinTotal,
-            betAmount
-          );
-
-          if (cascadeMultiplierResult.triggered) {
-            // Apply the multiplier to current cascade win
-            const multipliedAmount = cascadeWinTotal * cascadeMultiplierResult.multiplier;
-            totalWin += (multipliedAmount - cascadeWinTotal); // Add the difference
-
-            cascadeStep.randomMultiplier = {
-              multiplier: cascadeMultiplierResult.multiplier,
-              position: cascadeMultiplierResult.position,
-              character: cascadeMultiplierResult.character
-            };
-
-            spinResult.bonusFeatures.randomMultipliers.push(cascadeMultiplierResult);
-          }
-        }
+        // REMOVED: Cascading random multipliers during cascade loop
+        // All random multipliers will be generated AFTER all cascades complete
+        // This ensures consistent generation and display timing
 
         // Update grid for next cascade
         currentGrid = cascadeResult.newGrid;
@@ -486,22 +471,44 @@ class GameEngine {
         }
       }
       
-      // CRITICAL FIX: Apply accumulated multipliers together (additive)
+      // CRITICAL: Apply random multipliers from current spin
+      // For FREE SPINS: New multipliers + existing accumulated multiplier are BOTH applied to current win
       if (accumulatedRandomMultiplier > 0) {
-        console.log(`  🔍 BEFORE applying multipliers:`, {
+        console.log(`  🔍 Random multipliers generated in current spin:`, {
           baseWinBeforeMultipliers: baseWinBeforeMultipliers.toFixed(2),
-          accumulatedRandomMultiplier,
-          totalWin: totalWin.toFixed(2),
+          newRandomMultipliersFromCurrentSpin: accumulatedRandomMultiplier,
+          currentTotalWin: totalWin.toFixed(2),
+          freeSpinsActive,
+          existingAccumulatedMultiplier: freeSpinsActive ? accumulatedMultiplier : 'N/A',
           multiplierEvents: multiplierEvents.map(e => ({ type: e.type, total: e.totalMultiplier }))
         });
         
-        totalWin = baseWinBeforeMultipliers * accumulatedRandomMultiplier;
-        console.log(`  ✅ Total accumulated RANDOM multiplier: x${accumulatedRandomMultiplier} applied to base $${baseWinBeforeMultipliers.toFixed(2)} = $${totalWin.toFixed(2)}`);
-        
-        // Update finalWin for all multiplier events
-        multiplierEvents.forEach(evt => {
-          evt.finalWin = totalWin;
-        });
+        if (freeSpinsActive) {
+          // FREE SPINS MODE: Apply NEW multipliers to current spin (in addition to already-applied accumulated multiplier)
+          // IMPORTANT: The existing accumulated multiplier was already applied at cascade level (line 224-226)
+          // Now we need to apply the NEW multipliers from this spin as well
+          const totalMultiplierForThisSpin = accumulatedMultiplier + accumulatedRandomMultiplier;
+          const baseWinBeforeAnyMultipliers = totalWin / accumulatedMultiplier; // Reverse the accumulated multiplier to get base
+          totalWin = baseWinBeforeAnyMultipliers * totalMultiplierForThisSpin;
+          
+          console.log(`  🎰 FREE SPINS MODE: Applying NEW x${accumulatedRandomMultiplier} multipliers to current spin`);
+          console.log(`  🎰 Calculation: Base $${baseWinBeforeAnyMultipliers.toFixed(2)} × (accumulated ${accumulatedMultiplier} + new ${accumulatedRandomMultiplier}) = $${baseWinBeforeAnyMultipliers.toFixed(2)} × ${totalMultiplierForThisSpin} = $${totalWin.toFixed(2)}`);
+          
+          multiplierEvents.forEach(evt => {
+            evt.finalWin = totalWin;
+            evt.appliedToCurrentSpin = true;
+            evt.totalMultiplierIncludingAccumulated = totalMultiplierForThisSpin;
+          });
+        } else {
+          // REGULAR MODE: Apply immediately to current spin (no accumulated multiplier)
+          totalWin = baseWinBeforeMultipliers * accumulatedRandomMultiplier;
+          console.log(`  ✅ REGULAR MODE: Random multiplier x${accumulatedRandomMultiplier} applied to base $${baseWinBeforeMultipliers.toFixed(2)} = $${totalWin.toFixed(2)}`);
+          
+          multiplierEvents.forEach(evt => {
+            evt.finalWin = totalWin;
+            evt.appliedToCurrentSpin = true;
+          });
+        }
       }
 
       spinResult.multiplierEvents = multiplierEvents;
@@ -565,6 +572,45 @@ class GameEngine {
       // Update session statistics
       this.updateSessionStats(spinResult);
 
+      // CRITICAL: Calculate new accumulated multiplier for free spins
+      // The new accumulated multiplier includes both the existing accumulated + new random multipliers from this spin
+      // ALWAYS set this during free spins to maintain the accumulated value across spins
+      if (freeSpinsActive) {
+        if (spinResult.bonusFeatures.randomMultipliers.length > 0) {
+          const newMultipliersSum = spinResult.bonusFeatures.randomMultipliers
+            .reduce((sum, m) => sum + m.multiplier, 0);
+          
+          console.log(`🎰 FREE SPINS: Processing multiplier accumulation:`, {
+            previousAccumulated: accumulatedMultiplier,
+            newMultipliersFromThisSpin: newMultipliersSum,
+            randomMultipliersCount: spinResult.bonusFeatures.randomMultipliers.length,
+            randomMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => ({
+              multiplier: m.multiplier,
+              type: m.type
+            }))
+          });
+          
+          // New accumulated = existing accumulated + new multipliers from this spin
+          // This was ALREADY applied to the current spin's win (see line 490-492)
+          const newAccumulatedMultiplier = accumulatedMultiplier + newMultipliersSum;
+
+          spinResult.newAccumulatedMultiplier = newAccumulatedMultiplier;
+          console.log(`🎰 GAME ENGINE: New accumulated multiplier for NEXT spin:`, {
+            previousAccumulated: accumulatedMultiplier,
+            newMultipliersFromCurrentSpin: spinResult.bonusFeatures.randomMultipliers.map(m => m.multiplier),
+            newAccumulated: newAccumulatedMultiplier,
+            note: 'This total was ALREADY applied to current spin win'
+          });
+        } else {
+          // No new multipliers this spin, but MUST maintain the accumulated value
+          spinResult.newAccumulatedMultiplier = accumulatedMultiplier;
+          console.log(`🎰 GAME ENGINE: No new multipliers, maintaining accumulated:`, {
+            accumulatedMultiplier: accumulatedMultiplier,
+            note: 'Accumulated multiplier preserved for next spin'
+          });
+        }
+      }
+
       this.logAuditEvent('SPIN_PROCESSING_COMPLETED', {
         spin_id: spinId,
         total_win: totalWin,
@@ -616,12 +662,28 @@ class GameEngine {
     spinResult.freeSpinsComplete = spinResult.freeSpinsRemaining === 0;
 
     // Handle multiplier accumulation during free spins
-    const newAccumulatedMultiplier = await this.freeSpinsEngine.updateAccumulatedMultiplier(
+    console.log(`🎰 FREE SPINS: Processing multiplier accumulation:`, {
+      previousAccumulated: accumulatedMultiplier,
+      randomMultipliersCount: spinResult.bonusFeatures.randomMultipliers.length,
+      randomMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => ({
+        multiplier: m.multiplier,
+        type: m.type,
+        cascadeCount: m.cascadeCount,
+        position: m.position
+      }))
+    });
+    
+    const newAccumulatedMultiplier = this.multiplierEngine.updateAccumulatedMultiplier(
       accumulatedMultiplier,
       spinResult.bonusFeatures.randomMultipliers
     );
 
     spinResult.newAccumulatedMultiplier = newAccumulatedMultiplier;
+    console.log(`🎰 GAME ENGINE: Calculated new accumulated multiplier for free spins:`, {
+      previousAccumulated: accumulatedMultiplier,
+      newMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => m.multiplier),
+      newAccumulated: newAccumulatedMultiplier
+    });
 
     return spinResult;
   }

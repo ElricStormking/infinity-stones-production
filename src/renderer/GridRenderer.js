@@ -122,8 +122,13 @@ window.GridRenderer = class GridRenderer {
 
             if (typeof serverResult.totalWin === 'number') {
                 this.scene.totalWin = Math.round(serverResult.totalWin * 100) / 100;
-                if (typeof this.scene.updateWinDisplay === 'function') {
+                // CRITICAL FIX: Don't update win display if shooting stars are pending (normal mode)
+                // The stars will call updateWinDisplay() progressively as they arrive
+                const hasPendingStars = !this.scene.stateManager?.freeSpinsData?.active && (this.scene.normalModePendingStars || 0) > 0;
+                if (typeof this.scene.updateWinDisplay === 'function' && !hasPendingStars) {
                     this.scene.updateWinDisplay();
+                } else if (hasPendingStars) {
+                    console.log(`⏳ GridRenderer: Delaying win display update - waiting for ${this.scene.normalModePendingStars} shooting stars`);
                 }
             }
 
@@ -319,10 +324,33 @@ window.GridRenderer = class GridRenderer {
         normalized.symbolsToRemove = Array.isArray(normalized.symbolsToRemove)
             ? normalized.symbolsToRemove.map(cluster => this.normalizePositionsOnly(cluster))
             : normalizedWinning;
+        
+        // DEBUG: Log which grid fields are present in server response
+        console.log(`🔍 GridRenderer Step ${normalized.stepIndex} - Grid fields received:`, {
+            hasGridStateBefore: !!normalized.gridStateBefore,
+            hasGridBefore: !!normalized.gridBefore,
+            hasGrid: !!normalized.grid,
+            hasGridStateAfter: !!normalized.gridStateAfter,
+            hasGridAfter: !!normalized.gridAfter,
+            hasNewGrid: !!normalized.newGrid,
+            hasGridAfterRemoval: !!normalized.gridAfterRemoval,
+            hasGridMid: !!normalized.gridMid,
+            hasGridStateMid: !!normalized.gridStateMid
+        });
+        
         // Accept multiple aliases from server; prefer canonical gridState* fields.
         normalized.gridStateBefore = normalized.gridStateBefore || normalized.gridBefore || normalized.grid;
         normalized.gridStateAfter = normalized.gridStateAfter || normalized.gridAfter || normalized.newGrid;
         normalized.gridAfterRemoval = normalized.gridAfterRemoval || normalized.gridMid || normalized.gridStateMid || null;
+        
+        // ERROR: Log if critical grids are missing after normalization
+        if (!normalized.gridStateBefore) {
+            console.error(`❌ GridRenderer Step ${normalized.stepIndex} - MISSING gridStateBefore (tried: gridStateBefore, gridBefore, grid)`);
+        }
+        if (!normalized.gridStateAfter) {
+            console.error(`❌ GridRenderer Step ${normalized.stepIndex} - MISSING gridStateAfter (tried: gridStateAfter, gridAfter, newGrid)`);
+        }
+        
         normalized.symbolsToRemoveAsMatches = Array.isArray(normalized.symbolsToRemove)
             ? normalized.symbolsToRemove.map(cluster => ({ positions: cluster.positions || [] }))
             : [];

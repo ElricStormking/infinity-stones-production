@@ -1076,6 +1076,9 @@ window.NetworkService = new (class NetworkService {
         const retriggerFlag = source?.freeSpinsRetriggered ?? bonusFeatures?.freeSpinsRetriggered ?? freeFeature?.retrigger;
         const remaining = source?.freeSpinsRemaining ?? source?.freeSpinsNextCount ?? freeFeature?.count ?? freeFeature?.remaining ?? 0;
         const ended = source?.freeSpinsEnded ?? false;
+        
+        // CRITICAL: Extract server's accumulated multiplier (authoritative during free spins)
+        const accumulatedMultiplier = source?.accumulatedMultiplier ?? freeFeature?.multiplier ?? 1;
 
         // If server provided a count but no explicit awarded value, treat count as awarded when not already active
         if ((!awarded || awarded === 0) && remaining > 0 && !activeFlag) {
@@ -1088,7 +1091,8 @@ window.NetworkService = new (class NetworkService {
             freeSpinsRetriggered: retriggerFlag !== undefined ? !!retriggerFlag : false,
             freeSpinsActive: activeFlag !== undefined ? !!activeFlag : false,
             freeSpinsRemaining: remaining,
-            freeSpinsEnded: !!ended
+            freeSpinsEnded: !!ended,
+            accumulatedMultiplier: accumulatedMultiplier  // Server-authoritative accumulated multiplier
         };
     }
 

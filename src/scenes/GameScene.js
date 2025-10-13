@@ -1082,21 +1082,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
             } else {
                 targets.push({ type: 'plaque', pos: this.uiManager.getPlaquePosition() });
             }
+            
+            // Pick a consistent texture for all stars in this spin to avoid flickering
+            // Store the choice on first star, reuse for subsequent stars
+            if (!this.currentShootingStarTexture) {
+                if (this.textures.exists('mind_gem')) {
+                    this.currentShootingStarTexture = { key: 'mind_gem', scaleX: 0.34, scaleY: 0.58 };
+                } else if (this.textures.exists('reality_gem')) {
+                    this.currentShootingStarTexture = { key: 'reality_gem', scaleX: 0.32, scaleY: 0.52 };
+                } else {
+                    this.currentShootingStarTexture = { key: 'fallback', scaleX: 1, scaleY: 1 };
+                }
+            }
 
             const fireOneStarTo = (target) => {
                 // Create comet head (sprite) with additive glow, elongated look
                 let star;
-                if (this.textures.exists('mind_gem')) {
-                    star = this.add.image(startX, startY, 'mind_gem');
-                    star.setScale(0.34, 0.58);
-                } else if (this.textures.exists('reality_gem')) {
-                    star = this.add.image(startX, startY, 'reality_gem');
-                    star.setScale(0.32, 0.52);
-                } else {
+                if (this.currentShootingStarTexture.key === 'fallback') {
                     const g = this.add.graphics({ x: startX, y: startY });
                     g.fillStyle(0xFFD700, 1);
                     g.fillCircle(0, 0, 8);
                     star = g;
+                } else {
+                    star = this.add.image(startX, startY, this.currentShootingStarTexture.key);
+                    star.setScale(this.currentShootingStarTexture.scaleX, this.currentShootingStarTexture.scaleY);
                 }
                 star.setDepth((window.GameConfig.UI_DEPTHS.FX_OVERLAY || 2500));
                 if (star.setBlendMode) star.setBlendMode(Phaser.BlendModes.ADD);
@@ -1172,12 +1181,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         try { ribbon.destroy(); } catch (_) {}
 
                         if (target.type === 'plaque') {
-                            // Base game or FS: Just pulse the formula, don't increment
-                            // spinAccumulatedRM is already set to the correct server total
+                            // Normal mode: INCREMENT progressively as each star arrives!
+                            const currentMult = this.spinAccumulatedRM || 0;
+                            const newMult = currentMult + multiplierValue;
+                            
+                            console.log(`⭐ Normal mode shooting star arrived! Incrementing multiplier: x${currentMult} + x${multiplierValue} = x${newMult}`);
+                            
+                            this.spinAccumulatedRM = newMult;
+                            
+                            // Update formula display progressively
                             const base = Math.max(0, this.baseWinForFormula || 0);
-                            const mult = Math.max(0, this.spinAccumulatedRM || this.spinAppliedMultiplier || 0);
-                            const shownFinal = this.totalWin;
-                            this.uiManager.setWinFormula(base, mult, shownFinal);
+                            // Calculate progressive final amount based on CURRENT multiplier (not total win)
+                            const shownFinal = base * newMult;
+                            this.uiManager.setWinFormula(base, newMult, shownFinal);
 
                             // Impact pulse on plaque text
                             const text = this.uiManager && this.uiManager.winTopText;
@@ -1187,10 +1203,39 @@ window.GameScene = class GameScene extends Phaser.Scene {
                                 text.setScale(ox, oy);
                                 this.tweens.add({ targets: text, scaleX: ox * 1.25, scaleY: oy * 1.25, duration: 140, yoyo: true, ease: 'Back.out' });
                             }
+                            
+                            // Decrement pending star counter
+                            this.normalModePendingStars = Math.max(0, (this.normalModePendingStars || 0) - 1);
+                            
+                            // When all stars have arrived, verify we reached the server's target value
+                            if ((this.normalModePendingStars || 0) === 0) {
+                                const finalMult = this.spinAccumulatedRM;
+                                const targetMult = this.normalModeTargetMultiplier;
+                                
+                                // Safety check: ensure we match the server's target value
+                                if (typeof targetMult === 'number' && Math.abs(finalMult - targetMult) > 0.01) {
+                                    console.warn(`⚠️ Normal mode multiplier mismatch! Client: x${finalMult}, Server target: x${targetMult}. Correcting...`);
+                                    this.spinAccumulatedRM = targetMult;
+                                    const correctedFinal = base * targetMult;
+                                    this.uiManager.setWinFormula(base, targetMult, correctedFinal);
+                                }
+                                
+                                console.log(`✅ All normal mode shooting stars arrived! Final multiplier: x${this.spinAccumulatedRM}`);
+                                
+                                // All stars done - ensure win display is finalized
+                                this.updateWinDisplay();
+                            }
                         } else if (target.type === 'fsAccum') {
-                            // Free Spins: increment the visible accumulator ONLY on arrival
-                            this.stateManager.accumulateMultiplier(multiplierValue);
+                            // Free Spins: INCREMENT progressively as each star arrives!
+                            // Add the multiplier value this star represents
+                            const currentAccum = this.stateManager.freeSpinsData.multiplierAccumulator || 1;
+                            const newAccum = currentAccum + multiplierValue;
+                            
+                            console.log(`⭐ Shooting star arrived! Incrementing accumulator: x${currentAccum} + x${multiplierValue} = x${newAccum}`);
+                            
+                            this.stateManager.freeSpinsData.multiplierAccumulator = newAccum;
                             this.uiManager.updateAccumulatedMultiplierDisplay();
+                            
                             // Impact pulse on FS accumulated multiplier text
                             const aText = this.uiManager && this.uiManager.accumulatedMultiplierText;
                             if (aText) {
@@ -1199,12 +1244,27 @@ window.GameScene = class GameScene extends Phaser.Scene {
                                 aText.setScale(ox, oy);
                                 this.tweens.add({ targets: aText, scaleX: ox * 1.3, scaleY: oy * 1.3, duration: 140, yoyo: true, ease: 'Back.out' });
                             }
+                            
                             this.fsPendingRMStars = Math.max(0, (this.fsPendingRMStars || 0) - 1);
+                            
+                            // When all stars have arrived, verify we reached the server's target value
                             if ((this.fsPendingRMStars || 0) === 0) {
+                                const finalAccum = this.stateManager.freeSpinsData.multiplierAccumulator;
+                                const targetAccum = this.fsTargetAccumulatedMultiplier;
+                                
+                                // Safety check: ensure we match the server's target value
+                                if (typeof targetAccum === 'number' && finalAccum !== targetAccum) {
+                                    console.warn(`⚠️ Accumulated multiplier mismatch! Client: x${finalAccum}, Server target: x${targetAccum}. Correcting...`);
+                                    this.stateManager.freeSpinsData.multiplierAccumulator = targetAccum;
+                                    this.uiManager.updateAccumulatedMultiplierDisplay();
+                                }
+                                
                                 const fsMult = Math.max(1, (this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.multiplierAccumulator) || 1);
                                 const finalAmount = this.totalWin;
                                 const base = fsMult > 0 ? finalAmount / fsMult : finalAmount;
                                 this.uiManager.setWinFormula(base, fsMult, finalAmount);
+                                
+                                console.log(`✅ All shooting stars arrived! Final accumulated: x${fsMult}`);
                             }
                         }
 
@@ -1959,6 +2019,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.stateManager.saveState();
 
         // Update the top plaque text with detailed formula if we had a positive win
+        // CRITICAL FIX: If shooting stars are pending, show ONLY base win (not final total)
+        const hasPendingStars = !this.stateManager?.freeSpinsData?.active && (this.normalModePendingStars || 0) > 0;
+        
         if (this.uiManager && this.uiManager.winTopText) {
             const amount = this.totalWin || 0;
             if (amount > 0) {
@@ -1973,13 +2036,25 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     mult = multSum > 0 ? multSum : Math.max(1, this.spinAppliedMultiplier || 1);
                     base = Math.max(0, this.baseWinForFormula || 0);
                 }
-                // Render concise formula inside the formula plaque area
-                // Format: (Bet x SymbolPayout) x AccumMult = Final
-                const baseStr = `$${base.toFixed(2)}`;
-                const multStr = `x${mult.toFixed(2).replace(/\.00$/, '')}`;
-                const finalStr = `$${amount.toFixed(2)}`;
-                const formula = `${baseStr} ${multStr} = ${finalStr}`;
-                this.uiManager.winTopText.setText(formula);
+                
+                // MODIFICATION: Show only BASE WIN if stars are pending, otherwise show full formula
+                let text;
+                if (hasPendingStars && base > 0) {
+                    // Show only base win while waiting for shooting stars
+                    text = `$${base.toFixed(2)}`;
+                    console.log(`⏳ endSpin(): Showing base win $${base.toFixed(2)} - waiting for ${this.normalModePendingStars} shooting stars`);
+                } else if (!hasPendingStars && mult > 1) {
+                    // Show full formula with multiplier
+                    const baseStr = `$${base.toFixed(2)}`;
+                    const multStr = `x${mult.toFixed(2).replace(/\.00$/, '')}`;
+                    const finalStr = `$${amount.toFixed(2)}`;
+                    text = `${baseStr} ${multStr} = ${finalStr}`;
+                } else {
+                    // Fallback: just show the amount
+                    text = `$${amount.toFixed(2)}`;
+                }
+                
+                this.uiManager.winTopText.setText(text);
                 this.uiManager.winTopText.setVisible(true);
             } else {
                 this.uiManager.winTopText.setVisible(false);
@@ -2392,6 +2467,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (typeof gameState.free_spins_remaining === 'number') {
             this.stateManager.freeSpinsData.count = gameState.free_spins_remaining;
             this.stateManager.freeSpinsData.active = gameState.game_mode === 'free_spins';
+            
+            // CRITICAL: Sync accumulated multiplier from server
+            if (typeof gameState.accumulated_multiplier === 'number') {
+                this.stateManager.freeSpinsData.multiplierAccumulator = gameState.accumulated_multiplier;
+                console.log(`🎰 Synced free spins accumulated multiplier from server: x${gameState.accumulated_multiplier}`);
+            }
+            
             this.uiManager.updateFreeSpinsDisplay();
         }
     }
@@ -2454,6 +2536,29 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 window.serverDebugWindow.show(normalized);
             }
 
+            // Pre-flag pending shooting stars in NORMAL mode before rendering grids
+            // so any early win display updates (e.g., from GridRenderer) will
+            // show BASE amount instead of FINAL total while stars are pending.
+            try {
+                const inFreeSpins = !!(this.stateManager && this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.active);
+                if (!inFreeSpins) {
+                    const rawEvents = Array.isArray(normalized.multiplierEvents) ? normalized.multiplierEvents : [];
+                    let earlyPending = 0;
+                    for (const evt of rawEvents) {
+                        if (Array.isArray(evt?.multipliers) && evt.multipliers.length > 0) {
+                            earlyPending += evt.multipliers.length;
+                        } else if (typeof evt?.totalMultiplier === 'number' && evt.totalMultiplier > 0) {
+                            // Fallback: if we don't have per-entry breakdown yet, assume at least 1 star
+                            earlyPending += 1;
+                        }
+                    }
+                    if (earlyPending > 0) {
+                        this.normalModePendingStars = earlyPending;
+                        console.log(`🛡️ Pre-flagging pending stars before grid render: ${earlyPending}`);
+                    }
+                }
+            } catch (_) {}
+
             if (this.gridRenderer && typeof this.gridRenderer.renderSpinResult === 'function') {
                 await this.gridRenderer.renderSpinResult(normalized);
             } else {
@@ -2471,56 +2576,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 hasBonusFeatures: !!normalized.bonusFeatures
             });
             
+            // DISABLED CLIENT FALLBACKS - Server is authoritative!
+            // Only process free spins if server explicitly triggers them
             if (normalized.freeSpinsAwarded) {
                 console.log(`✅ Free spins triggered via normalized.freeSpinsAwarded: ${normalized.freeSpinsAwarded}`);
                 this.freeSpinsManager.processFreeSpinsTrigger(normalized.freeSpinsAwarded);
-            } else if (normalized.freeSpinsTriggered && normalized.freeSpinsAwarded === 0) {
-                // Server says free spins triggered but no award count came through; fallback to default
-                const award = window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
-                console.log(`✅ Free spins triggered via normalized.freeSpinsTriggered (fallback): ${award}`);
+            } else if (normalized.freeSpinsTriggered) {
+                // Server says free spins triggered but no award count came through
+                const award = normalized.bonusFeatures?.freeSpinsAwarded || window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
+                console.log(`✅ Free spins triggered via normalized.freeSpinsTriggered: ${award}`);
                 this.freeSpinsManager.processFreeSpinsTrigger(award);
             } else {
-                // Additional fallbacks for demo and mixed payloads
+                // Check bonusFeatures as fallback
                 const bfAward = normalized?.bonusFeatures?.freeSpinsAwarded;
                 if (typeof bfAward === 'number' && bfAward > 0) {
                     console.log(`✅ Free spins triggered via bonusFeatures.freeSpinsAwarded: ${bfAward}`);
                     this.freeSpinsManager.processFreeSpinsTrigger(bfAward);
                 } else {
-                    // As a safety net, detect 4+ scatters on FINAL grid (after cascades)
-                    // Check both initialGrid and finalGrid
-                    const gridsToCheck = [
-                        { name: 'initialGrid', grid: normalized.initialGrid },
-                        { name: 'finalGrid', grid: normalized.finalGrid }
-                    ];
-                    
-                    let maxScatterCount = 0;
-                    let foundInGrid = null;
-                    
-                    for (const {name, grid} of gridsToCheck) {
-                        if (Array.isArray(grid)) {
-                            let scatterCount = 0;
-                            for (let c = 0; c < 6; c++) {
-                                for (let r = 0; r < 5; r++) {
-                                    if (grid?.[c]?.[r] === 'infinity_glove') {
-                                        scatterCount++;
-                                    }
-                                }
-                            }
-                            console.log(`🔍 Client-side scatter count in ${name}: ${scatterCount}`);
-                            if (scatterCount > maxScatterCount) {
-                                maxScatterCount = scatterCount;
-                                foundInGrid = name;
-                            }
-                        }
-                    }
-                    
-                    if (maxScatterCount >= 4) {
-                        const award = window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
-                        console.log(`✅ Free spins triggered via client-side scatter detection in ${foundInGrid}: ${maxScatterCount} scatters, awarding ${award} spins`);
-                        this.freeSpinsManager.processFreeSpinsTrigger(award);
-                    } else {
-                        console.log(`❌ Free spins NOT triggered - max scatter count ${maxScatterCount} < 4 (checked ${gridsToCheck.map(g => g.name).join(', ')})`);
-                    }
+                    console.log(`❌ Free spins NOT triggered by server`);
                 }
             }
 
@@ -2531,6 +2604,33 @@ window.GameScene = class GameScene extends Phaser.Scene {
             } else if (typeof normalized.totalWin === 'number') {
                 // Fallback: if no multipliers, baseWin = totalWin
                 this.baseWinForFormula = normalized.totalWin;
+            }
+            
+            // CRITICAL FIX: Store server's target accumulated multiplier for progressive update
+            // Don't update the display immediately - let shooting stars increment it
+            if (this.stateManager.freeSpinsData.active && typeof normalized.accumulatedMultiplier === 'number') {
+                const currentClientValue = this.stateManager.freeSpinsData.multiplierAccumulator || 1;
+                const serverTargetValue = normalized.accumulatedMultiplier;
+                
+                console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Preparing progressive update:`, {
+                    currentDisplay: currentClientValue,
+                    serverTarget: serverTargetValue,
+                    willAnimateIncrement: serverTargetValue > currentClientValue
+                });
+                
+                // Store the target value (where shooting stars will bring us)
+                this.fsTargetAccumulatedMultiplier = serverTargetValue;
+                
+                // Calculate individual multipliers that will be added by shooting stars
+                const newMultipliersThisSpin = serverTargetValue - currentClientValue;
+                if (newMultipliersThisSpin > 0) {
+                    // We'll increment as each star arrives
+                    console.log(`🎰 Will add x${newMultipliersThisSpin} progressively via shooting stars`);
+                } else {
+                    // No new multipliers, just maintain current value
+                    this.stateManager.freeSpinsData.multiplierAccumulator = serverTargetValue;
+                    this.uiManager.updateAccumulatedMultiplierDisplay();
+                }
             }
             
             const multiplierSummary = normalized.multiplierAwarded || (Array.isArray(normalized.multiplierEvents) && normalized.multiplierEvents.length ? {
@@ -2549,6 +2649,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     finalWin: multiplierSummary.finalWin,
                     events: multiplierSummary.events.map(e => ({ type: e.type, total: e.totalMultiplier }))
                 });
+                // CRITICAL: Await this so normalModePendingStars is set BEFORE we check it below
                 await this.bonusManager.showRandomMultiplierResult(multiplierSummary);
             }
 
@@ -2556,7 +2657,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (typeof normalized.totalWin === 'number') {
                 const finalWin = Math.round(Number(normalized.totalWin) * 100) / 100;
                 this.totalWin = finalWin;
-                this.updateWinDisplay();
+                // In normal mode, if we have pending shooting stars, delay the win display update
+                // The stars will call updateWinDisplay progressively as they arrive
+                const hasPendingStars = !this.stateManager.freeSpinsData.active && (this.normalModePendingStars || 0) > 0;
+                console.log(`🔍 Checking if we should update win display: hasPendingStars=${hasPendingStars}, normalModePendingStars=${this.normalModePendingStars || 0}`);
+                if (!hasPendingStars) {
+                    this.updateWinDisplay();
+                } else {
+                    console.log(`⏳ Delaying win display update - waiting for ${this.normalModePendingStars} shooting stars to complete`);
+                }
             }
 
             if (normalized.balance !== undefined) {

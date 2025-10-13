@@ -594,6 +594,9 @@ window.UIManager = class UIManager {
         if (this.ui_accumulated_multiplier) {
             this.ui_accumulated_multiplier.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
             this.ui_accumulated_multiplier.setVisible(false);
+            // Save original scale to avoid cumulative growth when pulsing
+            this.ui_accumulated_multiplier.originalScaleX = this.ui_accumulated_multiplier.scaleX;
+            this.ui_accumulated_multiplier.originalScaleY = this.ui_accumulated_multiplier.scaleY;
         }
     }
 
@@ -950,6 +953,9 @@ window.UIManager = class UIManager {
             this.accumulatedMultiplierText.setOrigin(0.5);
             this.accumulatedMultiplierText.setDepth(window.GameConfig.UI_DEPTHS.MULTIPLIER_TEXT);
             this.accumulatedMultiplierText.setVisible(false);
+            // Save original scale to avoid cumulative growth when pulsing
+            this.accumulatedMultiplierText.originalScaleX = this.accumulatedMultiplierText.scaleX;
+            this.accumulatedMultiplierText.originalScaleY = this.accumulatedMultiplierText.scaleY;
         }
     }
     
@@ -1166,18 +1172,34 @@ window.UIManager = class UIManager {
                     mult = fsMult;
                     base = amount / fsMult; // derive pre-FS base so the equation matches the visible total
                 } else {
+                    // Normal mode: Use progressively updated spinAccumulatedRM instead of spinAppliedMultiplier
+                    // spinAccumulatedRM starts at 0 and increments as each shooting star arrives
                     base = Math.max(0, this.scene.baseWinForFormula || 0);
-                    mult = Math.max(1, this.scene.spinAppliedMultiplier || 1);
+                    mult = Math.max(0, this.scene.spinAccumulatedRM !== undefined ? this.scene.spinAccumulatedRM : (this.scene.spinAppliedMultiplier || 1));
                 }
                 // Avoid showing misleading formula when values are effectively 0/1 due to rounding noise
                 const baseRounded = Math.round(base * 100) / 100;
                 const multRounded = Math.round(mult * 100) / 100;
-                const meaningfulFormula = (baseRounded >= 0.01) && (multRounded >= 1.01);
+                // CRITICAL: In normal mode, if we have pending stars, don't show formula yet (wait for stars to complete)
+                const hasPendingStars = !inFreeSpins && (this.scene.normalModePendingStars || 0) > 0;
+                const meaningfulFormula = (baseRounded >= 0.01) && (multRounded >= 1.01) && !hasPendingStars;
                 let text;
                 if (meaningfulFormula) {
                     const baseStr = `$${baseRounded.toFixed(2)}`;
                     const multStr = `x${multRounded.toFixed(2).replace(/\.00$/, '')}`;
                     const finalStr = `$${amount.toFixed(2)}`;
+                    text = `${baseStr} ${multStr} = ${finalStr}`;
+                } else if (hasPendingStars && baseRounded >= 0.01) {
+                    // MODIFICATION: Show only BASE WIN (not final total) while shooting stars are pending
+                    // This shows the symbol payout BEFORE multipliers are applied
+                    text = `$${baseRounded.toFixed(2)}`;
+                } else if (!inFreeSpins && (this.scene.spinAccumulatedRM || 0) > 0 && (this.scene.normalModePendingStars || 0) === 0 && baseRounded >= 0.01) {
+                    // If stars have already incremented multiplier and no stars are pending,
+                    // compute final progressively using current multiplier (guard against stale amount)
+                    const progressiveFinal = baseRounded * multRounded;
+                    const baseStr = `$${baseRounded.toFixed(2)}`;
+                    const multStr = `x${multRounded.toFixed(2).replace(/\.00$/, '')}`;
+                    const finalStr = `$${progressiveFinal.toFixed(2)}`;
                     text = `${baseStr} ${multStr} = ${finalStr}`;
                 } else {
                     text = `$${amount.toFixed(2)}`;
@@ -1237,6 +1259,11 @@ window.UIManager = class UIManager {
     // Set the plaque formula explicitly (used by shooting-star FX incremental updates)
     setWinFormula(baseAmount, accumulatedMultiplier, finalAmount) {
         if (!this.winTopText) return;
+        // DIAGNOSTIC: Log who's calling setWinFormula and whether stars are pending
+        const pending = (this.scene.normalModePendingStars || 0);
+        const trace = new Error().stack.split('\n').slice(1, 4).join(' → ');
+        console.log(`🔧 setWinFormula called: x${accumulatedMultiplier} (${pending} stars pending) via ${trace}`);
+        
         const baseStr = `$${Number(baseAmount || 0).toFixed(2)}`;
         const multStr = `x${Number(accumulatedMultiplier || 0).toFixed(2).replace(/\.00$/, '')}`;
         const finalStr = `$${Number(finalAmount || 0).toFixed(2)}`;
@@ -1354,12 +1381,32 @@ window.UIManager = class UIManager {
             const multiplier = this.scene.stateManager.freeSpinsData.multiplierAccumulator;
             this.accumulatedMultiplierText.setText(`x${multiplier}`);
             
-            // Add a pulse animation when multiplier increases
+            // Add a pulse animation when multiplier increases without cumulative growth
+            const targets = [];
+            if (this.ui_accumulated_multiplier) {
+                // Reset to original scale before tween
+                if (typeof this.ui_accumulated_multiplier.originalScaleX === 'number') {
+                    this.ui_accumulated_multiplier.setScale(
+                        this.ui_accumulated_multiplier.originalScaleX,
+                        this.ui_accumulated_multiplier.originalScaleY
+                    );
+                }
+                targets.push(this.ui_accumulated_multiplier);
+            }
+            if (this.accumulatedMultiplierText) {
+                if (typeof this.accumulatedMultiplierText.originalScaleX === 'number') {
+                    this.accumulatedMultiplierText.setScale(
+                        this.accumulatedMultiplierText.originalScaleX,
+                        this.accumulatedMultiplierText.originalScaleY
+                    );
+                }
+                targets.push(this.accumulatedMultiplierText);
+            }
             this.scene.tweens.add({
-                targets: [this.ui_accumulated_multiplier, this.accumulatedMultiplierText],
-                scaleX: 1.2,
-                scaleY: 1.2,
-                duration: 200,
+                targets: targets,
+                scaleX: (obj) => (obj.originalScaleX || obj.scaleX) * 1.12,
+                scaleY: (obj) => (obj.originalScaleY || obj.scaleY) * 1.12,
+                duration: 180,
                 yoyo: true,
                 ease: 'Power2'
             });
