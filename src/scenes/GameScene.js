@@ -126,12 +126,34 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Initialize server integration
         this.initializeServerIntegration();
         
+        // Initialize network error recovery system (check feature flags)
+        const errorRecoveryEnabled = !window.FeatureFlags || window.FeatureFlags.isErrorRecoveryEnabled();
+        if (errorRecoveryEnabled && window.NetworkErrorRecovery && window.NetworkService) {
+            this.errorRecovery = new window.NetworkErrorRecovery(
+                window.NetworkService,
+                this
+            );
+            console.log('🔄 NetworkErrorRecovery initialized');
+        } else {
+            if (!errorRecoveryEnabled) {
+                console.log('🚩 NetworkErrorRecovery disabled by feature flag');
+            } else {
+                console.warn('⚠️ NetworkErrorRecovery not available - direct network calls will be used');
+            }
+        }
         
         // Initialize game variables
         this.totalWin = 0;
         this.cascadeMultiplier = 1;
         this.isSpinning = false;
         this.quickSpinEnabled = !!window.QUICK_SPIN;
+        this.lastServerBalanceUpdate = null; // Track if server sent balance (null = demo mode)
+        
+        // Initialize monitoring
+        this.syncMonitor = window.SyncMonitor;
+        if (this.syncMonitor) {
+            console.log('📊 SyncMonitor integrated');
+        }
         
         // BGM is now handled by the centralized SafeSound BGM management system
         // Old BGM system disabled to prevent conflicts
@@ -406,11 +428,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     // Task 6.2: Initialize server integration system
     initializeServerIntegration() {
+        // Load auth token from localStorage if available
+        const storedToken = localStorage.getItem('authToken');
+        if (storedToken && window.NetworkService) {
+            console.log('🔐 Loading auth token from localStorage');
+            window.NetworkService.setAuthToken(storedToken);
+        }
+        
+        // Check feature flags for server sync
+        const playerId = localStorage.getItem('playerId');
+        const featureFlagsEnabled = window.FeatureFlags && window.FeatureFlags.shouldUseServerSync(playerId);
+        
         // Initialize server mode and demo mode fallback
-        this.serverMode = window.GameConfig.SERVER_MODE !== false; // Default to true for server integration
+        this.serverMode = featureFlagsEnabled && (window.GameConfig.SERVER_MODE !== false); // Default to true for server integration
         this.demoMode = false; // Will switch to true if server connection fails
         this.isServerSpinning = false; // Track server spin state separately from UI spinning
         this.serverSpinResult = null; // Store server spin result for processing
+        
+        console.log('🚩 Server mode enabled:', this.serverMode, '(feature flags:', featureFlagsEnabled, ')');
         
         // Setup GameAPI reference and event listeners
         if (window.GameAPI && this.serverMode) {
@@ -455,8 +490,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
             return;
         }
         try {
+            console.log('🔍 Fetching initial server state...');
             const response = await window.NetworkService.getGameState();
             if (!response) {
+                console.log('⚠️ No response from getGameState');
                 return;
             }
             const gameState = response.gameState || (response.data && response.data.gameState) || response.data || null;
@@ -466,10 +503,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
             const balanceValue = (response.data && response.data.balance !== undefined) ? response.data.balance : response.balance;
             if (typeof balanceValue === 'number') {
                 this.stateManager.setBalanceFromServer(balanceValue);
+                
+                // Sync WalletAPI so UI displays correct balance
+                if (window.WalletAPI) {
+                    window.WalletAPI.setBalance(balanceValue);
+                }
+                
                 this.updateBalanceDisplay();
             }
         } catch (error) {
             console.warn('Initial server state fetch failed:', error);
+            
+            // Check if it's an authentication error
+            if (error.response && error.response.status === 401) {
+                console.warn('🔐 Authentication failed - clearing token and using demo mode');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('playerId');
+                if (window.NetworkService) {
+                    window.NetworkService.setAuthToken(null);
+                }
+                // Switch to demo mode
+                this.serverMode = false;
+                this.demoMode = true;
+                this.ensureDemoBalance();
+            }
         }
     }
     // Task 12.2.3: Create cascade sync status display
@@ -1051,7 +1108,20 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.stateManager.useFreeSpins();
             this.uiManager.updateFreeSpinsDisplay();
         } else {
+            const balanceBefore = this.stateManager.gameData.balance;
             this.stateManager.placeBet();
+            const balanceAfter = this.stateManager.gameData.balance;
+            
+            // Sync WalletAPI in demo mode
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(balanceAfter);
+            }
+            
+            console.log('💰 Placed bet locally:', {
+                before: balanceBefore,
+                bet: this.stateManager.gameData.currentBet,
+                after: balanceAfter
+            });
         }
         
         // Update balance display
@@ -1306,9 +1376,22 @@ window.GameScene = class GameScene extends Phaser.Scene {
             this.showMessage('Processing spin...', 500);
             this.isServerSpinning = true;
             
-            // Request spin from server
+            // Request spin from server with error recovery
             const betAmount = this.stateManager.gameData.currentBet;
-            const spinResult = await this.gameAPI.requestSpin(betAmount);
+            
+            let spinResult;
+            if (this.errorRecovery) {
+                // Use error recovery system for resilient network requests
+                spinResult = await this.errorRecovery.handleSpinRequest({
+                    betAmount,
+                    freeSpinsActive: this.stateManager.freeSpinsData.active,
+                    accumulatedMultiplier: this.stateManager.freeSpinsData.multiplier || 1,
+                    quickSpinMode: this.quickSpinEnabled
+                });
+            } else {
+                // Fallback to direct gameAPI call (no error recovery)
+                spinResult = await this.gameAPI.requestSpin(betAmount);
+            }
             
             if (spinResult.success && spinResult.data) {
                 // Server spin successful - process result through animation system
@@ -1340,9 +1423,29 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 // Free spins are handled via server payload in processServerSpinResult
                 
                 // Update balance from server
-                if (spinResult.data.balance !== undefined) {
+                if (spinResult.data.balance !== undefined && spinResult.data.balance !== null) {
+                    console.log('💵 [processServerSpin] Setting balance from server:', spinResult.data.balance);
                     this.stateManager.setBalanceFromServer(spinResult.data.balance);
+                    
+                    // Sync WalletAPI so UI displays correct balance
+                    if (window.WalletAPI) {
+                        window.WalletAPI.setBalance(spinResult.data.balance);
+                    }
+                    
                     this.updateBalanceDisplay();
+                    this.lastServerBalanceUpdate = spinResult.data.balance;
+                } else if (spinResult.data.balance === null) {
+                    console.log('💵 [processServerSpin] Server returned null balance - demo mode');
+                    this.lastServerBalanceUpdate = null;
+                } else {
+                    console.warn('⚠️ [processServerSpin] No balance in spinResult.data!', {
+                        hasBalance: 'balance' in spinResult.data,
+                        balanceValue: spinResult.data.balance,
+                        balanceType: typeof spinResult.data.balance,
+                        keys: Object.keys(spinResult.data).slice(0, 20)
+                    });
+                    console.log('🔍 [processServerSpin] Full spinResult.data:', JSON.stringify(spinResult.data, null, 2).substring(0, 500));
+                    this.lastServerBalanceUpdate = null;
                 }
                 if (spinResult.data.rngSeed) {
                     this.lastServerSeed = spinResult.data.rngSeed;
@@ -1950,14 +2053,50 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         
         // Add win to balance
+        // IMPORTANT: Only add win to balance if NOT in server-authoritative mode
+        // Server already calculated final balance (bet deducted + win added)
         if (this.totalWin > 0) {
-            this.stateManager.addWin(this.totalWin);
-            this.updateBalanceDisplay();
+            // Check if we're using server-authoritative balance
+            // If server sent balance (not null), then server manages balance
+            // If server sent null or no balance, client manages balance (demo mode)
+            const serverSentBalance = this.lastServerBalanceUpdate !== undefined && this.lastServerBalanceUpdate !== null;
             
-            // Show win presentation for big wins
+            console.log('💰 [endSpin] Balance update check:', {
+                totalWin: this.totalWin,
+                lastServerBalanceUpdate: this.lastServerBalanceUpdate,
+                serverSentBalance: serverSentBalance,
+                demoMode: this.demoMode,
+                serverMode: this.serverMode,
+                currentBalance: this.stateManager.gameData.balance
+            });
+            
+            if (!serverSentBalance) {
+                // Client-side/demo mode: manually add win to balance
+                const balanceBefore = this.stateManager.gameData.balance;
+                this.stateManager.addWin(this.totalWin);
+                const balanceAfter = this.stateManager.gameData.balance;
+                
+                // Sync WalletAPI in demo mode too!
+                if (window.WalletAPI) {
+                    window.WalletAPI.setBalance(balanceAfter);
+                }
+                
+                this.updateBalanceDisplay();
+                console.log('💰 Client mode: Added win to balance:', {
+                    win: this.totalWin,
+                    before: balanceBefore,
+                    after: balanceAfter
+                });
+            } else {
+                console.log('💰 Server mode: Balance already updated by server, skipping local win addition');
+                // Still update display to ensure UI is in sync
+                this.updateBalanceDisplay();
+            }
+            
+            // Show win presentation for big wins (regardless of mode)
             this.winPresentationManager.showWinPresentation(this.totalWin);
             
-            // Add free spins win
+            // Add free spins win (regardless of mode)
             this.freeSpinsManager.addFreeSpinsWin(this.totalWin);
         }
         
@@ -2427,6 +2566,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Update local balance from server using GameStateManager
         if (data.balance !== undefined) {
             this.stateManager.setBalanceFromServer(data.balance);
+            
+            // Sync WalletAPI so UI displays correct balance
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(data.balance);
+            }
+            
             this.updateBalanceDisplay();
         }
     }
@@ -2459,9 +2604,21 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         if (typeof gameState.balance === 'number') {
             this.stateManager.setBalanceFromServer(gameState.balance);
+            
+            // Sync WalletAPI so UI displays correct balance
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(gameState.balance);
+            }
+            
             this.updateBalanceDisplay();
         } else if (typeof stateData.balance === 'number') {
             this.stateManager.setBalanceFromServer(stateData.balance);
+            
+            // Sync WalletAPI so UI displays correct balance
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(stateData.balance);
+            }
+            
             this.updateBalanceDisplay();
         }
         if (typeof gameState.free_spins_remaining === 'number') {
@@ -2496,6 +2653,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         if (data.balance !== undefined) {
             this.stateManager.setBalanceFromServer(data.balance);
+            
+            // Sync WalletAPI so UI displays correct balance
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(data.balance);
+            }
+            
             this.updateBalanceDisplay();
         }
     }
@@ -2668,12 +2831,48 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 }
             }
 
-            if (normalized.balance !== undefined) {
+            // Update balance from server (check for null - demo mode returns null balance)
+            if (normalized.balance !== undefined && normalized.balance !== null) {
+                console.log('💵 Setting balance from server:', normalized.balance);
                 this.stateManager.setBalanceFromServer(normalized.balance);
+                
+                // Sync WalletAPI so UI displays correct balance
+                if (window.WalletAPI) {
+                    window.WalletAPI.setBalance(normalized.balance);
+                }
+                
                 this.updateBalanceDisplay();
+                // Track that server sent us a balance (for endSpin logic)
+                this.lastServerBalanceUpdate = normalized.balance;
             } else if (typeof normalized.playerCredits === 'number') {
+                console.log('💵 Setting balance from server (playerCredits):', normalized.playerCredits);
                 this.stateManager.setBalanceFromServer(normalized.playerCredits);
+                
+                // Sync WalletAPI so UI displays correct balance
+                if (window.WalletAPI) {
+                    window.WalletAPI.setBalance(normalized.playerCredits);
+                }
+                
                 this.updateBalanceDisplay();
+                // Track that server sent us a balance (for endSpin logic)
+                this.lastServerBalanceUpdate = normalized.playerCredits;
+            } else if (normalized.balance === null || normalized.playerCredits === null) {
+                console.log('💵 Server returned null balance - demo mode or not authenticated');
+                console.log('💰 Using client-side balance calculation for demo mode');
+                // In demo mode, server doesn't manage balance, so client handles it via endSpin()
+                this.lastServerBalanceUpdate = null;
+            } else {
+                console.warn('⚠️ No balance found in server response!', {
+                    hasBalance: 'balance' in normalized,
+                    hasPlayerCredits: 'playerCredits' in normalized,
+                    balanceValue: normalized.balance,
+                    playerCreditsValue: normalized.playerCredits,
+                    balanceType: typeof normalized.balance,
+                    keys: Object.keys(normalized).slice(0, 20)
+                });
+                console.log('🔍 Full normalized data:', JSON.stringify(normalized, null, 2).substring(0, 500));
+                // No valid balance from server, use client-side calculation
+                this.lastServerBalanceUpdate = null;
             }
 
             if (normalized.rngSeed) {
@@ -4237,6 +4436,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         if (this.gridManager && this.gridManager.destroy) {
             this.gridManager.destroy();
+        }
+        
+        // Clean up error recovery system
+        if (this.errorRecovery && this.errorRecovery.destroy) {
+            this.errorRecovery.destroy();
+            this.errorRecovery = null;
         }
         
         // Clear cascade sync references

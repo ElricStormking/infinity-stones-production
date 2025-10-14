@@ -851,12 +851,35 @@ window.NetworkService = new (class NetworkService {
     normalizeGrid(gridState) {
         if (!Array.isArray(gridState)) { return []; }
         const normalizeSymbol = (value) => {
-            if (!value) return null;
-            if (typeof value === 'string') return value;
-            if (typeof value === 'object') {
-                return value.symbolType || value.type || value.id || null;
+            if (value === null || value === undefined) return null;
+            let out;
+            if (typeof value === 'string') {
+                out = value;
+            } else if (typeof value === 'object') {
+                out = value.symbolType || value.type || value.id || '';
+            } else {
+                out = String(value);
             }
-            return String(value);
+
+            if (!out) return null;
+
+            // Canonicalize to lowercase snake_case so texture keys resolve reliably
+            const lower = String(out).toLowerCase();
+            // Fast-path: already canonical
+            const canonSet = new Set([
+                'time_gem','space_gem','mind_gem','power_gem','reality_gem','soul_gem',
+                'thanos','thanos_weapon','scarlet_witch','infinity_glove'
+            ]);
+            if (canonSet.has(lower)) return lower;
+
+            // Convert common legacy variants to canonical IDs
+            const mapped = lower
+                .replace(/\s+/g, '_')
+                .replace(/-/g, '_');
+            if (canonSet.has(mapped)) return mapped;
+
+            // Accept raw lowercase fallback
+            return lower;
         };
         const cols = gridState.length;
         const looksLikeColMajor = cols === 6 && Array.isArray(gridState[0]) && gridState[0].length === 5;

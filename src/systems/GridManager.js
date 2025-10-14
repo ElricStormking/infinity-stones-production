@@ -137,23 +137,36 @@ window.GridManager = class GridManager {
     }
 
     _resolveTextureKey(type) {
-        if (type === 'thanos') {
+        // Normalize incoming type strings to canonical form to avoid blank textures
+        const t = (typeof type === 'string') ? type.toLowerCase() : String(type || '').toLowerCase();
+        if (t === 'thanos') {
             return 'thanos_sprite';
         }
-        if (type === 'thanos_weapon') {
+        if (t === 'thanos_weapon') {
             return 'thanos_weap';
         }
-        if (type === 'scarlet_witch') {
+        if (t === 'scarlet_witch') {
             return (this.scene.textures && this.scene.textures.exists('scarlet_witch_symbol_sprite'))
                 ? 'scarlet_witch_symbol_sprite'
                 : 'scarlet_witch';
         }
-        return type;
+        // For gems and glove, texture keys equal canonical IDs (time_gem, etc.)
+        return t;
     }
 
     _createSymbolInstance({ type, col, row, textureKey }) {
+        // Ensure texture exists; fallback to a guaranteed texture to prevent invisible sprites
+        let key = textureKey;
+        try {
+            if (this.scene.textures && !this.scene.textures.exists(key)) {
+                const fallbackOrder = ['time_gem', 'button', 'background'];
+                const available = fallbackOrder.find(k => this.scene.textures.exists(k));
+                console.warn(`Missing texture for symbol type "${type}" -> attempted key "${textureKey}". Using fallback: ${available}`);
+                key = available || textureKey;
+            }
+        } catch (_) {}
         const pos = this.getSymbolPosition(col, row);
-        const symbol = new window.Symbol(this.scene, pos.x, pos.y, textureKey);
+        const symbol = new window.Symbol(this.scene, pos.x, pos.y, key);
         this.scene.add.existing(symbol);
         symbol.setVisible(this.symbolsVisible !== false);
         return symbol;

@@ -12,6 +12,7 @@ const Session = require('../models/Session');
 const { logger } = require('../utils/logger.js');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const transactionLogger = require('../services/transactionLogger');
 
 // Create direct database connection for auth operations
@@ -552,9 +553,12 @@ class AuthController {
                 RETURNING id, expires_at
             `;
 
+      // Use crypto SHA256 hash to match Session model's generateTokenHash
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      
       const sessionResult = await client.query(sessionQuery, [
         player.id,
-        await bcrypt.hash(token, 5), // Hash token for storage
+        tokenHash, // Use SHA256 hash to match Session.generateTokenHash()
         req.ip || req.connection.remoteAddress,
         req.headers['user-agent'],
         true
@@ -574,7 +578,9 @@ class AuthController {
           id: player.id,
           username: player.username,
           email: player.email,
-          credits: player.credits
+          credits: player.credits,
+          is_demo: false, // New registrations are real players
+          is_admin: false
         },
         session: {
           id: sessionResult.rows[0].id,
@@ -672,9 +678,12 @@ class AuthController {
                 RETURNING id, expires_at
             `;
 
+      // Use crypto SHA256 hash to match Session model's generateTokenHash
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      
       const sessionResult = await client.query(sessionQuery, [
         player.id,
-        await bcrypt.hash(token, 5), // Hash token for storage
+        tokenHash, // Use SHA256 hash to match Session.generateTokenHash()
         req.ip || req.connection.remoteAddress,
         req.headers['user-agent'],
         true
@@ -702,6 +711,7 @@ class AuthController {
           username: player.username,
           email: player.email,
           credits: parseFloat(player.credits),
+          is_demo: player.is_demo,
           is_admin: player.is_admin
         },
         session: {

@@ -228,6 +228,25 @@ window.WalletAPI = new (class WalletAPI {
         return summary;
     }
     
+    // Setters (for server-authoritative updates)
+    setBalance(balance) {
+        const oldBalance = this.currentBalance;
+        this.currentBalance = balance;
+        
+        if (oldBalance !== balance) {
+            console.log(`💰 [WalletAPI] Balance set: ${this.formatBalance(oldBalance)} → ${this.formatBalance(balance)}`);
+            
+            // Emit custom event for UI to handle
+            if (window.gameScene) {
+                window.gameScene.events.emit('wallet_balance_update', {
+                    oldBalance,
+                    newBalance: this.currentBalance,
+                    currency: this.currency
+                });
+            }
+        }
+    }
+    
     // Getters
     getCurrentBalance() {
         return this.currentBalance;

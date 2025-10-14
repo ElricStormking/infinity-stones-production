@@ -42,8 +42,38 @@ window.GridRenderer = class GridRenderer {
             normalized.cascadeSteps = normalized.cascades;
         }
         normalized.cascadeSteps = normalized.cascadeSteps || [];
-        normalized.initialGrid = normalized.initialGrid || (normalized.cascadeSteps[0]?.gridStateBefore) || null;
-        normalized.finalGrid = normalized.finalGrid || (normalized.cascadeSteps.length ? normalized.cascadeSteps[normalized.cascadeSteps.length - 1].gridStateAfter : normalized.initialGrid);
+        
+        // FIX: Check all possible field names for initial grid
+        const firstCascade = normalized.cascadeSteps[0];
+        normalized.initialGrid = normalized.initialGrid 
+            || firstCascade?.gridStateBefore 
+            || firstCascade?.gridBefore 
+            || firstCascade?.grid 
+            || null;
+        
+        // Debug: Log which field was used for initialGrid
+        if (!result.initialGrid && normalized.initialGrid) {
+            const source = firstCascade?.gridStateBefore ? 'gridStateBefore' 
+                        : firstCascade?.gridBefore ? 'gridBefore'
+                        : firstCascade?.grid ? 'grid' 
+                        : 'unknown';
+            console.log(`✅ GridRenderer: Recovered initialGrid from cascade[0].${source}`);
+        } else if (!normalized.initialGrid) {
+            console.error('❌ GridRenderer: No initialGrid found in server result!', {
+                hasResult: !!result,
+                hasCascades: normalized.cascadeSteps.length > 0,
+                firstCascadeKeys: firstCascade ? Object.keys(firstCascade) : []
+            });
+        }
+        
+        // FIX: Check all possible field names for final grid
+        const lastCascade = normalized.cascadeSteps.length ? normalized.cascadeSteps[normalized.cascadeSteps.length - 1] : null;
+        normalized.finalGrid = normalized.finalGrid 
+            || lastCascade?.gridStateAfter 
+            || lastCascade?.gridAfter 
+            || lastCascade?.newGrid 
+            || normalized.initialGrid;
+        
         return normalized;
     }
 
@@ -213,13 +243,19 @@ window.GridRenderer = class GridRenderer {
         if (cols === 5 && Array.isArray(gridState[0]) && gridState[0].length === 6) {
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 6; c++) {
-                    normalized[c][r] = gridState[r][c];
+                    const v = gridState[r][c];
+                    normalized[c][r] = (typeof window.NetworkService?.normalizeGrid === 'function')
+                        ? (window.NetworkService.normalizeGrid([[v]])[0][0])
+                        : (typeof v === 'string' ? v.toLowerCase() : (v?.symbolType || v?.type || v?.id || null));
                 }
             }
         } else {
             for (let c = 0; c < 6; c++) {
                 for (let r = 0; r < 5; r++) {
-                    normalized[c][r] = gridState[c]?.[r] ?? null;
+                    const v = gridState[c]?.[r] ?? null;
+                    normalized[c][r] = (typeof window.NetworkService?.normalizeGrid === 'function')
+                        ? (window.NetworkService.normalizeGrid([[v]])[0][0])
+                        : (v === null ? null : (typeof v === 'string' ? v.toLowerCase() : (v?.symbolType || v?.type || v?.id || null)));
                 }
             }
         }
