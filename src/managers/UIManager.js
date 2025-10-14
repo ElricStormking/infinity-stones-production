@@ -62,6 +62,10 @@ window.UIManager = class UIManager {
         this.ui_grid_bg = safeCreateImage(650, 327, 'ui_boxBG');
         if (this.ui_grid_bg) this.ui_grid_bg.setDepth(window.GameConfig.UI_DEPTHS.GRID_BG);
         
+        // New: top panel decorative baffle (behind frame, in front of symbols)
+        this.ui_top_baffle = safeCreateImage(650, 44, 'ui_top_baffle');
+        if (this.ui_top_baffle) this.ui_top_baffle.setDepth(window.GameConfig.UI_DEPTHS.FRAME_DECOR);
+        
         // Title / formula plaque
         this.ui_title = safeCreateImage(650, 44, 'ui_formula_plaque');
         if (this.ui_title) this.ui_title.setDepth(window.GameConfig.UI_DEPTHS.TITLE); // title on top of frame

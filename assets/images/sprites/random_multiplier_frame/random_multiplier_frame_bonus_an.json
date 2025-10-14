@@ -51,9 +51,21 @@
                     "frame": 7,
                     "duration": 0,
                     "keyframe": false
+                },
+                {
+                    "key": "random_multiplier_frame_bonus_sprite",
+                    "frame": 8,
+                    "duration": 0,
+                    "keyframe": false
+                },
+                {
+                    "key": "random_multiplier_frame_bonus_sprite",
+                    "frame": 9,
+                    "duration": 0,
+                    "keyframe": false
                 }
             ],
-            "frameRate": 16,
+            "frameRate": 20,
             "skipMissedFrames": true,
             "repeat": -1,
             "randomFrame": false

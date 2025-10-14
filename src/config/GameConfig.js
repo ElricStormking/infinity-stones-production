@@ -15,6 +15,8 @@ window.GameConfig = {
         TOP: 3,
         GRID_BG: 3.9,
         GRID_SYMBOL: 4,
+        // Decorative elements that should appear above symbols but below the frame
+        FRAME_DECOR: 4.5,
         MULTIPLIER_TEXT: 5,
         FRAME: 5,
         PORTRAIT: 6,

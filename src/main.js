@@ -104,9 +104,10 @@ window.SafeSound = {
                 console.log(`🎵 Found '${newBGMKey}' in audio cache - creating new instance directly`);
                 try {
                     // Create BGM directly from cache since it exists there
-                    this.currentBGM = scene.sound.add(newBGMKey, { 
-                        loop: true, 
-                        volume: 0.5 
+                    const bgmVolume = (newBGMKey === 'bgm_free_spins') ? 0.2 : 0.5;
+                    this.currentBGM = scene.sound.add(newBGMKey, {
+                        loop: true,
+                        volume: bgmVolume
                     });
                     console.log(`🎵 BGM object created:`, this.currentBGM);
                     

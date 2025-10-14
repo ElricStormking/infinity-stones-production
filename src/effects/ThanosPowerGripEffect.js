@@ -122,8 +122,8 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
     createExLightFX(container) {
         try {
             const gridCellSize = window.GameConfig.SYMBOL_SIZE || 80;
-            // Maintain ~square fit; EXLight art is wide, so scale to fit height then clamp width
-            const targetSize = gridCellSize * 0.9;
+            // Fit inside a symbol cell; use 0.85 to avoid overlap artifacts
+            const targetSize = gridCellSize * 0.85;
 
             // Use sprite-based FX (blackhole variant)
             const sprite = this.scene.add.sprite(0, 0, 'ui_gem_blackhole_sprite');
@@ -135,20 +135,23 @@ window.ThanosPowerGripEffect = class ThanosPowerGripEffect {
             const fw = sprite.frame ? sprite.frame.width : 964;
             const fh = sprite.frame ? sprite.frame.height : 957;
             const scale = targetSize / fh;
-            // Make the effect 1.5x larger than before
-            sprite.setScale(scale * 3);
+            // Make the effect more prominent: double the previous size
+            sprite.setScale(scale * 2.5);
 
             container.add(sprite);
 
-            // Play once then cleanup
+            // Play and cleanup precisely on complete
             if (this.scene.anims && this.scene.anims.exists('ui_gem_blackhole')) {
                 sprite.play('ui_gem_blackhole');
+                sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, function() {
+                    try { sprite.destroy(); } catch (_) {}
+                });
+            } else {
+                // Fallback timed cleanup
+                this.scene.time.delayedCall(800, () => {
+                    try { sprite.destroy(); } catch (_) {}
+                });
             }
-
-            // Ensure destruction after animation (~ frames/frameRate + buffer)
-            this.scene.time.delayedCall(1200, () => {
-                try { sprite.destroy(); } catch (_) {}
-            });
 
             console.log('✅ EXLight FX sprite created at target size:', targetSize);
         } catch (error) {

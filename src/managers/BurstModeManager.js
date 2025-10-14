@@ -106,10 +106,6 @@ window.BurstModeManager = class BurstModeManager {
         }
         this.blackholeShader = null;
         
-        // Clean up BGM references
-        this.burstBGM = null;
-        this.previousBGM = null;
-        
         // Stop burst auto spinning
         this.burstAutoSpinning = false;
         
@@ -120,8 +116,12 @@ window.BurstModeManager = class BurstModeManager {
         // Clear results
         this.burstSpinResults = [];
         
-        // Restore normal game BGM
+        // Restore normal game BGM BEFORE clearing references
         this.restoreNormalBGM();
+
+        // Clean up BGM references after switching back
+        this.burstBGM = null;
+        this.previousBGM = null;
         
         this.scene.showMessage('BURST MODE DEACTIVATED');
         window.SafeSound.play(this.scene, 'click');
@@ -1349,9 +1349,13 @@ window.BurstModeManager = class BurstModeManager {
             console.log('🎵 BURST: Restoring normal BGM...');
             
             // Stop burst mode BGM
-            if (this.burstBGM && this.burstBGM.isPlaying) {
-                this.burstBGM.stop();
+            if (this.burstBGM) {
+                try { this.burstBGM.stop(); } catch (_) {}
                 console.log('🎵 BURST: Burst mode BGM stopped');
+            }
+            // Also stop any globally tracked BGM instance to avoid overlap
+            if (window.SafeSound && window.SafeSound.currentBGM && window.SafeSound.currentBGM !== this.burstBGM) {
+                try { window.SafeSound.currentBGM.stop(); } catch (_) {}
             }
             
             // Determine which BGM to restore
@@ -1364,7 +1368,8 @@ window.BurstModeManager = class BurstModeManager {
             
             // Create and play the appropriate BGM
             if (this.scene.sound && this.scene.cache.audio.exists(bgmKey)) {
-                const bgm = this.scene.sound.add(bgmKey, { loop: true, volume: 0.5 });
+                const volume = (bgmKey === 'bgm_free_spins') ? 0.2 : 0.5;
+                const bgm = this.scene.sound.add(bgmKey, { loop: true, volume });
                 bgm.play();
                 window.SafeSound.currentBGM = bgm;
                 console.log(`🎵 BURST: Restored BGM: ${bgmKey}`);

@@ -2,7 +2,7 @@
     "section1": {
         "files": [
             {
-                "url": "assets/random_multiplier_frame/random_multiplier_frame_bonus_sprite.png",
+                "url": "assets/random_multiplier_frame_bonus/random_multiplier_frame_bonus_sprite.png",
                 "frameConfig": {
                     "frameWidth": 150,
                     "frameHeight": 150,

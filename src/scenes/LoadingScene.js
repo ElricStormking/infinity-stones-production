@@ -215,25 +215,39 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             // Create Blackhole FX animation (replaces EXLight)
             try {
                 if (this.textures && this.textures.exists('ui_gem_blackhole_sprite') && !this.anims.exists('ui_gem_blackhole')) {
-                    // Prefer all frames; fall back to range if names unavailable
+                    // Prefer Phaser Editor animation JSON if present; otherwise derive sequential frames
                     let frames;
+                    const jsonKey = 'ui_gem_blackhole_anim_json';
                     try {
-                        const tex = this.textures.get('ui_gem_blackhole_sprite');
-                        const names = tex && tex.getFrameNames ? tex.getFrameNames().filter(function(n){ return n !== '__BASE'; }) : [];
-                        if (names && names.length > 0) {
-                            frames = names.map(function(n){ return { key: 'ui_gem_blackhole_sprite', frame: n }; });
-                        } else {
-                            const frameTotal = (tex && typeof tex.frameTotal === 'number') ? Math.max(0, tex.frameTotal - 1) : 15;
-                            frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: frameTotal });
+                        const animJson = (this.cache && this.cache.json && this.cache.json.get) ? this.cache.json.get(jsonKey) : null;
+                        const animDef = animJson && animJson.anims && animJson.anims[0];
+                        if (animDef && Array.isArray(animDef.frames) && animDef.frames.length > 0) {
+                            frames = animDef.frames.map(function(f){
+                                const frameIdx = (f && (typeof f.frame === 'number' || typeof f.frame === 'string')) ? f.frame : 0;
+                                return { key: 'ui_gem_blackhole_sprite', frame: frameIdx };
+                            });
                         }
-                    } catch (_) {
-                        frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: 15 });
+                    } catch (_) {}
+
+                    if (!frames || frames.length === 0) {
+                        try {
+                            const tex = this.textures.get('ui_gem_blackhole_sprite');
+                            const names = tex && tex.getFrameNames ? tex.getFrameNames().filter(function(n){ return n !== '__BASE'; }) : [];
+                            if (names && names.length > 0) {
+                                frames = names.map(function(n){ return { key: 'ui_gem_blackhole_sprite', frame: n }; });
+                            } else {
+                                const frameTotal = (tex && typeof tex.frameTotal === 'number') ? Math.max(0, tex.frameTotal - 1) : 15;
+                                frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: frameTotal });
+                            }
+                        } catch (_) {
+                            frames = this.anims.generateFrameNumbers('ui_gem_blackhole_sprite', { start: 0, end: 15 });
+                        }
                     }
 
                     this.anims.create({
                         key: 'ui_gem_blackhole',
                         frames: frames,
-                        frameRate: 20,
+                        frameRate: 24,
                         repeat: 0
                     });
                     console.log('✅ Gem Blackhole FX animation registered');
@@ -388,7 +402,10 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         this.loadImageWithFallback('ui_boxBG', 'assets/images/ui_boxBG.png', 0x333333);
         this.loadImageWithFallback('random_multiplier_frame', 'assets/images/random_multiplier_frame.png', 0x2f2f2f);
         // Game logo for Burst Mode UI (upper-right)
+        // Updated game logo
         this.loadImageWithFallback('game_logo', 'assets/images/LOGO.png', 0x223344);
+        // Top panel decorative baffle
+        this.loadImageWithFallback('ui_top_baffle', 'assets/images/baffle.png', 0x223344);
         // Animated random multiplier frame (bonus) spritesheet
         try {
             this.load.spritesheet('random_multiplier_frame_bonus_sprite', 'assets/images/sprites/random_multiplier_frame/random_multiplier_frame_bonus_sprite.png', {
