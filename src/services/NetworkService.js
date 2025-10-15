@@ -346,7 +346,9 @@ window.NetworkService = new (class NetworkService {
     
     // Game API Methods
     async getGameState() {
-        return this.get('/api/game-state');
+        // Force demo bypass for game-state if no auth token to avoid 401 during portal-less play
+        const forceDemo = !this.authToken;
+        return this.get('/api/game-state', forceDemo);
     }
     
     async updateGameState(stateUpdates, reason) {
