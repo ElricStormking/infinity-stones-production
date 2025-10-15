@@ -267,6 +267,31 @@ class GameEngine {
         const removalCount = Array.isArray(cascadeResult.removedPositions) ? cascadeResult.removedPositions.length : 0;
         const newSymbolCount = Array.isArray(cascadeResult.newSymbols) ? cascadeResult.newSymbols.length : 0;
 
+        // Pre-expand dropPatterns into a flat droppingSymbols list for client animation
+        // Keep dropPatterns for backward compatibility
+        const droppingSymbols = Array.isArray(cascadeResult.dropPatterns)
+          ? cascadeResult.dropPatterns.reduce((acc, pattern) => {
+              const column = pattern.column;
+              const drops = Array.isArray(pattern.drops) ? pattern.drops : [];
+              drops.forEach((drop) => {
+                const fromRow = (typeof drop.from === 'number')
+                  ? drop.from
+                  : ((drop.from && typeof drop.from.row === 'number') ? drop.from.row : drop.fromRow);
+                const toRow = (typeof drop.to === 'number')
+                  ? drop.to
+                  : ((drop.to && typeof drop.to.row === 'number') ? drop.to.row : drop.toRow);
+                acc.push({
+                  from: drop.from || { col: column, row: fromRow },
+                  to: drop.to || { col: column, row: toRow },
+                  symbolType: drop.symbolType || drop.type || drop.symbol || null,
+                  dropDistance: drop.dropDistance,
+                  dropTime: drop.dropTime
+                });
+              });
+              return acc;
+            }, [])
+          : [];
+
         const cascadeStep = {
           stepNumber: cascadeCount,
           stepIndex: cascadeCount - 1,
@@ -290,6 +315,7 @@ class GameEngine {
           winAmount: cascadeWinTotal,
           totalWinSoFar: totalWin,
           dropPatterns: cascadeResult.dropPatterns,
+          droppingSymbols,
           newSymbols: (cascadeResult.newSymbols || []).map(entry => ({
             position: { col: entry.position?.col ?? entry.col, row: entry.position?.row ?? entry.row },
             column: entry.position?.col ?? entry.col,
