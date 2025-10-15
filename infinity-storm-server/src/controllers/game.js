@@ -24,6 +24,7 @@ const WalletService = require('../services/walletService');
 const { Player, Transaction, SpinResult } = require('../models');
 const pool = require('../db/pool');
 const { logger } = require('../utils/logger.js');
+const { saveSpinResult } = require('../db/supabaseClient');
 
 class GameController {
   constructor() {
@@ -228,6 +229,24 @@ class GameController {
 
         // Commit transaction
         await client.query('COMMIT');
+
+        // Save spin result to Supabase (async, non-blocking)
+        saveSpinResult(playerId, {
+          sessionId: sessionId,
+          bet: normalizedBetAmount,
+          initialGrid: spinResult.initialGrid,
+          cascades: spinResult.cascades,
+          totalWin: spinResult.totalWin,
+          multipliers: spinResult.multipliers,
+          rngSeed: spinResult.rngSeed,
+          freeSpinsActive: serverFreeSpinsActive
+        }).catch(err => {
+          logger.error('Failed to save spin result to Supabase', {
+            player_id: playerId,
+            spin_id: spinId,
+            error: err.message
+          });
+        });
 
         // Get current balance for response
         let currentBalance = null;

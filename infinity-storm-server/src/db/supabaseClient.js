@@ -266,11 +266,31 @@ async function processWin(playerId, winAmount) {
  */
 async function saveSpinResult(playerId, spinData) {
   try {
+    // Handle demo player - convert string 'demo-player' to actual UUID
+    let actualPlayerId = playerId;
+    let actualSessionId = spinData.sessionId;
+    
+    if (playerId === 'demo-player' || playerId === 'demo_player') {
+      const demoPlayer = await getDemoPlayer();
+      if (!demoPlayer) {
+        console.error('Demo player not found in Supabase');
+        return { error: 'Demo player not found' };
+      }
+      actualPlayerId = demoPlayer.id;
+      console.log(`Converted demo player ID from '${playerId}' to UUID: ${actualPlayerId}`);
+    }
+    
+    // Handle demo session - set to null since we don't have a real session UUID
+    if (actualSessionId === 'demo-session') {
+      actualSessionId = null;
+    }
+    
     // Save to spin_results table
     const { data: spinResult, error: spinError } = await supabaseAdmin
       .from('spin_results')
       .insert({
-        player_id: playerId,
+        player_id: actualPlayerId,
+        session_id: actualSessionId,
         bet_amount: spinData.bet,
         initial_grid: spinData.initialGrid,
         cascades: spinData.cascades,
@@ -283,14 +303,15 @@ async function saveSpinResult(playerId, spinData) {
       .single();
 
     if (spinError) {
-      console.error('Error saving spin result:', spinError);
+      console.error('Error saving spin result to Supabase:', spinError);
+      console.error('Spin data:', { playerId: actualPlayerId, sessionId: actualSessionId, bet: spinData.bet });
       return { error: spinError.message };
     }
 
-    console.log('Spin result saved to database:', spinResult.id);
+    console.log('✅ Spin result saved to Supabase:', spinResult.id, '| Player:', actualPlayerId, '| Win:', spinData.totalWin);
     return { success: true, spinResultId: spinResult.id };
   } catch (err) {
-    console.error('Error saving spin result:', err);
+    console.error('Error saving spin result to Supabase:', err);
     return { error: err.message };
   }
 }

@@ -86,6 +86,7 @@ router.use((req, res, next) => {
  */
 // Reuse full game engine for demo spins so client sees real cascades
 const GameEngine = require('../game/gameEngine');
+const { saveSpinResult } = require('../db/supabaseClient');
 const demoEngine = new GameEngine();
 
 router.post('/demo-spin',
@@ -132,6 +133,20 @@ router.post('/demo-spin',
         accumulatedMultiplier: parseFloat(accumulatedMultiplier),
         quickSpinMode: Boolean(quickSpinMode),
         rngSeed: typeof rngSeed === 'string' ? rngSeed : undefined
+      });
+
+      // Save demo spin result to Supabase (async, non-blocking)
+      saveSpinResult('demo-player', {
+        sessionId: 'demo-session',
+        bet: parseFloat(betAmount),
+        initialGrid: spin.initialGrid,
+        cascades: spin.cascadeSteps,
+        totalWin: spin.totalWin,
+        multipliers: spin.multipliers,
+        rngSeed: spin.rngSeed,
+        freeSpinsActive: Boolean(freeSpinsActive)
+      }).catch(err => {
+        console.error('Failed to save demo spin result to Supabase:', err.message);
       });
 
       return res.json({
