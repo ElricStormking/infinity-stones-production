@@ -165,6 +165,21 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             } catch (e) {
                 console.warn('Failed to create infinity_glove scatter animation:', e);
             }
+            
+            // NEW: Create big scatter celebration animation
+            try {
+                if (this.textures && this.textures.exists('ui_gem_scatter_big') && !this.anims.exists('ui_gem_scatter_big')) {
+                    this.anims.create({
+                        key: 'ui_gem_scatter_big',
+                        frames: this.anims.generateFrameNumbers('ui_gem_scatter_big', { start: 0, end: 23 }),
+                        frameRate: 18,
+                        repeat: 0 // Play once
+                    });
+                    console.log('✅ Big scatter celebration animation registered');
+                }
+            } catch (e) {
+                console.warn('Failed to create ui_gem_scatter_big animation:', e);
+            }
 
             // Create random multiplier frame animation if spritesheet is present
             try {
@@ -388,6 +403,22 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
         } catch (error) {
             console.warn('Error setting up infinity_glove scatter spritesheet:', error);
         }
+        
+        // NEW: Big scatter celebration animation (24 frames, 300x300)
+        try {
+            this.load.spritesheet('ui_gem_scatter_big', 'assets/images/sprites/ui_gem_scatter_big/ui_gem_scatter_big.png', {
+                frameWidth: 300,
+                frameHeight: 300
+            });
+            this.load.once('fileerror-spritesheet-ui_gem_scatter_big', () => {
+                console.warn('Failed to load ui_gem_scatter_big spritesheet');
+            });
+        } catch (error) {
+            console.warn('Error setting up ui_gem_scatter_big spritesheet:', error);
+        }
+        
+        // Load scatter celebration box frame
+        this.loadImageWithFallback('ui_gem_scatter_box', 'assets/images/sprites/ui_gem_scatter_big/ui_gem_scatter_box.png', 0xFFD700);
         
         // Also load static portraits as fallback
         this.loadImageWithFallback('portrait_scarlet_witch', 'assets/images/portrait_scarlet_witch.png', 0xDC143C);

@@ -44,6 +44,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Create fire effect
         this.fireEffect = new window.FireEffect(this);
         
+        // Create scatter celebration effect
+        this.scatterCelebration = new window.ScatterCelebrationEffect(this);
+        
         // Initialize grid manager
         this.gridManager = new window.GridManager(this);
         
@@ -1330,11 +1333,31 @@ window.GameScene = class GameScene extends Phaser.Scene {
                                 }
                                 
                                 const fsMult = Math.max(1, (this.stateManager.freeSpinsData && this.stateManager.freeSpinsData.multiplierAccumulator) || 1);
-                                const finalAmount = this.totalWin;
-                                const base = fsMult > 0 ? finalAmount / fsMult : finalAmount;
-                                this.uiManager.setWinFormula(base, fsMult, finalAmount);
+                                // Base for FS should be the pre-FS base win (server totalWin already includes FS multiplier)
+                                // If we lack a precomputed base, derive from total using the finalized fsMult as a fallback
+                                const total = this.totalWin;
+                                const base = fsMult > 0 ? (total / fsMult) : total;
+                                this.uiManager.setWinFormula(base, fsMult, total);
                                 
                                 console.log(`✅ All shooting stars arrived! Final accumulated: x${fsMult}`);
+                                
+                                // If Free Spins end was deferred waiting for these stars, complete it now
+                                if (this.freeSpinsManager && this.freeSpinsManager.pendingFsEnd) {
+                                    console.log(`🎬 All stars landed - completing deferred Free Spins end`);
+                                    this.freeSpinsManager.pendingFsEnd = false;
+                                    // Use a small delay to ensure plaque updates complete before FS end sequence
+                                    this.time.delayedCall(300, async () => {
+                                        if (this.freeSpinsManager) {
+                                            // Actually end FS now
+                                            await this.freeSpinsManager.handleFreeSpinsEnd();
+                                            // Resolve the promise that's waiting in endSpin()
+                                            if (this.freeSpinsManager.fsEndResolve) {
+                                                this.freeSpinsManager.fsEndResolve();
+                                                this.freeSpinsManager.fsEndResolve = null;
+                                            }
+                                        }
+                                    });
+                                }
                             }
                         }
 
@@ -1373,7 +1396,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     async processServerSpin() {
         try {
             // Show loading state
-            this.showMessage('Processing spin...', 500);
+            // Removed transient processing toast per UX request
             this.isServerSpinning = true;
             
             // Request spin from server with error recovery
@@ -1382,10 +1405,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
             let spinResult;
             if (this.errorRecovery) {
                 // Use error recovery system for resilient network requests
+                const fsData = this.stateManager.freeSpinsData || {};
+                const currentAccum = fsData.multiplierAccumulator || 1;
+                const targetAccum = (typeof this.fsTargetAccumulatedMultiplier === 'number')
+                    ? this.fsTargetAccumulatedMultiplier
+                    : currentAccum;
+                const safeAccumulated = Math.max(currentAccum, targetAccum, 1);
+                if (fsData.active) {
+                    console.log('🔍 GameScene.startSpin: Sending spin via ErrorRecovery with accumulated multiplier', {
+                        currentAccum,
+                        targetAccum,
+                        safeAccumulated,
+                        freeSpinsActive: true
+                    });
+                }
                 spinResult = await this.errorRecovery.handleSpinRequest({
                     betAmount,
-                    freeSpinsActive: this.stateManager.freeSpinsData.active,
-                    accumulatedMultiplier: this.stateManager.freeSpinsData.multiplier || 1,
+                    freeSpinsActive: !!fsData.active,
+                    accumulatedMultiplier: safeAccumulated,
                     quickSpinMode: this.quickSpinEnabled
                 });
             } else {
@@ -2596,7 +2633,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 }
             }
             if (this.gridRenderer && typeof this.gridRenderer.setInitialGrid === 'function') {
-                this.gridRenderer.setInitialGrid(snapshot);
+                this.gridRenderer.setInitialGrid(snapshot, { instant: true });
             }
         }
         if (stateData.last_rng_seed) {
@@ -2743,18 +2780,18 @@ window.GameScene = class GameScene extends Phaser.Scene {
             // Only process free spins if server explicitly triggers them
             if (normalized.freeSpinsAwarded) {
                 console.log(`✅ Free spins triggered via normalized.freeSpinsAwarded: ${normalized.freeSpinsAwarded}`);
-                this.freeSpinsManager.processFreeSpinsTrigger(normalized.freeSpinsAwarded);
+                this.triggerFreeSpinsWithScatterCelebration(normalized.freeSpinsAwarded);
             } else if (normalized.freeSpinsTriggered) {
                 // Server says free spins triggered but no award count came through
                 const award = normalized.bonusFeatures?.freeSpinsAwarded || window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
                 console.log(`✅ Free spins triggered via normalized.freeSpinsTriggered: ${award}`);
-                this.freeSpinsManager.processFreeSpinsTrigger(award);
+                this.triggerFreeSpinsWithScatterCelebration(award);
             } else {
                 // Check bonusFeatures as fallback
                 const bfAward = normalized?.bonusFeatures?.freeSpinsAwarded;
                 if (typeof bfAward === 'number' && bfAward > 0) {
                     console.log(`✅ Free spins triggered via bonusFeatures.freeSpinsAwarded: ${bfAward}`);
-                    this.freeSpinsManager.processFreeSpinsTrigger(bfAward);
+                    this.triggerFreeSpinsWithScatterCelebration(bfAward);
                 } else {
                     console.log(`❌ Free spins NOT triggered by server`);
                 }
@@ -2771,28 +2808,57 @@ window.GameScene = class GameScene extends Phaser.Scene {
             
             // CRITICAL FIX: Store server's target accumulated multiplier for progressive update
             // Don't update the display immediately - let shooting stars increment it
-            if (this.stateManager.freeSpinsData.active && typeof normalized.accumulatedMultiplier === 'number') {
+            if (this.stateManager.freeSpinsData.active) {
                 const currentClientValue = this.stateManager.freeSpinsData.multiplierAccumulator || 1;
+                const pendingTarget = (typeof this.fsTargetAccumulatedMultiplier === 'number') ? this.fsTargetAccumulatedMultiplier : currentClientValue;
+                const effectiveClientValue = Math.max(currentClientValue, pendingTarget);
                 const serverTargetValue = normalized.accumulatedMultiplier;
                 
-                console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Preparing progressive update:`, {
-                    currentDisplay: currentClientValue,
-                    serverTarget: serverTargetValue,
-                    willAnimateIncrement: serverTargetValue > currentClientValue
+                console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Processing:`, {
+                    currentClientValue,
+                    serverTargetValue,
+                    serverValueType: typeof serverTargetValue,
+                    hasServerValue: serverTargetValue !== null && serverTargetValue !== undefined
                 });
                 
-                // Store the target value (where shooting stars will bring us)
-                this.fsTargetAccumulatedMultiplier = serverTargetValue;
-                
-                // Calculate individual multipliers that will be added by shooting stars
-                const newMultipliersThisSpin = serverTargetValue - currentClientValue;
-                if (newMultipliersThisSpin > 0) {
-                    // We'll increment as each star arrives
-                    console.log(`🎰 Will add x${newMultipliersThisSpin} progressively via shooting stars`);
+                // Only update if server explicitly sent a value (not null/undefined)
+                // IMPORTANT: If server sent a value, it is AUTHORITATIVE
+                if (typeof serverTargetValue === 'number' && serverTargetValue > 0) {
+                    console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Server sent value x${serverTargetValue}, current x${effectiveClientValue}`);
+                    
+                    // Store the target value (where shooting stars will bring us)
+                    this.fsTargetAccumulatedMultiplier = serverTargetValue;
+                    
+                    // Calculate individual multipliers that will be added by shooting stars
+                    const newMultipliersThisSpin = serverTargetValue - effectiveClientValue;
+                    if (newMultipliersThisSpin > 0) {
+                        // We'll increment as each star arrives
+                        console.log(`🎰 Will add x${newMultipliersThisSpin} progressively via shooting stars`);
+                    } else if (newMultipliersThisSpin < 0) {
+                        // Server value is less than client (shouldn't happen, but sync to server if it does)
+                        console.warn(`⚠️ Server accumulated multiplier (x${serverTargetValue}) < client (x${effectiveClientValue}). Syncing to server value.`);
+                        this.stateManager.freeSpinsData.multiplierAccumulator = serverTargetValue;
+                        this.uiManager.updateAccumulatedMultiplierDisplay();
+                    } else {
+                        // Same value (newMultipliersThisSpin === 0), maintain current
+                        // Explicitly ensure we don't reset - keep the current value
+                        console.log(`🎰 No new multipliers this spin, explicitly maintaining accumulated: x${effectiveClientValue}`);
+                        // HOTFIX: Force set to ensure it's not reset elsewhere
+                        this.stateManager.freeSpinsData.multiplierAccumulator = effectiveClientValue;
+                        this.fsTargetAccumulatedMultiplier = effectiveClientValue;
+                    }
+                } else if (serverTargetValue === 0 || serverTargetValue === 1) {
+                    // Server explicitly sent 0 or 1 - this might be a bug, but log it
+                    console.warn(`⚠️ Server sent accumulated multiplier of x${serverTargetValue} during free spins! This seems wrong. Maintaining client value x${effectiveClientValue}`);
+                    // Don't reset to server's wrong value, keep client value
+                    this.stateManager.freeSpinsData.multiplierAccumulator = effectiveClientValue;
+                    this.fsTargetAccumulatedMultiplier = effectiveClientValue;
                 } else {
-                    // No new multipliers, just maintain current value
-                    this.stateManager.freeSpinsData.multiplierAccumulator = serverTargetValue;
-                    this.uiManager.updateAccumulatedMultiplierDisplay();
+                    // Server didn't send accumulated multiplier value, maintain current client value
+                    console.log(`🎰 Server didn't send accumulated multiplier (${serverTargetValue}), maintaining current: x${effectiveClientValue}`);
+                    // HOTFIX: Force set to ensure it's not reset elsewhere
+                    this.stateManager.freeSpinsData.multiplierAccumulator = effectiveClientValue;
+                    this.fsTargetAccumulatedMultiplier = effectiveClientValue;
                 }
             }
             
@@ -2888,6 +2954,35 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
     }
 
+    /**
+     * Trigger free spins with scatter celebration animation
+     * Plays the big scatter animation at all scatter positions before starting free spins
+     * @param {Number} spinsAwarded - Number of free spins awarded
+     */
+    async triggerFreeSpinsWithScatterCelebration(spinsAwarded) {
+        // Get scatter positions from current grid
+        const scatterPositions = this.gridManager?.getScatterPositions?.() || [];
+        const scatterCount = scatterPositions.length;
+        
+        console.log(`🎰✨ Triggering free spins with scatter celebration (${scatterCount} scatters at ${scatterPositions.length} positions)`);
+        
+        // Only play celebration if 4+ scatters (which should always be the case when free spins trigger)
+        if (scatterCount >= 4 && this.scatterCelebration) {
+            console.log(`✨ Playing scatter celebration animation at positions:`, scatterPositions);
+            
+            // Play the scatter celebration animation
+            await this.scatterCelebration.playAtPositions(scatterPositions);
+            
+            console.log(`✅ Scatter celebration complete - proceeding with free spins trigger`);
+        } else {
+            console.log(`⚠️ Skipping scatter celebration (scatterCount: ${scatterCount}, hasEffect: ${!!this.scatterCelebration})`);
+        }
+        
+        // Now proceed with normal free spins trigger
+        if (this.freeSpinsManager && this.freeSpinsManager.processFreeSpinsTrigger) {
+            this.freeSpinsManager.processFreeSpinsTrigger(spinsAwarded);
+        }
+    }
     
     async animateServerCascades(cascades) {
         // Animate through each cascade step provided by the server

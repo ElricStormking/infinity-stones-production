@@ -29,8 +29,9 @@ class GridGenerator {
       rows: 5,
       auditLogging: true,
       validateRTP: false,
-      minClustersPerGrid: 2,
-      clusterInjection: true,
+      // Production defaults: do NOT force winning clusters
+      minClustersPerGrid: 0,
+      clusterInjection: false,
       ...options
     };
 

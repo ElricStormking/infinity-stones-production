@@ -122,7 +122,7 @@ window.GridRenderer = class GridRenderer {
                 this.frameMonitor.start();
             }
 
-            this.setInitialGrid(serverResult.initialGrid);
+            await this.setInitialGrid(serverResult.initialGrid);
             this.scene.totalWin = 0;
             if (typeof this.scene.updateWinDisplay === 'function') {
                 this.scene.updateWinDisplay();
@@ -131,11 +131,8 @@ window.GridRenderer = class GridRenderer {
             for (let index = 0; index < serverResult.cascadeSteps.length; index++) {
                 const step = serverResult.cascadeSteps[index];
                 await this.cascadeAnimator.queue(() => this.animateCascadeStep(step));
-                const expectedHash = step.gridStateAfterHash || step.gridAfterHash || step.gridHashAfter || null;
-                await this.validateGridState(expectedHash, {
-                    stepIndex: step.stepIndex ?? step.stepNumber ?? index,
-                    cascadeNumber: step.stepNumber ?? step.stepIndex ?? (index + 1)
-                });
+                // Validate and hard-sync the grid using the server-provided step
+                await this.validateGridState(step);
             }
 
             await this.cascadeAnimator.flush?.();
@@ -223,12 +220,79 @@ window.GridRenderer = class GridRenderer {
         return serverResult;
     }
 
-    setInitialGrid(gridState) {
+    async setInitialGrid(gridState, options = {}) {
         if (!this.gridManager || typeof this.gridManager.setGrid !== 'function') {
             return;
         }
         const normalized = this.normalizeGrid(gridState);
-        this.gridManager.setGrid(normalized);
+        
+        // Option to skip animation (e.g., for state restoration)
+        if (options.instant) {
+            this.gridManager.setGrid(normalized);
+            return;
+        }
+        
+        // Animate initial grid drop like original client behavior
+        await this.animateInitialGridDrop(normalized);
+    }
+    
+    async animateInitialGridDrop(gridState) {
+        if (!this.gridManager) {
+            return;
+        }
+        
+        // Clear existing grid
+        this.gridManager.clearGrid();
+        
+        // Use standard cascade drop duration
+        const duration = this.scene.quickSpinEnabled 
+            ? Math.max(150, (window.GameConfig.CASCADE_SPEED || 300) * 0.6)
+            : (window.GameConfig.CASCADE_SPEED || 300);
+        
+        // Column stagger delay (left to right)
+        const columnDelay = this.scene.quickSpinEnabled ? 40 : 60;
+        
+        // Play drop sound once at 100ms after animation starts
+        this.scene.time.delayedCall(100, () => {
+            if (window.SafeSound && window.SafeSound.play) {
+                window.SafeSound.play(this.scene, 'spin_drop_finish', { volume: 0.9 });
+            }
+        });
+        
+        // Drop columns sequentially from left to right
+        const columnPromises = [];
+        for (let col = 0; col < 6; col++) {
+            const columnSymbols = [];
+            for (let row = 0; row < 5; row++) {
+                const symbolType = gridState[col]?.[row];
+                if (symbolType) {
+                    columnSymbols.push({
+                        symbolType,
+                        col,
+                        row,
+                        position: { col, row }
+                    });
+                }
+            }
+            
+            if (columnSymbols.length > 0) {
+                // Create promise for this column with stagger delay
+                const columnPromise = new Promise(async (resolve) => {
+                    // Wait for previous columns to start (stagger effect)
+                    await new Promise(r => this.scene.time.delayedCall(col * columnDelay, r));
+                    
+                    // Drop this column's symbols
+                    await this.addNewSymbols(columnSymbols, duration);
+                    
+                    resolve();
+                });
+                
+                columnPromises.push(columnPromise);
+            }
+        }
+        
+        // Wait for all columns to finish dropping
+        await Promise.all(columnPromises);
     }
 
     normalizeGrid(gridState) {
@@ -276,6 +340,13 @@ window.GridRenderer = class GridRenderer {
         const noNewSymbols = !Array.isArray(step.newSymbols) || step.newSymbols.length === 0;
         if (noDestruction && noDrops && noNewSymbols) {
             console.debug('[GridRenderer] Skipping cascade step with no visible actions', step.stepIndex);
+            // Even if there are no visual actions, ensure the client grid matches the server's gridStateAfter
+            if (step.gridStateAfter) {
+                const current = this.gridManager.captureGridState?.();
+                if (!this.compareGrids(current, step.gridStateAfter)) {
+                    this.gridManager.setGrid(step.gridStateAfter);
+                }
+            }
             return;
         }
 
@@ -326,8 +397,24 @@ window.GridRenderer = class GridRenderer {
 
         const dropDuration = this.adjustDuration(timing.dropDuration || this.defaultTiming.dropDuration, reduceQuality);
         await this.animateDrops(step.droppingSymbols, dropDuration, step.gridStateBefore);
+
+        // Ensure grid equals server's intermediate state after removals+drops
+        if (step.gridAfterRemoval) {
+            const currentAfterRemoval = this.gridManager.captureGridState?.();
+            if (!this.compareGrids(currentAfterRemoval, step.gridAfterRemoval)) {
+                this.gridManager.setGrid(step.gridAfterRemoval);
+            }
+        }
         const newSymbolDuration = this.adjustDuration(timing.newSymbolDuration || this.defaultTiming.newSymbolDuration, reduceQuality);
         await this.addNewSymbols(step.newSymbols, newSymbolDuration);
+
+        // Final hard sync at end of step
+        if (step.gridStateAfter) {
+            const after = this.gridManager.captureGridState?.();
+            if (!this.compareGrids(after, step.gridStateAfter)) {
+                this.gridManager.setGrid(step.gridStateAfter);
+            }
+        }
 
         const cascadeWin = typeof step.winAmount === 'number'
             ? step.winAmount
@@ -376,7 +463,10 @@ window.GridRenderer = class GridRenderer {
         
         // Accept multiple aliases from server; prefer canonical gridState* fields.
         normalized.gridStateBefore = normalized.gridStateBefore || normalized.gridBefore || normalized.grid;
-        normalized.gridStateAfter = normalized.gridStateAfter || normalized.gridAfter || normalized.newGrid;
+        normalized.gridStateAfter = normalized.gridStateAfter 
+            || normalized.gridAfter 
+            || normalized.newGrid 
+            || normalized.gridAfterRemoval; // fallback: some steps only provide gridAfterRemoval
         normalized.gridAfterRemoval = normalized.gridAfterRemoval || normalized.gridMid || normalized.gridStateMid || null;
         
         // ERROR: Log if critical grids are missing after normalization
@@ -677,23 +767,29 @@ window.GridRenderer = class GridRenderer {
             return;
         }
         try {
+            // Accept either a raw server step or a normalized step
+            const expectedHash = step?.gridStateAfterHash || step?.gridAfterHash || step?.gridHashAfter || null;
+            const gridAfter = step?.gridStateAfter || step?.gridAfter || step?.newGrid || step?.gridAfterDrop || null;
+            const stepIndex = step?.stepIndex ?? step?.stepNumber ?? 0;
+
             if (typeof this.gridManager.validateGridState === 'function') {
-                await this.gridManager.validateGridState(step.gridStateAfterHash || null, {
-                    stepIndex: step.stepIndex,
-                    gridStateAfter: step.gridStateAfter || step.gridAfterDrop || null,
-                    timing: step.timing
+                await this.gridManager.validateGridState(expectedHash, {
+                    stepIndex,
+                    gridStateAfter: gridAfter,
+                    timing: step?.timing
                 });
-            } else if (step.gridStateAfter) {
+            } else if (gridAfter) {
                 const current = this.gridManager.captureGridState?.();
-                if (!this.compareGrids(current, step.gridStateAfter)) {
+                if (!this.compareGrids(current, gridAfter)) {
                     console.warn('Grid state mismatch detected. Resyncing with server data.');
-                    this.gridManager.setGrid(step.gridStateAfter);
+                    this.gridManager.setGrid(gridAfter);
                 }
             }
         } catch (error) {
             console.warn('Grid validation failed, forcing resync:', error);
-            if (step.gridStateAfter && !this.compareGrids(this.gridManager.captureGridState?.(), step.gridStateAfter)) {
-                this.gridManager.setGrid(step.gridStateAfter);
+            const gridAfter = step?.gridStateAfter || step?.gridAfter || step?.newGrid || step?.gridAfterDrop || null;
+            if (gridAfter && !this.compareGrids(this.gridManager.captureGridState?.(), gridAfter)) {
+                this.gridManager.setGrid(gridAfter);
             }
         }
     }

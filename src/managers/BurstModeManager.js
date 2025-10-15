@@ -762,179 +762,71 @@ window.BurstModeManager = class BurstModeManager {
             };
         }
         try {
-            // SECURITY: Use controlled RNG for burst mode operations
-            if (!window.RNG) {
-                throw new Error('SECURITY: BurstModeManager requires window.RNG to be initialized.');
+            // Always use server-authoritative spin in burst mode
+            if (!window.GameAPI || !window.NetworkService) {
+                throw new Error('NetworkService/GameAPI not initialized');
             }
-            const rng = new window.RNG();
-            
-            // Check if player can afford bet (unless in free spins)
+
+            // Abort if no bet available and not in FS
             if (!this.scene.stateManager.freeSpinsData.active && !this.scene.stateManager.canAffordBet()) {
                 return { win: 0, bet: 0, balance: this.scene.stateManager.gameData.balance };
             }
-            
+
             this.scene.isSpinning = true;
-            this.scene.totalWin = 0;
-            this.scene.cascadeMultiplier = 1;
-            
-            // Use the same bet logic as normal game
-            if (this.scene.stateManager.freeSpinsData.active) {
-                this.scene.stateManager.useFreeSpins();
-            } else {
-                this.scene.stateManager.placeBet();
+
+            // Invoke the same HTTP spin path as normal spins, but without animations
+            const betAmount = this.scene.stateManager.gameData.currentBet;
+            const result = await window.GameAPI.requestSpinViaHTTP(betAmount);
+            if (!result || !result.success) {
+                throw new Error('Burst spin failed');
             }
-            
-            const bet = this.scene.stateManager.gameData.currentBet;
-            
-            // Clear and fill grid like normal game
-            if (this.scene.gridManager) {
-                this.scene.gridManager.initializeGrid();
-                this.scene.gridManager.fillGrid();
-            } else {
-                throw new Error('GridManager not available');
+
+            const data = result.data;
+
+            // Apply final server state quickly (no per-step animations)
+            if (this.scene.gridManager && data.finalGrid) {
+                try { this.scene.gridManager.setGrid(data.finalGrid); } catch (_) {}
             }
-            
-            // Process cascades exactly like normal game but without animations
-            let cascadeCount = 0;
-            let hasMatches = true;
-            
-            while (hasMatches) {
-                const matches = this.scene.gridManager.findMatches();
-                
-                if (matches.length > 0) {
-                    // Calculate win using the same WinCalculator as normal game
-                    const win = this.scene.winCalculator.calculateTotalWin(matches, bet);
-                    this.scene.totalWin += win;
-                    
-                    // Remove matches without animation
-                    if (this.scene.gridManager && this.scene.gridManager.removeMatches) {
-                        this.scene.gridManager.removeMatches(matches);
-                    }
-                    
-                    // Cascade symbols without animation (simplified for burst mode)
-                    try {
-                        if (this.scene.gridManager && this.scene.gridManager.cascadeSymbols) {
-                            await this.scene.gridManager.cascadeSymbols();
-                        } else {
-                            console.warn('GridManager or cascadeSymbols method not available');
-                        }
-                    } catch (error) {
-                        console.warn('Cascade error in burst mode:', error);
-                        // Continue without cascading if there's an error
-                    }
-                    
-                    cascadeCount++;
-                    
-                    // Apply cascade multiplier in free spins like normal game using controlled RNG
-                    if (this.scene.stateManager.freeSpinsData.active && cascadeCount > 1) {
-                        const shouldTrigger = rng.chance(window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE);
-                        if (shouldTrigger) {
-                            const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
-                            const randomMultiplier = multiplierTable[
-                                rng.int(0, multiplierTable.length - 1)
-                            ];
-                            // Defer accumulation; handled by star arrival when FX is emitted elsewhere
-                        }
-                    }
-                } else {
-                    hasMatches = false;
-                }
+
+            // Update totals and balance like normal server mode
+            this.scene.totalWin = data.totalWin || 0;
+            const serverBalance = (typeof data.balance === 'number') ? data.balance : undefined;
+            if (serverBalance !== undefined && this.scene.stateManager) {
+                this.scene.stateManager.setBalanceFromServer(serverBalance);
+                if (window.WalletAPI) { window.WalletAPI.setBalance(serverBalance); }
             }
-            
-            // Check for Cascading Random Multipliers in burst mode (simplified) using controlled RNG
-            if (cascadeCount > 0) {
-                const shouldTriggerCRM = rng.chance(window.GameConfig.CASCADE_RANDOM_MULTIPLIER.TRIGGER_CHANCE);
-                if (shouldTriggerCRM && this.scene.totalWin >= window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
-                    // Determine number of multipliers to apply (1-3)
-                    const minMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MIN_MULTIPLIERS;
-                    const maxMults = window.GameConfig.CASCADE_RANDOM_MULTIPLIER.MAX_MULTIPLIERS;
-                    const numMultipliers = rng.int(minMults, maxMults);
-                    
-                    // Apply multiple multipliers (simplified for burst mode) - ADD multipliers together
-                    let totalMultiplier = 0;
-                    const multipliers = [];
-                    for (let i = 0; i < numMultipliers; i++) {
-                        const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
-                        const multiplier = multiplierTable[
-                            rng.int(0, multiplierTable.length - 1)
-                        ];
-                        multipliers.push(multiplier);
-                        totalMultiplier += multiplier;
-                        
-                        // Accumulate each multiplier during free spins
-                        if (this.scene.stateManager.freeSpinsData.active) {
-                            // Defer accumulation to star arrival
-                        }
-                    }
-                    
-                    this.scene.totalWin *= totalMultiplier;
-                }
+
+            // Free spins handling from server payload
+            const freeSpinsActive = !!data.freeSpinsActive;
+            if (typeof data.freeSpinsCount === 'number') {
+                this.scene.stateManager.freeSpinsData.count = data.freeSpinsCount;
+                this.scene.stateManager.freeSpinsData.active = freeSpinsActive;
             }
-            
-            // Add win to balance like normal game
-            if (this.scene.totalWin > 0) {
-                this.scene.stateManager.addWin(this.scene.totalWin);
-                
-                // Add free spins win like normal game
-                if (this.scene.stateManager.freeSpinsData.active) {
-                    this.scene.stateManager.freeSpinsData.totalWin += this.scene.totalWin;
-                }
+            if (typeof data.accumulatedMultiplier === 'number' && freeSpinsActive) {
+                this.scene.stateManager.freeSpinsData.multiplierAccumulator = data.accumulatedMultiplier;
             }
-            
-            // Check for bonus features like normal game
-            const scatterCount = this.scene.gridManager && this.scene.gridManager.countScatters ? 
-                this.scene.gridManager.countScatters() : 0;
-            let bonusTriggered = false;
-            
-            if (scatterCount >= 4 && !this.scene.stateManager.freeSpinsData.active) {
-                // Trigger free spins - 4+ scatters = 15 free spins
-                const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
-                this.scene.stateManager.startFreeSpins(freeSpins);
-                bonusTriggered = true;
-            } else if (scatterCount >= 4 && this.scene.stateManager.freeSpinsData.active) {
-                // Retrigger free spins - 4+ scatters = +5 extra free spins
-                const extraSpins = window.GameConfig.FREE_SPINS.RETRIGGER_SPINS;
-                this.scene.stateManager.addFreeSpins(extraSpins);
-                bonusTriggered = true;
+            if (typeof data.freeSpinsTotalWin === 'number' && freeSpinsActive) {
+                this.scene.stateManager.freeSpinsData.totalWin = data.freeSpinsTotalWin;
             }
-            
-            // Check for Random Multiplier in burst mode (simplified)
-            const shouldTriggerRM = rng.chance(window.GameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE);
-            if (shouldTriggerRM && this.scene.totalWin >= window.GameConfig.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
-                const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
-                const multiplier = multiplierTable[
-                    rng.int(0, multiplierTable.length - 1)
-                ];
-                this.scene.totalWin *= multiplier;
-                
-                // Accumulate multiplier during free spins
-                if (this.scene.stateManager.freeSpinsData.active) {
-                    // Defer accumulation to star arrival
-                }
-            }
-            
-            // Check if free spins ended
+
+            // Determine FS end
             let freeSpinsEnded = false;
             if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count === 0) {
-                // Capture total free spins win BEFORE state reset so UI can show the right number
-                const freeSpinsTotalBeforeReset = this.scene.stateManager.freeSpinsData.totalWin;
+                // Capture before reset for return payload
+                var __freeSpinsTotalForResult = this.scene.stateManager.freeSpinsData.totalWin;
                 this.scene.stateManager.endFreeSpins();
                 freeSpinsEnded = true;
-                // Attach the captured total to the result object
-                // (will be returned below)
-                var __freeSpinsTotalForResult = freeSpinsTotalBeforeReset;
             }
-            
+
             this.scene.isSpinning = false;
-            
             return {
                 win: this.scene.totalWin,
-                bet: bet,
+                bet: betAmount,
                 balance: this.scene.stateManager.gameData.balance,
-                cascades: cascadeCount,
-                scatters: scatterCount,
-                bonusTriggered: bonusTriggered,
-                freeSpinsEnded: freeSpinsEnded,
+                cascades: (data.cascades || data.cascadeSteps || []).length || 0,
+                scatters: 0,
+                bonusTriggered: !!data.freeSpinsTriggered,
+                freeSpinsEnded,
                 freeSpinsActive: this.scene.stateManager.freeSpinsData.active,
                 freeSpinsCount: this.scene.stateManager.freeSpinsData.count,
                 multiplierAccumulator: this.scene.stateManager.freeSpinsData.multiplierAccumulator,

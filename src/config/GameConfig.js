@@ -29,6 +29,8 @@ window.GameConfig = {
         // Visual effects (particles, flashes, win banners, etc.)
         FX_UNDERLAY: 999,
         FX: 1000,
+        // FX that must appear above everything (win banners)
+        FX_OVER_UI: 6000,
         // Random multiplier tiles should render at the same depth as regular symbols
         MULTIPLIER_SLOT: 4,
         OVERLAY_HIGH: 5000

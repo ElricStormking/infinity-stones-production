@@ -37,12 +37,12 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
                 }
                 
                 void main() {
-                    const vec3 c1 = vec3(0.5, 0.0, 0.1);
-                    const vec3 c2 = vec3(0.9, 0.1, 0.0);
-                    const vec3 c3 = vec3(0.2, 0.1, 0.7);
-                    const vec3 c4 = vec3(1.0, 0.9, 0.1);
+                    const vec3 c1 = vec3(0.3, 0.0, 0.5);
+                    const vec3 c2 = vec3(0.6, 0.1, 0.9);
+                    const vec3 c3 = vec3(0.5, 0.1, 0.8);
+                    const vec3 c4 = vec3(0.9, 0.3, 1.0);
                     const vec3 c5 = vec3(0.1);
-                    const vec3 c6 = vec3(0.9);
+                    const vec3 c6 = vec3(0.8, 0.4, 0.9);
 
                     vec2 speed = vec2(0.1, 0.9);
                     float shift = 1.327+sin(time*2.0)/2.4;
@@ -67,9 +67,9 @@ window.FireShader = class FireShader extends Phaser.Renderer.WebGL.Pipelines.Sin
                     vec3 c = mix(c1, c2, fbm(p + r)) + mix(c3, c4, r.x) - mix(c5, c6, r.y);
                     vec3 color = vec3(1.0/(pow(c+1.61,vec3(4.0))) * cos(shift * gl_FragCoord.y / resolution.y));
                     
-                    color=vec3(1.0,.2,.05)/(pow((r.y+r.y)* max(.0,p.y)+0.1, 4.0));;
+                    color=vec3(0.8,.15,1.0)/(pow((r.y+r.y)* max(.0,p.y)+0.1, 4.0));;
                     // Use noise instead of texture sampling for additional detail
-                    color += (noise(uv*6.0+vec2(.5,.1)) * 0.01*pow((r.y+r.y)*.65,5.0)+0.055)*mix( vec3(.9,.4,.3),vec3(.7,.5,.2), uv.y);
+                    color += (noise(uv*6.0+vec2(.5,.1)) * 0.01*pow((r.y+r.y)*.65,5.0)+0.055)*mix( vec3(.7,.2,.9),vec3(.5,.3,.8), uv.y);
                     color = color/(1.0+max(vec3(0),color));
                     
                     // Apply intensity and create final color

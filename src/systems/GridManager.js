@@ -643,6 +643,25 @@ window.GridManager = class GridManager {
         return count;
     }
     
+    /**
+     * Get positions of all scatter symbols on the grid
+     * @returns {Array} Array of {col, row} positions
+     */
+    getScatterPositions() {
+        const positions = [];
+        
+        for (let col = 0; col < this.cols; col++) {
+            for (let row = 0; row < this.rows; row++) {
+                const symbol = this.grid[col][row];
+                if (symbol && symbol.symbolType === 'infinity_glove') {
+                    positions.push({ col, row });
+                }
+            }
+        }
+        
+        return positions;
+    }
+    
     clearGrid() {
         // Stop all animations and clear all tweens first
         this.stopAllSymbolAnimations();

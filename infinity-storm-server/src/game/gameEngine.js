@@ -59,6 +59,7 @@ const GAME_CONFIG = {
     thanos: 11
   },
 
+  // Official scatter symbol chance (base game)
   SCATTER_CHANCE: 0.035,
 
   // Free spins configuration
@@ -103,7 +104,8 @@ class GameEngine {
   constructor(options = {}) {
     // Initialize crypto RNG system
     this.rng = getRNG({ auditLogging: true });
-    this.gridGenerator = new GridGenerator({ auditLogging: true });
+    // Production: disable any forced cluster injection; audit logging stays on
+    this.gridGenerator = new GridGenerator({ auditLogging: true, clusterInjection: false, minClustersPerGrid: 0 });
 
     // Initialize all game systems
     this.winCalculator = new WinCalculator(GAME_CONFIG);

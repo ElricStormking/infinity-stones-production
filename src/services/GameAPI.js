@@ -219,12 +219,30 @@ window.GameAPI = new (class GameAPI {
             // Use new NetworkService processSpin method
             const scene = this.currentScene;
             const freeSpinsData = scene?.stateManager?.freeSpinsData || null;
+            const currentAccum = freeSpinsData?.multiplierAccumulator || 1;
+            const targetAccum = (scene && typeof scene.fsTargetAccumulatedMultiplier === 'number')
+                ? scene.fsTargetAccumulatedMultiplier
+                : currentAccum;
+            // Use the greater of current and target to avoid going backwards if stars haven't landed yet
+            const accumulatedMultiplier = Math.max(currentAccum, targetAccum, 1);
+            
+            // DEBUG: Log accumulated multiplier being sent to server
+            if (freeSpinsData?.active) {
+                console.log(`🔍 GameAPI: Sending spin request with accumulated multiplier:`, {
+                    accumulatedMultiplier,
+                    currentAccum,
+                    targetAccum,
+                    freeSpinsActive: !!freeSpinsData?.active,
+                    freeSpinsRemaining: freeSpinsData?.count
+                });
+            }
+            
             const result = await NetworkService.processSpin({
                 bet: betAmount,
                 betAmount,
                 quickSpinMode: scene?.settings?.quickSpinEnabled ?? false,
                 freeSpinsActive: !!freeSpinsData?.active,
-                accumulatedMultiplier: freeSpinsData?.multiplierAccumulator || 1
+                accumulatedMultiplier
             });
             
             this.isSpinning = false;

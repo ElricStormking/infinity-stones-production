@@ -4,40 +4,73 @@ window.FreeSpinsManager = class FreeSpinsManager {
         this.scene = scene;
         this.freeSpinsAutoPlay = true; // Auto-play free spins by default
         this.isProcessingFreeSpinsUI = false; // Prevent duplicate UI triggers
+        this.pendingFsEnd = false; // Defer FS end until stars finish landing
+        this.fsEndResolve = null; // Promise resolver for deferred FS end
     }
     
     checkOtherBonusFeatures() {
         // Check for Free Spins
         const scatterCount = this.scene.gridManager.countScatters();
         if (scatterCount >= 4 && !this.scene.stateManager.freeSpinsData.active) {
-            this.triggerFreeSpins(scatterCount);
+            // Initial trigger - use wrapper with celebration
+            const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
+            if (this.scene.triggerFreeSpinsWithScatterCelebration) {
+                this.scene.triggerFreeSpinsWithScatterCelebration(freeSpins);
+            } else {
+                // Fallback if wrapper not available
+                this.triggerFreeSpins(scatterCount);
+            }
         } else if (scatterCount >= 4 && this.scene.stateManager.freeSpinsData.active) {
             // Retrigger - 4+ scatter during free spins awards +5 extra free spins
             const extraSpins = window.GameConfig.FREE_SPINS.RETRIGGER_SPINS;
             
-            // Play Thanos finger snap sound for retrigger
-            console.log('🔊 Playing Thanos finger snap sound for Free Spins retrigger');
-            window.SafeSound.play(this.scene, 'thanos_finger_snap');
-            // Also play Thanos portrait finger snap animation during free spins
-            if (this.scene.animationManager && this.scene.animationManager.playThanosSnap) {
-                this.scene.animationManager.playThanosSnap();
-            } else if (this.scene.portrait_thanos && this.scene.anims && this.scene.anims.exists('thanos_snap_animation') && this.scene.portrait_thanos.anims) {
-                try { this.scene.portrait_thanos.stop(); } catch (_) {}
-                this.scene.portrait_thanos.play('thanos_snap_animation');
-                this.scene.portrait_thanos.once('animationcomplete', () => {
-                    try {
-                        if (this.scene.anims.exists('thanos_idle_animation')) {
-                            this.scene.portrait_thanos.play('thanos_idle_animation');
-                        }
-                    } catch (_) {}
-                });
-            }
+            // Get scatter positions for celebration
+            const scatterPositions = this.scene.gridManager?.getScatterPositions?.() || [];
             
-            this.scene.stateManager.addFreeSpins(extraSpins);
-            this.scene.showMessage(`+${extraSpins} Free Spins!`);
-            this.scene.uiManager.updateFreeSpinsDisplay();
-            // Note: Auto-play continues automatically, no need to restart it
+            // Play scatter celebration for retrigger
+            if (scatterPositions.length >= 4 && this.scene.scatterCelebration) {
+                console.log(`✨ Playing scatter celebration for retrigger at ${scatterPositions.length} positions`);
+                this.scene.scatterCelebration.playAtPositions(scatterPositions, () => {
+                    // After celebration, proceed with retrigger
+                    this.completeRetrigger(extraSpins);
+                });
+            } else {
+                // No celebration, proceed directly
+                this.completeRetrigger(extraSpins);
+            }
         }
+    }
+    
+    completeRetrigger(extraSpins) {
+        // Play Thanos finger snap sound for retrigger
+        console.log('🔊 Playing Thanos finger snap sound for Free Spins retrigger');
+        window.SafeSound.play(this.scene, 'thanos_finger_snap');
+        // Also play Thanos portrait finger snap animation during free spins
+        if (this.scene.animationManager && this.scene.animationManager.playThanosSnap) {
+            this.scene.animationManager.playThanosSnap();
+        } else if (this.scene.portrait_thanos && this.scene.anims && this.scene.anims.exists('thanos_snap_animation') && this.scene.portrait_thanos.anims) {
+            try { this.scene.portrait_thanos.stop(); } catch (_) {}
+            this.scene.portrait_thanos.play('thanos_snap_animation');
+            this.scene.portrait_thanos.once('animationcomplete', () => {
+                try {
+                    if (this.scene.anims.exists('thanos_idle_animation')) {
+                        this.scene.portrait_thanos.play('thanos_idle_animation');
+                    }
+                } catch (_) {}
+            });
+        }
+        
+        this.scene.stateManager.addFreeSpins(extraSpins);
+        // Removed redundant "+5 Free Spins!" toast
+        
+        // Show animated +5 visual effect on the free spins counter
+        if (this.scene.uiManager && this.scene.uiManager.showFreeSpinsRetriggerAnimation) {
+            this.scene.uiManager.showFreeSpinsRetriggerAnimation(extraSpins);
+        } else {
+            this.scene.uiManager.updateFreeSpinsDisplay();
+        }
+        
+        // Note: Auto-play continues automatically, no need to restart it
     }
     
     processFreeSpinsTrigger(spins, triggerType = 'server') {
@@ -48,10 +81,40 @@ window.FreeSpinsManager = class FreeSpinsManager {
 
         // Retrigger if already active
         if (this.scene.stateManager?.freeSpinsData?.active) {
-            this.addFreeSpinsSpins(count);
-            this.scene.showMessage(`+${count} Free Spins!`);
-            try { this.scene.uiManager.updateFreeSpinsDisplay?.(); } catch (_) {}
-            window.SafeSound.play(this.scene, 'bonus');
+            // Get scatter positions for celebration during retrigger
+            const scatterPositions = this.scene.gridManager?.getScatterPositions?.() || [];
+            
+            // Play scatter celebration for retrigger if applicable
+            if (scatterPositions.length >= 4 && this.scene.scatterCelebration) {
+                console.log(`✨ Playing scatter celebration for server retrigger at ${scatterPositions.length} positions`);
+                this.scene.scatterCelebration.playAtPositions(scatterPositions, () => {
+                    // After celebration, add spins
+                    this.addFreeSpinsSpins(count);
+                    // Removed redundant "+5 Free Spins!" toast
+                    // Show animated +5 visual effect
+                    try {
+                        if (this.scene.uiManager.showFreeSpinsRetriggerAnimation) {
+                            this.scene.uiManager.showFreeSpinsRetriggerAnimation(count);
+                        } else {
+                            this.scene.uiManager.updateFreeSpinsDisplay?.();
+                        }
+                    } catch (_) {}
+                    window.SafeSound.play(this.scene, 'bonus');
+                });
+            } else {
+                // No celebration, proceed directly
+                this.addFreeSpinsSpins(count);
+                // Removed redundant "+5 Free Spins!" toast
+                // Show animated +5 visual effect
+                try {
+                    if (this.scene.uiManager.showFreeSpinsRetriggerAnimation) {
+                        this.scene.uiManager.showFreeSpinsRetriggerAnimation(count);
+                    } else {
+                        this.scene.uiManager.updateFreeSpinsDisplay?.();
+                    }
+                } catch (_) {}
+                window.SafeSound.play(this.scene, 'bonus');
+            }
             return;
         }
 
@@ -90,7 +153,27 @@ window.FreeSpinsManager = class FreeSpinsManager {
     async handleFreeSpinsEnd() {
         // Check if free spins ended
         if (this.scene.stateManager.freeSpinsData.active && this.scene.stateManager.freeSpinsData.count === 0) {
+            // If there are still FS shooting stars in flight, defer ending so plaque can finalize correctly
+            if ((this.scene.fsPendingRMStars || 0) > 0) {
+                this.pendingFsEnd = true;
+                console.log(`⏳ Deferring Free Spins end until ${this.scene.fsPendingRMStars} star(s) finish`);
+                // Return a promise that will be resolved when stars finish
+                return new Promise((resolve) => {
+                    this.fsEndResolve = resolve;
+                });
+            }
             const totalFreeSpinsWin = this.scene.stateManager.endFreeSpins();
+            // Ensure all FS accumulation state is cleared so it doesn't carry to next trigger
+            try {
+                if (this.scene) {
+                    this.scene.fsTargetAccumulatedMultiplier = 1;
+                    this.scene.fsPendingRMStars = 0;
+                }
+                if (this.scene && this.scene.stateManager && this.scene.stateManager.freeSpinsData) {
+                    this.scene.stateManager.freeSpinsData.multiplierAccumulator = 1;
+                }
+                this.scene.uiManager.updateAccumulatedMultiplierDisplay?.();
+            } catch (_) {}
             
             // Switch back to main BGM
             console.log('🎵 === FREE SPINS ENDED - SWITCHING BACK TO MAIN BGM ===');
@@ -776,6 +859,20 @@ window.FreeSpinsManager = class FreeSpinsManager {
     }
     
     startFreeSpinsConfirmed(freeSpins, triggerType) {
+        // Reset client-side FS accumulation state to base at the start of a new FS feature
+        try {
+            if (this.scene && this.scene.stateManager && this.scene.stateManager.freeSpinsData) {
+                this.scene.stateManager.freeSpinsData.multiplierAccumulator = 1;
+            }
+            // Clear any carry-over targets from a previous FS cycle
+            if (this.scene) {
+                this.scene.fsTargetAccumulatedMultiplier = 1;
+                this.scene.fsPendingRMStars = 0;
+            }
+            // Immediately reflect in UI
+            try { this.scene.uiManager.updateAccumulatedMultiplierDisplay?.(); } catch (_) {}
+        } catch (_) {}
+
         // Start free spins mode
         this.scene.stateManager.startFreeSpins(freeSpins);
         
@@ -820,7 +917,7 @@ window.FreeSpinsManager = class FreeSpinsManager {
         }
         this.scene.stateManager.freeSpinsData.count = (this.scene.stateManager.freeSpinsData.count || 0) + spins;
         this.scene.stateManager.freeSpinsData.totalCount = (this.scene.stateManager.freeSpinsData.totalCount || 0) + spins;
-        this.scene.showMessage(`+${spins} Free Spins!`);
+        // Removed redundant "+5 Free Spins!" toast
         this.scene.uiManager.updateFreeSpinsDisplay?.();
     }
     

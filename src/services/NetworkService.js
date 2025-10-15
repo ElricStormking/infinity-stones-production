@@ -1101,7 +1101,23 @@ window.NetworkService = new (class NetworkService {
         const ended = source?.freeSpinsEnded ?? false;
         
         // CRITICAL: Extract server's accumulated multiplier (authoritative during free spins)
-        const accumulatedMultiplier = source?.accumulatedMultiplier ?? freeFeature?.multiplier ?? 1;
+        // Check both newAccumulatedMultiplier (what server sends) and accumulatedMultiplier (legacy)
+        const accumulatedMultiplier = source?.newAccumulatedMultiplier ?? source?.accumulatedMultiplier ?? freeFeature?.multiplier ?? null;
+        
+        // DEBUG: Log accumulated multiplier extraction during free spins
+        if (activeFlag || remaining > 0) {
+            console.log(`🔍 NetworkService: Extracting accumulated multiplier:`, {
+                hasNewAccumulatedMultiplier: source?.newAccumulatedMultiplier !== undefined,
+                newAccumulatedMultiplierValue: source?.newAccumulatedMultiplier,
+                hasAccumulatedMultiplier: source?.accumulatedMultiplier !== undefined,
+                accumulatedMultiplierValue: source?.accumulatedMultiplier,
+                hasFreeFeatureMultiplier: freeFeature?.multiplier !== undefined,
+                freeFeatureMultiplierValue: freeFeature?.multiplier,
+                finalValue: accumulatedMultiplier,
+                activeFlag,
+                remaining
+            });
+        }
 
         // If server provided a count but no explicit awarded value, treat count as awarded when not already active
         if ((!awarded || awarded === 0) && remaining > 0 && !activeFlag) {

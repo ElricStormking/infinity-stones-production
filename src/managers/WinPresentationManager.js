@@ -39,7 +39,7 @@ window.WinPresentationManager = class WinPresentationManager {
             
             // Create win animation sprite
             const winSprite = this.scene.add.sprite(width / 2, height / 2 - 50, animKey);
-            winSprite.setDepth(window.GameConfig.UI_DEPTHS.FX);
+            winSprite.setDepth(window.GameConfig.UI_DEPTHS.FX_OVER_UI || (window.GameConfig.UI_DEPTHS.FX + 2000));
             winSprite.setScale(0);
             
             // Play the animation only if it exists
@@ -71,12 +71,12 @@ window.WinPresentationManager = class WinPresentationManager {
                 }
             );
             winAmountText.setOrigin(0.5);
-            winAmountText.setDepth(window.GameConfig.UI_DEPTHS.FX + 1);
+            winAmountText.setDepth((window.GameConfig.UI_DEPTHS.FX_OVER_UI || (window.GameConfig.UI_DEPTHS.FX + 2000)) + 1);
             winAmountText.setShadow(0, 4, '#000000', 8, false, true);
             winAmountText.setScale(0);
             // Soft golden glow behind amount
             const glow = this.scene.add.graphics();
-            glow.setDepth(window.GameConfig.UI_DEPTHS.FX);
+            glow.setDepth((window.GameConfig.UI_DEPTHS.FX_OVER_UI || (window.GameConfig.UI_DEPTHS.FX + 2000)) - 1);
             const glowUpdate = () => {
                 if (!glow || !glow.scene || !this.scene.scene || !this.scene.scene.isActive()) return;
                 try {

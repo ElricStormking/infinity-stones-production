@@ -1295,7 +1295,7 @@ window.UIManager = class UIManager {
         this.updatePurchaseButtonCost();
     }
     
-    updateFreeSpinsDisplay() {
+    updateFreeSpinsDisplay(skipPulse = true) {
         const freeSpinsData = this.scene.stateManager.freeSpinsData;
         if (freeSpinsData.active) {
             // Show the free game UI element
@@ -1320,14 +1320,16 @@ window.UIManager = class UIManager {
                 this.accumulatedMultiplierText.setVisible(true);
             }
             
-            // Create or update free spins text overlay
+            // Create or update free spins text overlay (split into label + number)
             const width = this.scene.cameras.main.width;
             const height = this.scene.cameras.main.height;
             const scaleX = width / 1280;
             const scaleY = height / 720;
             const fsPlaque = Math.floor(18 * Math.min(scaleX, scaleY));
-            if (!this.freeSpinsText) {
-                this.freeSpinsText = this.scene.add.text(168 * scaleX, 549 * scaleY, '', {
+            
+            // Create "FREE SPINS: " label if it doesn't exist
+            if (!this.freeSpinsLabelText) {
+                this.freeSpinsLabelText = this.scene.add.text(0, 549 * scaleY, 'FREE SPINS: ', {
                     fontSize: fsPlaque + 'px',
                     fontFamily: 'Arial Black',
                     color: '#FFD700',
@@ -1335,11 +1337,10 @@ window.UIManager = class UIManager {
                     strokeThickness: Math.max(3, Math.floor(fsPlaque * 0.18)),
                     align: 'center'
                 });
-                this.freeSpinsText.setOrigin(0.5);
-                this.freeSpinsText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 1);
+                this.freeSpinsLabelText.setOrigin(1, 0.5);
+                this.freeSpinsLabelText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 1);
             } else {
-                // Ensure style matches plaque font each time FS UI is shown
-                this.freeSpinsText.setStyle({
+                this.freeSpinsLabelText.setStyle({
                     fontSize: fsPlaque + 'px',
                     fontFamily: 'Arial Black',
                     color: '#FFD700',
@@ -1349,8 +1350,72 @@ window.UIManager = class UIManager {
                 });
             }
             
-            this.freeSpinsText.setText(`FREE SPINS: ${freeSpinsData.count}`);
-            this.freeSpinsText.setVisible(true);
+            // Create number text if it doesn't exist
+            if (!this.freeSpinsNumberText) {
+                this.freeSpinsNumberText = this.scene.add.text(0, 549 * scaleY, '', {
+                    fontSize: fsPlaque + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFD700',
+                    stroke: '#000000',
+                    strokeThickness: Math.max(3, Math.floor(fsPlaque * 0.18)),
+                    align: 'center'
+                });
+                this.freeSpinsNumberText.setOrigin(0, 0.5);
+                this.freeSpinsNumberText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 1);
+                // Store original scale for pulse animations
+                this.freeSpinsNumberText.originalScaleX = this.freeSpinsNumberText.scaleX;
+                this.freeSpinsNumberText.originalScaleY = this.freeSpinsNumberText.scaleY;
+            } else {
+                this.freeSpinsNumberText.setStyle({
+                    fontSize: fsPlaque + 'px',
+                    fontFamily: 'Arial Black',
+                    color: '#FFD700',
+                    stroke: '#000000',
+                    strokeThickness: Math.max(3, Math.floor(fsPlaque * 0.18)),
+                    align: 'center'
+                });
+            }
+            
+            // Update number text
+            this.freeSpinsNumberText.setText(`${freeSpinsData.count}`);
+            
+            // Position texts centered relative to the free game plaque UI so they stay inside
+            const labelWidth = this.freeSpinsLabelText.width;
+            const numberWidth = this.freeSpinsNumberText.width;
+            const plaque = this.ui_freegame;
+            const centerX = plaque ? plaque.x : (168 * scaleX);
+            const centerY = plaque ? plaque.y : (549 * scaleY);
+            // Slight upward offset to match plaque visual center
+            const yOffset = plaque ? Math.max(-2 * Math.min(scaleX, scaleY), -6) : 0;
+            
+            // Keep combined label+number centered on the plaque
+            const totalWidth = labelWidth + numberWidth;
+            const labelRightX = centerX - (totalWidth / 2) + labelWidth;
+            this.freeSpinsLabelText.setPosition(labelRightX, centerY + yOffset);
+            this.freeSpinsNumberText.setPosition(labelRightX, centerY + yOffset);
+            
+            this.freeSpinsLabelText.setVisible(true);
+            this.freeSpinsNumberText.setVisible(true);
+            
+            // Add pulse animation to NUMBER ONLY if requested (during retrigger)
+            if (!skipPulse && this.freeSpinsNumberText && !this.scene.tweens.isTweening(this.freeSpinsNumberText)) {
+                // Reset to original scale before tween
+                if (typeof this.freeSpinsNumberText.originalScaleX === 'number') {
+                    this.freeSpinsNumberText.setScale(
+                        this.freeSpinsNumberText.originalScaleX,
+                        this.freeSpinsNumberText.originalScaleY
+                    );
+                }
+                this.scene.tweens.add({
+                    targets: this.freeSpinsNumberText,
+                    scaleX: this.freeSpinsNumberText.originalScaleX * 1.3,
+                    scaleY: this.freeSpinsNumberText.originalScaleY * 1.3,
+                    duration: 200,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'Back.out'
+                });
+            }
         } else {
             // Hide the free game UI element
             if (this.ui_freegame) {
@@ -1358,6 +1423,12 @@ window.UIManager = class UIManager {
             }
             if (this.freeSpinsText) {
                 this.freeSpinsText.setVisible(false);
+            }
+            if (this.freeSpinsLabelText) {
+                this.freeSpinsLabelText.setVisible(false);
+            }
+            if (this.freeSpinsNumberText) {
+                this.freeSpinsNumberText.setVisible(false);
             }
             
             // Hide accumulated multiplier display
@@ -1378,6 +1449,89 @@ window.UIManager = class UIManager {
                 this.updatePurchaseButtonCost();
             }
         }
+    }
+    
+    showFreeSpinsRetriggerAnimation(extraSpins) {
+        if (!this.freeSpinsNumberText || !this.scene.stateManager.freeSpinsData.active) {
+            return;
+        }
+        
+        const width = this.scene.cameras.main.width;
+        const height = this.scene.cameras.main.height;
+        const scaleX = width / 1280;
+        const scaleY = height / 720;
+        
+        // Position near the free spins counter
+        const plusTextX = 168 * scaleX;
+        const plusTextY = 549 * scaleY - (50 * Math.min(scaleX, scaleY));
+        
+        // Create a large, eye-catching "+5" text
+        const plusText = this.scene.add.text(plusTextX, plusTextY, `+${extraSpins}`, {
+            fontSize: Math.floor(48 * Math.min(scaleX, scaleY)) + 'px',
+            fontFamily: 'Arial Black',
+            color: '#B066FF',  // Purple
+            stroke: '#FFD700',  // Gold outline
+            strokeThickness: Math.max(4, Math.floor(48 * Math.min(scaleX, scaleY) * 0.1)),
+            align: 'center'
+        });
+        plusText.setOrigin(0.5);
+        plusText.setDepth(window.GameConfig.UI_DEPTHS.FREE_SPINS + 2);
+        plusText.setScale(0);
+        plusText.setAlpha(0);
+        
+        // Animate the "+5" text - pop in, float up, and fade out
+        this.scene.tweens.add({
+            targets: plusText,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            alpha: 1,
+            duration: 300,
+            ease: 'Back.out',
+            onComplete: () => {
+                // Hold for a moment, then float up and fade
+                this.scene.tweens.add({
+                    targets: plusText,
+                    y: plusTextY - (80 * Math.min(scaleX, scaleY)),
+                    alpha: 0,
+                    duration: 800,
+                    delay: 400,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        if (plusText && plusText.scene) {
+                            plusText.destroy();
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Pulse the ui_freegame image itself
+        if (this.ui_freegame && !this.scene.tweens.isTweening(this.ui_freegame)) {
+            // Store original scale if not already stored
+            if (typeof this.ui_freegame.originalScaleX !== 'number') {
+                this.ui_freegame.originalScaleX = this.ui_freegame.scaleX;
+                this.ui_freegame.originalScaleY = this.ui_freegame.scaleY;
+            }
+            
+            // Reset to original scale before tween
+            this.ui_freegame.setScale(
+                this.ui_freegame.originalScaleX,
+                this.ui_freegame.originalScaleY
+            );
+            
+            this.scene.tweens.add({
+                targets: this.ui_freegame,
+                scaleX: this.ui_freegame.originalScaleX * 1.15,
+                scaleY: this.ui_freegame.originalScaleY * 1.15,
+                duration: 250,
+                yoyo: true,
+                repeat: 1,
+                ease: 'Back.out'
+            });
+        }
+        
+        // Update the display with pulse animation
+        this.updateFreeSpinsDisplay(false);
     }
     
     updateAccumulatedMultiplierDisplay() {
