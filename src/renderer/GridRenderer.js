@@ -657,7 +657,7 @@ window.GridRenderer = class GridRenderer {
                     x: targetPos.x,
                     y: targetPos.y,
                     duration: adjustedDuration,  // Use distance-based duration
-                    ease: 'Back.easeOut(0.3)',   // Subtle overshoot for weighted stone landing (heavy feel)
+                    ease: 'Bounce.out',          // Match legacy bounce effect
                     delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: () => {
@@ -741,7 +741,7 @@ window.GridRenderer = class GridRenderer {
                     targets: symbol,
                     y: finalPos.y,
                     duration: adjustedDuration,  // Use distance-based duration
-                    ease: 'Back.easeOut(0.3)',   // Subtle overshoot for weighted stone landing (heavy feel)
+                    ease: 'Bounce.out',          // Match legacy bounce effect
                     delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: completeTween
