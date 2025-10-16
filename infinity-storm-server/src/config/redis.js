@@ -62,8 +62,7 @@ if (shouldSkipRedis) {
     config: {},
     shouldSkipRedis: true
   };
-  return;
-}
+} else {
 
 /**
  * Redis Configuration
@@ -199,3 +198,5 @@ module.exports = {
   getSessionStore,
   config
 };
+
+} // end else block

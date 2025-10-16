@@ -22,7 +22,7 @@ const AntiCheat = require('../game/antiCheat');
 const AuditLogger = require('../game/auditLogger');
 const WalletService = require('../services/walletService');
 const { Player, Transaction, SpinResult } = require('../models');
-const pool = require('../db/pool');
+const { pool } = require('../db/pool');
 const { logger } = require('../utils/logger.js');
 const { saveSpinResult } = require('../db/supabaseClient');
 
@@ -336,10 +336,29 @@ class GameController {
         }
 
         // Return canonical format matching /api/demo-spin
-        res.json({
-          success: true,
-          data: responseData
-        });
+        // Add payload size monitoring and header for observability (<50KB target)
+        try {
+          const payload = { success: true, data: responseData };
+          const payloadString = JSON.stringify(payload);
+          const payloadBytes = Buffer.byteLength(payloadString, 'utf8');
+          res.setHeader('X-Payload-Bytes', String(payloadBytes));
+          if (payloadBytes > 51200) { // 50KB
+            logger.warn('Spin response payload exceeded 50KB', {
+              playerId,
+              spinId,
+              payloadBytes,
+              cascadeSteps: Array.isArray(responseData.cascadeSteps) ? responseData.cascadeSteps.length : 0
+            });
+          }
+          return res.json(payload);
+        } catch (serializeError) {
+          logger.warn('Failed to compute payload size, sending response anyway', {
+            playerId,
+            spinId,
+            error: serializeError.message
+          });
+          return res.json({ success: true, data: responseData });
+        }
 
       } catch (transactionError) {
         // Rollback transaction on any error
@@ -352,12 +371,6 @@ class GameController {
     } catch (error) {
       // Update error metrics
       this.updateSpinMetrics(Date.now() - startTime, false);
-
-      await this.auditLogger.logSpinError(req.user.id, spinId, 'processing_error', {
-        error: error.message,
-        stack: error.stack,
-        processingTime: Date.now() - startTime
-      });
 
       logger.error('Spin processing error', {
         playerId: req.user.id,

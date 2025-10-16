@@ -19,6 +19,7 @@ const rateLimit = require('express-rate-limit');
 const { body, param, query, validationResult } = require('express-validator');
 const { logger } = require('../utils/logger');
 const SessionManager = require('../auth/sessionManager');
+const { featureFlags } = require('../config/featureFlags');
 
 const adminController = require('../controllers/admin');
 const {
@@ -522,5 +523,171 @@ router.use((err, req, res, next) => {
     });
   }
 });
+
+/**
+ * GET /admin/api/feature-flags
+ * Get all feature flags and their current states
+ */
+router.get('/api/feature-flags',
+  authenticateAdmin,
+  checkAdminSessionTimeout,
+  logAdminActivity,
+  async (req, res) => {
+    try {
+      const flags = featureFlags.getAllFlags();
+      const history = featureFlags.getHistory();
+      
+      res.json({
+        success: true,
+        data: {
+          flags,
+          history: history.slice(-20), // Last 20 changes
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('Feature flags retrieval error', {
+        admin: req.admin?.username,
+        error: error.message
+      });
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve feature flags'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/feature-flags/:flagName
+ * Toggle a feature flag
+ */
+router.post('/api/feature-flags/:flagName',
+  authenticateAdmin,
+  checkAdminSessionTimeout,
+  sensitiveRateLimit,
+  csrfProtection,
+  logAdminActivity,
+  [
+    param('flagName')
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage('Flag name is required'),
+    body('enabled')
+      .isBoolean()
+      .withMessage('Enabled must be a boolean'),
+    body('reason')
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('Reason must be a string (max 200 chars)')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const { flagName } = req.params;
+      const { enabled, reason } = req.body;
+      const adminUsername = req.admin?.username || 'unknown';
+      
+      featureFlags.setFlag(
+        flagName,
+        enabled,
+        `${reason || 'Manual toggle'} by ${adminUsername}`
+      );
+      
+      logger.info('Feature flag toggled', {
+        admin: adminUsername,
+        flag: flagName,
+        enabled,
+        reason
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          flag: flagName,
+          enabled,
+          message: `Feature flag ${flagName} ${enabled ? 'enabled' : 'disabled'}`
+        }
+      });
+    } catch (error) {
+      logger.error('Feature flag toggle error', {
+        admin: req.admin?.username,
+        flag: req.params.flagName,
+        error: error.message
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to toggle feature flag'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/feature-flags/category/:category
+ * Bulk enable/disable feature flags by category
+ */
+router.post('/api/feature-flags/category/:category',
+  authenticateAdmin,
+  checkAdminSessionTimeout,
+  sensitiveRateLimit,
+  csrfProtection,
+  logAdminActivity,
+  [
+    param('category')
+      .isString()
+      .trim()
+      .isIn(['debug', 'security', 'performance', 'sync'])
+      .withMessage('Invalid category'),
+    body('enabled')
+      .isBoolean()
+      .withMessage('Enabled must be a boolean'),
+    body('reason')
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('Reason must be a string (max 200 chars)')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const { category } = req.params;
+      const { enabled, reason } = req.body;
+      const adminUsername = req.admin?.username || 'unknown';
+      
+      featureFlags.setCategoryFlags(category, enabled);
+      
+      logger.info('Feature flag category toggled', {
+        admin: adminUsername,
+        category,
+        enabled,
+        reason
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          category,
+          enabled,
+          message: `Category '${category}' flags ${enabled ? 'enabled' : 'disabled'}`
+        }
+      });
+    } catch (error) {
+      logger.error('Feature flag category toggle error', {
+        admin: req.admin?.username,
+        category: req.params.category,
+        error: error.message
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to toggle category flags'
+      });
+    }
+  }
+);
 
 module.exports = router;

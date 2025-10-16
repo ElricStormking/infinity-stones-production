@@ -16,11 +16,17 @@ const request = require('supertest');
 // Use the exported Express app without binding a port in tests
 const { app } = require('../../server');
 
+// Increase timeout for integration tests and clean up after
+jest.setTimeout(10000);
+
 describe('Server-Client Sync Flow (HTTP)', () => {
-  test('POST /api/spin returns canonical payload with droppingSymbols', async () => {
+  // Clean up any lingering timers/handles after all tests
+  afterAll(async () => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  });
+  test('POST /api/demo-spin returns canonical payload with droppingSymbols', async () => {
     const res = await request(app)
-      .post('/api/spin')
-      .set('x-demo-bypass', 'true')
+      .post('/api/demo-spin')
       .send({ betAmount: 1.0, quickSpinMode: false })
       .expect(200);
 

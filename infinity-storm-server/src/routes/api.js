@@ -149,7 +149,7 @@ router.post('/demo-spin',
         console.error('Failed to save demo spin result to Supabase:', err.message);
       });
 
-      return res.json({
+      const responsePayload = {
         success: true,
         data: {
           spinId: spin.spinId,
@@ -171,7 +171,17 @@ router.post('/demo-spin',
             rngAuditId: spin.rngSeed
           }
         }
-      });
+      };
+
+      // Add payload size monitoring header
+      const payloadString = JSON.stringify(responsePayload);
+      const payloadBytes = Buffer.byteLength(payloadString, 'utf8');
+      res.setHeader('X-Payload-Bytes', String(payloadBytes));
+      if (payloadBytes > 51200) { // 50KB
+        console.warn('Demo-spin response payload exceeded 50KB:', payloadBytes, 'bytes');
+      }
+
+      return res.json(responsePayload);
     } catch (e) {
       console.error('Demo spin engine error:', e.message);
       return res.status(500).json({ success: false, error: 'DEMO_SPIN_FAILED', message: e.message });
