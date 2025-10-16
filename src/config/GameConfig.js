@@ -192,13 +192,15 @@ window.GameConfig = {
         SFX_VOLUME: 0.8
     },
     
-    // Visual Settings
+    // Visual Settings - Matching legacy pure-client cascade timing
     ANIMATIONS: {
-        SYMBOL_DROP_TIME: 200,       // Base time for each row of drop (legacy timing)
-        DROP_DELAY_PER_ROW: 100,     // Stagger delay for cascading rows (adds to smoothness)
-        SYMBOL_DESTROY_TIME: 300,
-        WIN_CELEBRATION_TIME: 2000,
-        MULTIPLIER_APPEAR_TIME: 500
+        SYMBOL_DROP_TIME: 200,              // Base drop animation duration (matches legacy)
+        DROP_DELAY_PER_ROW: 100,            // Additional delay per row distance (matches legacy emptyRowsAbove * 100)
+        SYMBOL_DESTROY_TIME: 300,           // Symbol destruction animation time
+        WIN_CELEBRATION_TIME: 2000,         // Win celebration duration
+        MULTIPLIER_APPEAR_TIME: 500,        // Multiplier appearance animation
+        // Legacy cascade stagger timing for smooth visual flow
+        COLUMN_STAGGER_DELAY: 50            // Delay between columns (matches legacy col * 50)
     },
     
     // Task 6.2: Server Integration Configuration

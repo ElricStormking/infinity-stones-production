@@ -641,13 +641,24 @@ window.GridRenderer = class GridRenderer {
                     return;
                 }
 
+                // ✨ LEGACY TIMING: Calculate duration based on drop distance (matches pure-client version)
+                const dropDistance = drop.distance || Math.abs(drop.to.row - drop.from.row);
+                const baseDuration = window.GameConfig.ANIMATIONS?.SYMBOL_DROP_TIME || 200;
+                const perRowDelay = window.GameConfig.ANIMATIONS?.DROP_DELAY_PER_ROW || 100;
+                const adjustedDuration = baseDuration + (dropDistance * perRowDelay);
+                
+                // ✨ LEGACY TIMING: Add column stagger delay (left-to-right visual flow)
+                const columnStagger = window.GameConfig.ANIMATIONS?.COLUMN_STAGGER_DELAY || 50;
+                const staggerDelay = drop.to.col * columnStagger;
+
                 clearSource();
                 this.scene.tweens.add({
                     targets: source,
                     x: targetPos.x,
                     y: targetPos.y,
-                    duration,
-                    ease: 'Quad.easeIn',
+                    duration: adjustedDuration,  // Use distance-based duration
+                    ease: 'Bounce.out',          // Match legacy bounce effect
+                    delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: () => {
                         finalizeTo();
@@ -705,11 +716,33 @@ window.GridRenderer = class GridRenderer {
                     return;
                 }
 
+                // ✨ LEGACY TIMING: Calculate drop distance for new symbols (matches pure-client fillEmptySpaces)
+                // Count empty rows above this position to determine fall distance
+                let emptyRowsAbove = 0;
+                if (this.gridManager?.grid) {
+                    for (let checkRow = row - 1; checkRow >= 0; checkRow--) {
+                        if (!this.gridManager.grid[col]?.[checkRow]) {
+                            emptyRowsAbove++;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                
+                const baseDuration = window.GameConfig.ANIMATIONS?.SYMBOL_DROP_TIME || 200;
+                const perRowDelay = window.GameConfig.ANIMATIONS?.DROP_DELAY_PER_ROW || 100;
+                const adjustedDuration = baseDuration + (emptyRowsAbove * perRowDelay);
+                
+                // ✨ LEGACY TIMING: Add column stagger (matches legacy col * 50)
+                const columnStagger = window.GameConfig.ANIMATIONS?.COLUMN_STAGGER_DELAY || 50;
+                const staggerDelay = col * columnStagger;
+
                 this.scene.tweens.add({
                     targets: symbol,
                     y: finalPos.y,
-                    duration,
-                    ease: 'Cubic.easeOut',
+                    duration: adjustedDuration,  // Use distance-based duration
+                    ease: 'Bounce.out',          // Match legacy bounce effect
+                    delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: completeTween
                 });
