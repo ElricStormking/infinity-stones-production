@@ -657,7 +657,7 @@ window.GridRenderer = class GridRenderer {
                     x: targetPos.x,
                     y: targetPos.y,
                     duration: adjustedDuration,  // Use distance-based duration
-                    ease: 'Bounce.out',          // Match legacy bounce effect
+                    ease: 'Back.easeOut',        // Softer bounce (less bouncy than Bounce.out)
                     delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: () => {
@@ -741,7 +741,7 @@ window.GridRenderer = class GridRenderer {
                     targets: symbol,
                     y: finalPos.y,
                     duration: adjustedDuration,  // Use distance-based duration
-                    ease: 'Bounce.out',          // Match legacy bounce effect
+                    ease: 'Back.easeOut',        // Softer bounce (less bouncy than Bounce.out)
                     delay: staggerDelay,         // Apply column stagger
                     onStart: startTween,
                     onComplete: completeTween
