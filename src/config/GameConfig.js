@@ -194,7 +194,8 @@ window.GameConfig = {
     
     // Visual Settings
     ANIMATIONS: {
-        SYMBOL_DROP_TIME: 200,
+        SYMBOL_DROP_TIME: 200,       // Base time for each row of drop (legacy timing)
+        DROP_DELAY_PER_ROW: 100,     // Stagger delay for cascading rows (adds to smoothness)
         SYMBOL_DESTROY_TIME: 300,
         WIN_CELEBRATION_TIME: 2000,
         MULTIPLIER_APPEAR_TIME: 500

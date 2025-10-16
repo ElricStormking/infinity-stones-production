@@ -312,56 +312,24 @@ window.GridManager = class GridManager {
         const matches = [];
         const symbolCounts = {};
         
+        // Legacy behavior: Simple symbol counting (8+ symbols of same type anywhere = match)
         // Count all symbols on the grid
         for (let col = 0; col < this.cols; col++) {
             for (let row = 0; row < this.rows; row++) {
                 const symbol = this.grid[col][row];
                 if (symbol && symbol.symbolType !== 'infinity_glove' && !symbol.isRandomMultiplier && symbol.symbolType !== 'random_multiplier') { // Exclude scatter and random-mult symbols
-                    const key = symbol.symbolType + '_' + col + '_' + row;
                     if (!symbolCounts[symbol.symbolType]) {
-                        symbolCounts[symbol.symbolType] = {};
+                        symbolCounts[symbol.symbolType] = [];
                     }
-                    symbolCounts[symbol.symbolType][key] = { col, row, symbol };
+                    symbolCounts[symbol.symbolType].push({ col, row, symbol });
                 }
             }
         }
-
-        // Check which symbol types have 8+ instances and form contiguous clusters using flood fill
-        const visited = new Set();
-        for (const [symbolType, positionsMap] of Object.entries(symbolCounts)) {
-            const positions = Object.values(positionsMap);
-            const positionSet = new Set(Object.keys(positionsMap));
-            for (const pos of positions) {
-                const key = pos.symbol.symbolType + '_' + pos.col + '_' + pos.row;
-                if (visited.has(key)) {
-                    continue;
-                }
-                const cluster = [];
-                const queue = [{ col: pos.col, row: pos.row, symbol: pos.symbol }];
-                while (queue.length > 0) {
-                    const { col, row, symbol } = queue.shift();
-                    const clusterKey = symbol.symbolType + '_' + col + '_' + row;
-                    if (visited.has(clusterKey) || !positionSet.has(clusterKey)) {
-                        continue;
-                    }
-                    visited.add(clusterKey);
-                    cluster.push({ col, row, symbol });
-                    const neighbors = [
-                        { col: col - 1, row },
-                        { col: col + 1, row },
-                        { col, row: row - 1 },
-                        { col, row: row + 1 }
-                    ];
-                    for (const neighbor of neighbors) {
-                        const neighborKey = symbol.symbolType + '_' + neighbor.col + '_' + neighbor.row;
-                        if (!visited.has(neighborKey) && positionSet.has(neighborKey)) {
-                            queue.push({ col: neighbor.col, row: neighbor.row, symbol: positionsMap[neighborKey].symbol });
-                        }
-                    }
-                }
-                if (cluster.length >= window.GameConfig.MIN_MATCH_COUNT) {
-                    matches.push(cluster);
-                }
+        
+        // Check which symbol types have 8+ instances (legacy logic - no contiguity check)
+        for (const [symbolType, positions] of Object.entries(symbolCounts)) {
+            if (positions.length >= window.GameConfig.MIN_MATCH_COUNT) {
+                matches.push(positions);
             }
         }
         
@@ -576,12 +544,15 @@ window.GridManager = class GridManager {
                     };
 
                     const promise = new Promise(resolve => {
+                        // Legacy timing: Use SYMBOL_DROP_TIME + DROP_DELAY_PER_ROW calculation
+                        const dropTime = window.GameConfig.ANIMATIONS.SYMBOL_DROP_TIME || window.GameConfig.CASCADE_SPEED;
+                        const delayPerRow = window.GameConfig.ANIMATIONS.DROP_DELAY_PER_ROW || 100;
                         this.scene.tweens.add({
                             targets: symbol,
                             y: targetPos.y,
-                            duration: window.GameConfig.CASCADE_SPEED + (emptyRowsAbove * 100),
+                            duration: dropTime + (emptyRowsAbove * delayPerRow),
                             ease: 'Bounce.out',
-                            delay: col * 50, // Stagger by column instead of row
+                            delay: col * 50, // Stagger by column (legacy behavior)
                             onUpdate: alignOverlay,
                             onComplete: () => { alignOverlay(); resolve(); }
                         });
