@@ -165,7 +165,32 @@ class GameController {
         console.log('[GameController] Step 1: Player loaded, credits:', player.credits);
         const statePlayerId = player.is_demo ? 'demo-player' : playerId;
         console.log('[GameController] Step 2: Getting game state for:', statePlayerId);
-        const gameState = await this.stateManager.getPlayerState(statePlayerId);
+        
+        // Get game state - from Supabase in fallback mode, otherwise from StateManager
+        let gameState;
+        if (skipRedis && !player.is_demo) {
+          console.log('[GameController] Reading game state from Supabase (fallback mode)');
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          const { data: supabaseState, error: stateError } = await supabaseAdmin
+            .from('game_states')
+            .select('*')
+            .eq('player_id', playerId)
+            .single();
+          
+          if (stateError && stateError.code !== 'PGRST116') { // PGRST116 = no rows found
+            console.warn('[GameController] Error reading game state from Supabase:', stateError);
+          }
+          
+          gameState = supabaseState || {
+            game_mode: 'base',
+            free_spins_remaining: 0,
+            accumulated_multiplier: 1
+          };
+          console.log('[GameController] Loaded from Supabase:', gameState);
+        } else {
+          gameState = await this.stateManager.getPlayerState(statePlayerId);
+        }
+        
         const rawFreeSpinsRemaining = gameState ? gameState.free_spins_remaining : 0;
         const serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
           ? rawFreeSpinsRemaining
@@ -177,7 +202,7 @@ class GameController {
         const serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
 
-        console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining);
+        console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining, 'multiplier:', serverAccumulatedMultiplier);
 
         // Process bet transaction using wallet service (skip during free spins, demo, or Redis fallback)
         let betTransaction = null;
@@ -322,19 +347,56 @@ class GameController {
 
         console.log('[GameController] Step 7.3: Win crediting complete, moving to state update');
         
+        // Prepare session ID for Supabase (validate UUID or use null)
+        const validSessionId = sessionId && sessionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
+          ? sessionId 
+          : null;
+        
         // Update game state based on spin result
         let stateResult;
         if (!skipRedis) {
           console.log('[GameController] Step 7a: Updating state via StateManager');
           stateResult = await this.stateManager.processSpinResult(statePlayerId, spinResult);
         } else {
-          console.log('[GameController] Step 7a: Skipping StateManager (fallback mode)');
-          // In fallback mode, skip state manager and just use the spin result
+          console.log('[GameController] Step 7a: Skipping StateManager, updating Supabase directly (fallback mode)');
+          // In fallback mode, skip state manager and update Supabase game_states directly
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          
+          const newGameMode = spinResult.gameMode || 'base';
+          const newFreeSpinsRemaining = spinResult.freeSpinsRemaining || 0;
+          const newAccumulatedMultiplier = spinResult.accumulatedMultiplier || 1;
+          
+          console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier);
+          
+          // Update or insert game state
+          const { error: stateError } = await supabaseAdmin
+            .from('game_states')
+            .upsert({
+              player_id: playerId,
+              session_id: validSessionId,
+              game_mode: newGameMode,
+              free_spins_remaining: newFreeSpinsRemaining,
+              accumulated_multiplier: newAccumulatedMultiplier,
+              state_data: {
+                last_spin_id: spinId,
+                last_updated: new Date().toISOString()
+              },
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'player_id'
+            });
+          
+          if (stateError) {
+            console.warn('[GameController] Failed to update game state in Supabase:', stateError);
+          } else {
+            console.log('[GameController] ✅ Game state updated in Supabase');
+          }
+          
           stateResult = {
             gameState: {
-              game_mode: spinResult.gameMode || 'base',
-              free_spins_remaining: spinResult.freeSpinsRemaining || 0,
-              accumulated_multiplier: spinResult.accumulatedMultiplier || 1
+              game_mode: newGameMode,
+              free_spins_remaining: newFreeSpinsRemaining,
+              accumulated_multiplier: newAccumulatedMultiplier
             }
           };
         }
@@ -363,12 +425,12 @@ class GameController {
         await client.query('COMMIT');
 
         // Save spin result to Supabase (async, non-blocking)
-        // Use null for session_id in fallback mode (not a valid UUID)
-        const validSessionId = sessionId && sessionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
-          ? sessionId 
-          : null;
-        
         console.log('[GameController] Saving spin result, sessionId:', validSessionId, 'playerId:', playerId.substring(0, 20));
+        // Use the UPDATED game state (after spin), not the initial state
+        const actualGameMode = stateResult.gameState.game_mode;
+        const isFreeSpinMode = actualGameMode === 'free_spins';
+        console.log('[GameController] Game mode for Supabase:', actualGameMode, 'isFreeSpins:', isFreeSpinMode);
+        
         saveSpinResult(playerId, {
           sessionId: validSessionId,
           bet: normalizedBetAmount,
@@ -377,7 +439,7 @@ class GameController {
           totalWin: spinResult.totalWin,
           multipliers: spinResult.multipliers || [],
           rngSeed: spinResult.rngSeed,
-          freeSpinsActive: serverFreeSpinsActive
+          freeSpinsActive: isFreeSpinMode // Use the updated state, not the initial state
         }).catch(err => {
           logger.error('Failed to save spin result to Supabase', {
             player_id: playerId,
