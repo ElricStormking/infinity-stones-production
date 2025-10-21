@@ -308,7 +308,8 @@ app.get('/api/history/spins', async (req, res) => {
     // Map to required fields
     const rows = (result.rows || []).map(r => ({
       bet_time: r.created_at || r.createdAt || r.timestamp || null,
-      spin_id: r.spin_id || r.spinId || null,
+      player_id: r.player_id || null,
+      spin_id: r.id || r.spin_id || r.spinId || null, // Use database UUID 'id' as spin_id
       bet_amount: Number(r.bet_amount || r.bet || 0),
       total_win: Number(r.total_win || r.win || 0),
       game_mode: r.game_mode || (r.freeSpinsActive ? 'free_spins' : 'base')

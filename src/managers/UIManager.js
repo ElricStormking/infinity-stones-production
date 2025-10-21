@@ -1957,12 +1957,12 @@ window.UIManager = class UIManager {
         const headerY = (height / 2) - (panelHeight / 2) + 80 * scaleY;
         const leftX = (width / 2) - (panelWidth / 2) + 20 * scaleX;
         const cols = [
-            { key: 'bet_time', label: 'BET TIME', width: 200 * scaleX },
-            { key: 'player_id', label: 'PLAYER ID', width: 200 * scaleX },
-            { key: 'spin_id', label: 'SPIN ID', width: 150 * scaleX },
-            { key: 'bet_amount', label: 'BET', width: 100 * scaleX },
+            { key: 'bet_time', label: 'BET TIME', width: 180 * scaleX },
+            { key: 'player_id', label: 'PLAYER ID', width: 220 * scaleX },
+            { key: 'spin_id', label: 'SPIN ID', width: 220 * scaleX },
+            { key: 'bet_amount', label: 'BET', width: 80 * scaleX },
             { key: 'total_win', label: 'WIN', width: 100 * scaleX },
-            { key: 'game_mode', label: 'MODE', width: 120 * scaleX }
+            { key: 'game_mode', label: 'MODE', width: 100 * scaleX }
         ];
 
         // Header
@@ -2009,9 +2009,9 @@ window.UIManager = class UIManager {
             let colX = leftX;
             const timeText = new Date(r.bet_time).toLocaleString();
             const playerId = (r.player_id || '').toString();
-            const playerIdShort = playerId.length > 20 ? `${playerId.slice(0, 8)}…${playerId.slice(-8)}` : playerId;
+            const playerIdShort = playerId.length > 24 ? `${playerId.slice(0, 10)}…${playerId.slice(-10)}` : playerId;
             const spinId = (r.spin_id || '').toString();
-            const spinIdShort = spinId.length > 18 ? `${spinId.slice(0, 6)}…${spinId.slice(-4)}` : spinId;
+            const spinIdShort = spinId.length > 24 ? `${spinId.slice(0, 10)}…${spinId.slice(-10)}` : spinId;
             const betStr = r.bet_amount?.toFixed ? r.bet_amount.toFixed(2) : String(r.bet_amount);
             const winStr = r.total_win?.toFixed ? r.total_win.toFixed(2) : String(r.total_win);
             const values = [timeText, playerIdShort, spinIdShort, betStr, winStr, (r.game_mode || 'base').toUpperCase()];
