@@ -566,6 +566,7 @@ window.NetworkService = new (class NetworkService {
             const data = {
                 requestId: d.clientRequestId || resp.requestId || null,
                 spinId: d.spinId || resp.spinId || null,
+                spinUuid: d.spin_uuid || resp.spin_uuid || null,
                 betAmount: d.betAmount,
                 initialGrid: d.initialGrid,
                 finalGrid: d.finalGrid || (cascades.length ? cascades[cascades.length - 1].gridAfter : d.initialGrid),

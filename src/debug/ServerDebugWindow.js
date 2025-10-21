@@ -64,6 +64,7 @@
                 this.lastSeed = seed;
 
                 const info = {
+                    spinUuid: root?.spinUuid || root?.spin_uuid || spin?.spinUuid || spin?.spin_uuid || null,
                     betAmount: root?.betAmount,
                     totalWin: root?.totalWin,
                     cascades: cascadesCount,

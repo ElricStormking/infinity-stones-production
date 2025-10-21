@@ -446,14 +446,16 @@ class GameController {
           await client.query('COMMIT');
         }
 
-        // Save spin result to Supabase (async, non-blocking)
+        // Save spin result to Supabase and capture the UUID for client debug
         console.log('[GameController] Saving spin result, sessionId:', validSessionId, 'playerId:', playerId.substring(0, 20));
         // Use the UPDATED game state (after spin), not the initial state
         const actualGameMode = stateResult.gameState.game_mode;
         const isFreeSpinMode = actualGameMode === 'free_spins';
         console.log('[GameController] Game mode for Supabase:', actualGameMode, 'isFreeSpins:', isFreeSpinMode);
         
-        saveSpinResult(playerId, {
+        let savedSpinUuid = null;
+        try {
+          const saveRes = await saveSpinResult(playerId, {
           sessionId: validSessionId,
           bet: normalizedBetAmount,
           initialGrid: spinResult.initialGrid,
@@ -462,13 +464,17 @@ class GameController {
           multipliers: spinResult.multipliers || [],
           rngSeed: spinResult.rngSeed,
           freeSpinsActive: isFreeSpinMode // Use the updated state, not the initial state
-        }).catch(err => {
+          });
+          if (saveRes && saveRes.success) {
+            savedSpinUuid = saveRes.spinResultId || null;
+          }
+        } catch (err) {
           logger.error('Failed to save spin result to Supabase', {
             player_id: playerId,
             spin_id: spinId,
             error: err.message
           });
-        });
+        }
 
         // Get current balance for response
         let currentBalance = null;
@@ -515,6 +521,7 @@ class GameController {
         // Prepare response (canonical format with nested data, matching /api/demo-spin)
         const responseData = {
           spinId: spinResult.spinId,
+          spin_uuid: savedSpinUuid,
           betAmount: spinResult.betAmount,
           totalWin: spinResult.totalWin,
           baseWin: spinResult.baseWin,
