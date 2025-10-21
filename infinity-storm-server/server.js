@@ -1673,22 +1673,7 @@ io.on('connection', (socket) => {
           console.warn('saveSpinResult exception:', e.message);
         }
 
-        // Also save to spins table using existing function
-        const recordResult = await recordSpinResult({
-          spinId: spinResult.spinId,
-          playerId: actualPlayerId,
-          betAmount: betAmount,
-          totalWin: spinResult.totalWin,
-          rngSeed: spinResult.rngSeed,
-          initialGrid: spinResult.initialGrid,
-          cascades: spinResult.cascades || []
-        });
-
-        if (recordResult.error) {
-          console.error('Failed to record spin:', recordResult.error);
-        } else {
-          console.log('?? Spin recorded to spins table');
-        }
+        // Legacy 'spins' table write removed (use 'spin_results' only)
 
         // If cascade sync enabled, prepare sync session data
         if (enableSync) {

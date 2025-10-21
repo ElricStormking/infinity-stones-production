@@ -184,36 +184,9 @@ async function createTransaction(playerId, type, amount, balanceBefore, balanceA
   }
 }
 
-/**
- * Record spin result
- */
-async function recordSpinResult(spinData) {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('spins')
-      .insert({
-        spin_id: spinData.spinId || `spin_${Date.now()}`,
-        player_id: spinData.playerId || 'anonymous',
-        bet_amount: spinData.betAmount,
-        total_win: spinData.totalWin,
-        rng_seed: spinData.rngSeed,
-        initial_grid: spinData.initialGrid,
-        cascades: spinData.cascades,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error recording spin:', error);
-      return { error: error.message };
-    }
-
-    return { success: true, spin: data };
-  } catch (err) {
-    console.error('Error in recordSpinResult:', err);
-    return { error: err.message };
-  }
+// Legacy 'spins' table helper removed in favor of spin_results.
+async function recordSpinResult() {
+  return { error: 'Deprecated: use saveSpinResult() (spin_results) instead' };
 }
 
 /**
@@ -533,19 +506,8 @@ async function getSpinHistory(playerId, limit = 200, offset = 0, order = 'desc')
       return { table: 'spin_results', rows: data, total: count || data.length };
     }
 
-    // Fallback to legacy spins table
-    const fallback = await supabaseAdmin
-      .from('spins')
-      .select('*', { count: 'exact' })
-      .eq('player_id', playerId)
-      .order('created_at', { ascending: order === 'asc' })
-      .range(start, end);
-
-    if (fallback.error) {
-      return { error: fallback.error.message };
-    }
-
-    return { table: 'spins', rows: fallback.data || [], total: fallback.count || 0 };
+    // Legacy spins table no longer queried
+    return { table: 'spin_results', rows: [], total: 0 };
   } catch (err) {
     console.error('getSpinHistory exception:', err);
     return { error: err.message };
