@@ -1,9 +1,7 @@
 const Redis = require('ioredis');
 
-// Quick bypass for local playtest: completely skip Redis when requested
-const shouldSkipRedis = (process.env.SKIP_REDIS ?? '').toLowerCase() !== 'false'
-  ? true
-  : false;
+// Quick bypass for local playtest: skip Redis only when explicitly requested
+const shouldSkipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
 
 if (shouldSkipRedis) {
   const asyncNull = async () => null;
@@ -196,7 +194,8 @@ module.exports = {
   closeRedis,
   testConnection,
   getSessionStore,
-  config
+  config,
+  shouldSkipRedis: false
 };
 
 } // end else block

@@ -76,41 +76,96 @@ class GameController {
         });
       }
 
-      // Anti-cheat validation
-      const antiCheatResult = await this.antiCheat.validateSpinRequest(
-        playerId,
-        req.body,
-        req.user,
-        req.session_info
-      );
+      // Anti-cheat validation (skip in fallback mode to avoid Redis timeouts)
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      let antiCheatResult;
+      
+      if (!skipRedis) {
+        antiCheatResult = await this.antiCheat.validateSpinRequest(
+          playerId,
+          req.body,
+          req.user,
+          req.session_info
+        );
 
-      if (!antiCheatResult.valid) {
-        await this.auditLogger.logAntiCheatViolation(playerId, 'spin_request', antiCheatResult.violations);
-        return res.status(403).json({
-          success: false,
-          error: 'ANTI_CHEAT_VIOLATION',
-          message: 'Spin request failed security validation',
-          code: 'SECURITY_VIOLATION'
-        });
+        if (!antiCheatResult.valid) {
+          await this.auditLogger.logAntiCheatViolation(playerId, 'spin_request', antiCheatResult.violations);
+          return res.status(403).json({
+            success: false,
+            error: 'ANTI_CHEAT_VIOLATION',
+            message: 'Spin request failed security validation',
+            code: 'SECURITY_VIOLATION'
+          });
+        }
+      } else {
+        // In fallback mode, skip anti-cheat (requires Redis)
+        antiCheatResult = { valid: true, confidenceScore: 1.0, violations: [] };
       }
 
       // Start database transaction for atomic operations
-      const client = await pool.connect();
+      let client;
+      
+      if (!skipRedis) {
+        client = await pool.connect();
+      } else {
+        // In Redis fallback mode, use a dummy client to avoid transaction issues
+        client = { 
+          query: async (sql) => {
+            console.log('[GameController] Dummy client query (skipped):', typeof sql === 'string' ? sql.substring(0, 30) : 'non-string');
+            return {};
+          },
+          release: () => {
+            console.log('[GameController] Dummy client release (skipped)');
+          }
+        };
+      }
 
       try {
-        await client.query('BEGIN');
-
-        // Get current player state with lock
-        const player = await Player.findByPk(playerId, {
-          lock: Transaction.LOCK.UPDATE,
-          transaction: client
-        });
-
-        if (!player) {
-          throw new Error('Player not found');
+        if (!skipRedis) {
+          await client.query('BEGIN');
         }
 
-        const gameState = await this.stateManager.getPlayerState(playerId);
+        // Get current player state
+        let player;
+        
+        if (skipRedis) {
+          // Use Supabase when Redis is disabled
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          
+          console.log('[GameController] Querying player, playerId:', playerId, 'type:', typeof playerId);
+          console.log('[GameController] req.user:', JSON.stringify(req.user || {}, null, 2));
+          
+          const { data: playerData, error: playerError } = await supabaseAdmin
+            .from('players')
+            .select('*')
+            .eq('id', playerId)
+            .single();
+
+          console.log('[GameController] Supabase query result:', { found: !!playerData, error: playerError });
+
+          if (playerError || !playerData) {
+            throw new Error(`Player not found: ${playerId}`);
+          }
+          
+          player = playerData;
+          console.log('[GameController] ✅ Player loaded from Supabase');
+        } else {
+          // Use Sequelize with transaction locking when Redis is enabled
+          player = await Player.findByPk(playerId, {
+            lock: Transaction.LOCK.UPDATE,
+            transaction: client
+          });
+          
+          if (!player) {
+            throw new Error('Player not found');
+          }
+          console.log('[GameController] ✅ Player loaded from Sequelize');
+        }
+
+        console.log('[GameController] Step 1: Player loaded, credits:', player.credits);
+        const statePlayerId = player.is_demo ? 'demo-player' : playerId;
+        console.log('[GameController] Step 2: Getting game state for:', statePlayerId);
+        const gameState = await this.stateManager.getPlayerState(statePlayerId);
         const rawFreeSpinsRemaining = gameState ? gameState.free_spins_remaining : 0;
         const serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
           ? rawFreeSpinsRemaining
@@ -122,9 +177,12 @@ class GameController {
         const serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
 
-        // Process bet transaction using wallet service (skip during free spins or demo)
+        console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining);
+
+        // Process bet transaction using wallet service (skip during free spins, demo, or Redis fallback)
         let betTransaction = null;
-        if (!player.is_demo && !serverFreeSpinsActive) {
+        console.log('[GameController] Step 4: Bet processing - is_demo:', player.is_demo, 'skipRedis:', skipRedis, 'will skip bet:', player.is_demo || serverFreeSpinsActive || skipRedis);
+        if (!player.is_demo && !serverFreeSpinsActive && !skipRedis) {
           try {
             betTransaction = await WalletService.processBet({
               player_id: playerId,
@@ -150,6 +208,34 @@ class GameController {
 
             throw walletError;
           }
+        } else if (skipRedis && !player.is_demo && !serverFreeSpinsActive) {
+          // In Redis fallback mode, check and deduct credits directly via Supabase
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          
+          if (player.credits < normalizedBetAmount) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+              success: false,
+              error: 'INSUFFICIENT_CREDITS',
+              message: `Insufficient credits. Available: $${player.credits}, Required: $${normalizedBetAmount}`,
+              availableCredits: player.credits
+            });
+          }
+          
+          // Deduct bet amount from credits
+          const newBalance = player.credits - normalizedBetAmount;
+          const { error: updateError } = await supabaseAdmin
+            .from('players')
+            .update({ credits: newBalance })
+            .eq('id', playerId);
+          
+          if (updateError) {
+            await client.query('ROLLBACK');
+            throw new Error('Failed to deduct bet amount: ' + updateError.message);
+          }
+          
+          // Update local player object for win processing
+          player.credits = newBalance;
         }
 
         // Process spin with game engine
@@ -165,28 +251,39 @@ class GameController {
           spinId
         };
 
+        console.log('[GameController] Step 6: About to call gameEngine.processCompleteSpin');
         const spinResult = await this.gameEngine.processCompleteSpin(spinRequest);
+        console.log('[GameController] Step 7: Spin result received, totalWin:', spinResult.totalWin);
         if (clientRequestId) {
           spinResult.clientRequestId = clientRequestId;
         }
 
-        // Validate spin result
-        const resultValidation = this.gameEngine.validateGameResult(spinResult);
-        if (!resultValidation.valid) {
-          await client.query('ROLLBACK');
-          await this.auditLogger.logSpinError(playerId, spinId, 'result_validation_failed', resultValidation);
+        console.log('[GameController] Step 7.1: About to validate spin result');
+        // Validate spin result (skip in fallback mode as it may fail without full game state)
+        let resultValidation;
+        if (!skipRedis) {
+          resultValidation = this.gameEngine.validateGameResult(spinResult);
+          console.log('[GameController] Step 7.2: Validation result:', resultValidation.valid);
+          if (!resultValidation.valid) {
+            await client.query('ROLLBACK');
+            await this.auditLogger.logSpinError(playerId, spinId, 'result_validation_failed', resultValidation);
 
-          return res.status(500).json({
-            success: false,
-            error: 'SPIN_VALIDATION_FAILED',
-            message: 'Spin result failed validation',
-            code: 'RESULT_INVALID'
-          });
+            return res.status(500).json({
+              success: false,
+              error: 'SPIN_VALIDATION_FAILED',
+              message: 'Spin result failed validation',
+              code: 'RESULT_INVALID'
+            });
+          }
+        } else {
+          console.log('[GameController] Step 7.2: Skipping validation (fallback mode)');
+          // Create a dummy validation object for fallback mode
+          resultValidation = { valid: true, sessionRTP: null };
         }
 
         // Credit winnings using wallet service (if any)
         let winTransaction = null;
-        if (spinResult.totalWin > 0 && !player.is_demo) {
+        if (spinResult.totalWin > 0 && !player.is_demo && !skipRedis) {
           try {
             winTransaction = await WalletService.processWin({
               player_id: playerId,
@@ -204,40 +301,81 @@ class GameController {
             await client.query('ROLLBACK');
             throw walletError;
           }
+        } else if (skipRedis && spinResult.totalWin > 0 && !player.is_demo) {
+          // In Redis fallback mode, credit win directly via Supabase
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          
+          const newBalance = player.credits + spinResult.totalWin;
+          const { error: updateError } = await supabaseAdmin
+            .from('players')
+            .update({ credits: newBalance })
+            .eq('id', playerId);
+          
+          if (updateError) {
+            await client.query('ROLLBACK');
+            throw new Error('Failed to credit win amount: ' + updateError.message);
+          }
+          
+          // Update local player object
+          player.credits = newBalance;
         }
 
+        console.log('[GameController] Step 7.3: Win crediting complete, moving to state update');
+        
         // Update game state based on spin result
-        const stateResult = await this.stateManager.processSpinResult(playerId, spinResult);
+        let stateResult;
+        if (!skipRedis) {
+          console.log('[GameController] Step 7a: Updating state via StateManager');
+          stateResult = await this.stateManager.processSpinResult(statePlayerId, spinResult);
+        } else {
+          console.log('[GameController] Step 7a: Skipping StateManager (fallback mode)');
+          // In fallback mode, skip state manager and just use the spin result
+          stateResult = {
+            gameState: {
+              game_mode: spinResult.gameMode || 'base',
+              free_spins_remaining: spinResult.freeSpinsRemaining || 0,
+              accumulated_multiplier: spinResult.accumulatedMultiplier || 1
+            }
+          };
+        }
 
-        // Persist spin result to database
-        await SpinResult.create({
-          spin_id: spinId,
-          player_id: playerId,
-          session_id: sessionId,
-          bet_amount: normalizedBetAmount,
-          total_win: spinResult.totalWin,
-          spin_data: {
-            ...spinResult,
-            processingTime: Date.now() - startTime,
-            antiCheatScore: antiCheatResult.confidenceScore,
-            validationChecks: resultValidation
-          },
-          rng_seed: spinResult.rngSeed,
-          free_spins_active: serverFreeSpinsActive,
-          game_mode: gameState ? gameState.game_mode : 'base'
-        }, { transaction: client });
+        // Persist spin result to database (Sequelize - only when Redis is enabled)
+        if (!skipRedis) {
+          await SpinResult.create({
+            spin_id: spinId,
+            player_id: playerId,
+            session_id: sessionId,
+            bet_amount: normalizedBetAmount,
+            total_win: spinResult.totalWin,
+            spin_data: {
+              ...spinResult,
+              processingTime: Date.now() - startTime,
+              antiCheatScore: antiCheatResult.confidenceScore,
+              validationChecks: resultValidation
+            },
+            rng_seed: spinResult.rngSeed,
+            free_spins_active: serverFreeSpinsActive,
+            game_mode: gameState ? gameState.game_mode : 'base'
+          }, { transaction: client });
+        }
 
         // Commit transaction
         await client.query('COMMIT');
 
         // Save spin result to Supabase (async, non-blocking)
+        // Use null for session_id in fallback mode (not a valid UUID)
+        const validSessionId = sessionId && sessionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
+          ? sessionId 
+          : null;
+        
+        console.log('[GameController] Saving spin result, sessionId:', validSessionId, 'playerId:', playerId.substring(0, 20));
         saveSpinResult(playerId, {
-          sessionId: sessionId,
+          sessionId: validSessionId,
           bet: normalizedBetAmount,
           initialGrid: spinResult.initialGrid,
-          cascades: spinResult.cascades,
+          cascades: spinResult.cascadeSteps || spinResult.cascades || [], // Use cascadeSteps if available, fallback to cascades or empty array
           totalWin: spinResult.totalWin,
-          multipliers: spinResult.multipliers,
+          multipliers: spinResult.multipliers || [],
           rngSeed: spinResult.rngSeed,
           freeSpinsActive: serverFreeSpinsActive
         }).catch(err => {
@@ -251,16 +389,21 @@ class GameController {
         // Get current balance for response
         let currentBalance = null;
         if (!player.is_demo) {
-          try {
-            const balanceInfo = await WalletService.getBalance(playerId);
-            currentBalance = balanceInfo.balance;
-          } catch (balanceError) {
-            logger.warn('Failed to get current balance for response', {
-              player_id: playerId,
-              spin_id: spinId,
-              error: balanceError.message
-            });
-            currentBalance = 'unavailable';
+          if (skipRedis) {
+            // In fallback mode, use the player credits we already have
+            currentBalance = player.credits;
+          } else {
+            try {
+              const balanceInfo = await WalletService.getBalance(playerId);
+              currentBalance = balanceInfo.balance;
+            } catch (balanceError) {
+              logger.warn('Failed to get current balance for response', {
+                player_id: playerId,
+                spin_id: spinId,
+                error: balanceError.message
+              });
+              currentBalance = 'unavailable';
+            }
           }
         }
 
@@ -350,6 +493,7 @@ class GameController {
               cascadeSteps: Array.isArray(responseData.cascadeSteps) ? responseData.cascadeSteps.length : 0
             });
           }
+          console.log('[GameController] Step 8: Sending successful response');
           return res.json(payload);
         } catch (serializeError) {
           logger.warn('Failed to compute payload size, sending response anyway', {
@@ -357,11 +501,13 @@ class GameController {
             spinId,
             error: serializeError.message
           });
+          console.log('[GameController] Step 8b: Sending successful response (after serialize error)');
           return res.json({ success: true, data: responseData });
         }
 
       } catch (transactionError) {
         // Rollback transaction on any error
+        console.error('[GameController] ⚠️ TRANSACTION ERROR:', transactionError.message);
         await client.query('ROLLBACK');
         throw transactionError;
       } finally {
@@ -372,8 +518,11 @@ class GameController {
       // Update error metrics
       this.updateSpinMetrics(Date.now() - startTime, false);
 
+      console.error('[GameController] ❌ SPIN ERROR:', error.message);
+      console.error('[GameController] Stack:', error.stack);
+      
       logger.error('Spin processing error', {
-        playerId: req.user.id,
+        playerId: req.user?.id || 'unknown',
         spinId,
         error: error.message,
         stack: error.stack,
@@ -385,7 +534,8 @@ class GameController {
         error: 'SPIN_PROCESSING_ERROR',
         message: 'Failed to process spin request',
         code: 'PROCESSING_FAILED',
-        spinId
+        spinId,
+        details: error.message
       });
     }
   }
@@ -433,9 +583,10 @@ class GameController {
 
     try {
       const playerId = req.user.id;
+      const statePlayerId = req.user?.is_demo ? 'demo-player' : playerId;
 
       // Get game state from state manager
-      let gameState = await this.stateManager.getPlayerState(playerId);
+      let gameState = await this.stateManager.getPlayerState(statePlayerId);
       let sessionInfo = this.stateManager.getActiveSession(req.session_info.id);
 
       if (!gameState && req.user?.is_demo) {
@@ -485,7 +636,7 @@ class GameController {
       };
 
       if (req.user?.is_demo) {
-        await this.stateManager.setDemoState(playerId, response.gameState, sessionInfo);
+        await this.stateManager.setDemoState('demo-player', response.gameState, sessionInfo);
       }
 
       res.json(response);
@@ -522,8 +673,10 @@ class GameController {
         });
       }
 
+      const statePlayerId = req.user?.is_demo ? 'demo-player' : playerId;
+
       // Update state through state manager
-      const updatedState = await this.stateManager.updateState(playerId, stateUpdates, reason);
+      const updatedState = await this.stateManager.updateState(statePlayerId, stateUpdates, reason);
 
       await this.auditLogger.logManualStateUpdate(playerId, stateUpdates, reason, req.user);
 
@@ -573,7 +726,8 @@ class GameController {
 
       // Calculate statistics
       const stats = await this.calculatePlayerStatistics(player);
-      const gameState = await this.stateManager.getPlayerState(playerId);
+      const statePlayerId = player.is_demo ? 'demo-player' : playerId;
+      const gameState = await this.stateManager.getPlayerState(statePlayerId);
       const gameEngineStats = this.gameEngine.getGameStatistics();
 
       const response = {

@@ -263,6 +263,33 @@ class JWTAuth {
       // 1. Verify JWT signature and expiry
       const decoded = this.verifyAccessToken(token);
 
+      // Check if Redis is disabled - use JWT-only validation
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      
+      if (skipRedis) {
+        // JWT-only mode - skip Redis checks, just validate the JWT itself
+        return {
+          valid: true,
+          player_id: decoded.player_id,
+          username: decoded.username,
+          email: decoded.email,
+          is_admin: decoded.is_admin || false,
+          is_demo: decoded.is_demo || false,
+          session: {
+            player_id: decoded.player_id,
+            created_at: new Date(decoded.iat * 1000),
+            expires_at: new Date(decoded.exp * 1000),
+            player: {
+              id: decoded.player_id,
+              username: decoded.username,
+              email: decoded.email,
+              is_admin: decoded.is_admin || false,
+              is_demo: decoded.is_demo || false
+            }
+          }
+        };
+      }
+
       // 2. Generate token hash for Redis checks
       const tokenHash = this.generateTokenHash(token);
 

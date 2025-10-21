@@ -154,7 +154,11 @@
                 const registerData = await registerResponse.json();
                 
                 if (!registerResponse.ok && registerResponse.status !== 409) {
-                    throw new Error(registerData.message || 'Registration failed');
+                    // Show detailed error
+                    const errorDetails = registerData.errors ? 
+                        registerData.errors.map(e => e.msg).join(', ') : 
+                        (registerData.message || 'Registration failed');
+                    throw new Error(errorDetails);
                 }
                 
                 if (registerResponse.status === 409) {
@@ -191,10 +195,16 @@
                     throw new Error(data.message || 'Login failed');
                 }
                 
-                // Save token to localStorage
+                // Save token to localStorage (both legacy and game client keys)
                 localStorage.setItem('authToken', data.token);
+                localStorage.setItem('infinity_storm_token', data.token);
                 localStorage.setItem('playerId', data.player.id);
                 localStorage.setItem('playerUsername', data.player.username);
+                
+                // VERIFY token was saved
+                const verifyToken = localStorage.getItem('infinity_storm_token');
+                console.log('✅ Token saved to localStorage');
+                console.log('🔍 Verification check:', verifyToken ? `Token exists (${verifyToken.substring(0, 30)}...)` : '❌ TOKEN NOT FOUND IN LOCALSTORAGE!');
                 
                 resultDiv.innerHTML = `
                     <div class="success">

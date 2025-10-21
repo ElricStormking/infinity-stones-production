@@ -7,6 +7,19 @@
 
 const SessionManager = require('../auth/sessionManager');
 const { logger } = require('../utils/logger.js');
+const { ensureTestPlayer } = require('../db/supabaseClient');
+
+const DEMO_IDENTIFIER = 'demo-player';
+const DEMO_SESSION_ID = 'demo-session';
+
+const resolveBypassIdentifier = (req) => {
+  return (
+    req.headers['x-test-player'] ||
+    req.body?.playerId ||
+    req.query?.playerId ||
+    DEMO_IDENTIFIER
+  );
+};
 
 /**
  * Extract JWT token from request headers
@@ -33,18 +46,45 @@ const extractToken = (req) => {
  * Validates JWT token and attaches user data to request
  */
 const authenticate = async (req, res, next) => {
-  if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true' || req.body?.playerId === 'demo-player') {
-    req.user = {
-      id: 'demo-player',
-      username: 'demo-player',
-      is_demo: true,
-      status: 'active'
-    };
-    req.session_info = {
-      id: 'demo-session',
-      is_demo: true
-    };
-    return next();
+  if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true') {
+    const bypassIdentifier = resolveBypassIdentifier(req);
+    try {
+      const result = await ensureTestPlayer(bypassIdentifier, {
+        allowCreate: true,
+        markDemo: bypassIdentifier === DEMO_IDENTIFIER,
+        returnPassword: false
+      });
+
+      if (result?.error || !result.player) {
+        return res.status(500).json({
+          error: 'Test player unavailable',
+          code: 'TEST_PLAYER_UNAVAILABLE',
+          message: result?.error || 'Test player account is not provisioned'
+        });
+      }
+
+      const testPlayer = result.player;
+      req.user = {
+        id: testPlayer.id,
+        username: testPlayer.username || bypassIdentifier,
+        is_demo: Boolean(testPlayer.is_demo),
+        status: testPlayer.status || 'active'
+      };
+      req.session_info = {
+        id: DEMO_SESSION_ID,
+        is_demo: Boolean(testPlayer.is_demo),
+        player_id: testPlayer.id
+      };
+
+      return next();
+    } catch (testPlayerError) {
+      logger.error('Demo bypass authentication failed', { error: testPlayerError.message });
+      return res.status(500).json({
+        error: 'Test player lookup failed',
+        code: 'TEST_PLAYER_LOOKUP_FAILED',
+        message: testPlayerError.message
+      });
+    }
   }
 
   try {
@@ -52,26 +92,6 @@ const authenticate = async (req, res, next) => {
     const token = extractToken(req);
 
     if (!token) {
-      // For demo mode, create a demo user session
-      const { getDemoPlayer } = require('../db/supabaseClient');
-      try {
-        const demoPlayer = await getDemoPlayer();
-        req.user = {
-          id: demoPlayer.id,
-          username: demoPlayer.username,
-          is_demo: demoPlayer.is_demo,
-          is_admin: demoPlayer.is_admin,
-          status: demoPlayer.status
-        };
-        req.session_info = {
-          id: 'demo_session',
-          is_demo: true
-        };
-        return next();
-      } catch (demoError) {
-        logger.warn('Failed to create demo session', { error: demoError.message });
-      }
-
       return res.status(401).json({
         error: 'Authentication required',
         code: 'NO_TOKEN',
@@ -84,31 +104,58 @@ const authenticate = async (req, res, next) => {
     try {
       validation = await SessionManager.validateSession(token);
     } catch (error) {
-      // If Redis is disabled and session validation fails, try JWT-only validation
-      if (process.env.SKIP_REDIS === 'true' && error.message.includes('retries per request limit')) {
-        logger.info('Redis unavailable, using JWT-only validation', {
+      // If Redis is disabled, use JWT-only validation with Supabase
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      
+      if (skipRedis) {
+        logger.info('Redis disabled, using JWT-only validation with Supabase', {
           ip: req.ip,
-          endpoint: req.originalUrl
+          endpoint: req.originalUrl,
+          error: error.message
         });
 
         // Try direct JWT validation without Redis
         const JWTAuth = require('../auth/jwt');
+        // Use supabaseAdmin to bypass Row Level Security (RLS) policies
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        
         try {
           const decoded = JWTAuth.verifyAccessToken(token);
-          const Player = require('../models/Player');
-          const player = await Player.findByPk(decoded.player_id);
+          
+          // Query player from Supabase instead of Sequelize
+          const { data: player, error: playerError } = await supabaseAdmin
+            .from('players')
+            .select('*')
+            .eq('id', decoded.player_id)
+            .single();
 
-          if (player) {
+          if (playerError || !player) {
+            validation = { valid: false, error: 'Player not found in database' };
+          } else if (player.status !== 'active') {
+            validation = { valid: false, error: `Account is ${player.status}` };
+          } else {
             validation = {
               valid: true,
-              player: player,
-              session: { id: 'fallback_session', player_id: decoded.player_id }
+              player: {
+                id: player.id,
+                username: player.username,
+                email: player.email,
+                credits: player.credits,
+                is_demo: player.is_demo,
+                is_admin: player.is_admin,
+                status: player.status
+              },
+              session: { 
+                id: null, // Use NULL for session_id in fallback mode (Supabase expects UUID or NULL)
+                player_id: decoded.player_id,
+                created_at: decoded.iat,
+                expires_at: decoded.exp
+              }
             };
-          } else {
-            validation = { valid: false, error: 'Player not found' };
           }
         } catch (jwtError) {
-          validation = { valid: false, error: 'Invalid JWT token' };
+          logger.warn('JWT validation failed in fallback mode', { error: jwtError.message });
+          validation = { valid: false, error: 'Invalid JWT token: ' + jwtError.message };
         }
       } else {
         validation = { valid: false, error: error.message };

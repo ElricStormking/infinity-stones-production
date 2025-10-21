@@ -186,6 +186,13 @@ window.SessionService = new (class SessionService {
      * Validate current session with server
      */
     async validateSession(retries = 0) {
+        // Skip validation if using URL-based auth (fallback mode)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('token')) {
+            console.log('🔐 Skipping session validation (using URL-based auth)');
+            return true; // Always return valid in fallback mode
+        }
+        
         if (!this.sessionToken) {
             console.log('🔐 No session token to validate');
             return false;
@@ -310,6 +317,13 @@ window.SessionService = new (class SessionService {
      * Start automatic session refresh
      */
     startAutoRefresh() {
+        // Skip auto-refresh if using URL-based auth (fallback mode)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('token')) {
+            console.log('🔐 Skipping auto-refresh (using URL-based auth)');
+            return;
+        }
+        
         if (this.refreshTimer) {
             clearTimeout(this.refreshTimer);
         }

@@ -86,8 +86,20 @@ router.use((req, res, next) => {
  */
 // Reuse full game engine for demo spins so client sees real cascades
 const GameEngine = require('../game/gameEngine');
-const { saveSpinResult } = require('../db/supabaseClient');
+const { saveSpinResult, ensureTestPlayer } = require('../db/supabaseClient');
 const demoEngine = new GameEngine();
+
+const DEMO_IDENTIFIER = 'demo-player';
+const DEMO_SESSION_ID = 'demo-session';
+
+const resolveBypassIdentifier = (req) => {
+  return (
+    req.headers['x-test-player'] ||
+    req.body?.playerId ||
+    req.query?.playerId ||
+    DEMO_IDENTIFIER
+  );
+};
 
 router.post('/demo-spin',
   [
@@ -122,13 +134,45 @@ router.post('/demo-spin',
   ],
   validateAndProceed,
   async (req, res) => {
-    const { betAmount = 1.0, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1, rngSeed } = req.body;
+    const {
+      betAmount = 1.0,
+      quickSpinMode = false,
+      freeSpinsActive = false,
+      accumulatedMultiplier = 1,
+      rngSeed,
+      playerId: requestedPlayerId,
+      sessionId: requestedSessionId
+    } = req.body;
     try {
+      const playerIdentifier = typeof requestedPlayerId === 'string' && requestedPlayerId.trim().length > 0
+        ? requestedPlayerId.trim()
+        : DEMO_IDENTIFIER;
+      const sessionIdentifier = typeof requestedSessionId === 'string' && requestedSessionId.trim().length > 0
+        ? requestedSessionId.trim()
+        : DEMO_SESSION_ID;
+
+      const testPlayerResult = await ensureTestPlayer(playerIdentifier, {
+        allowCreate: true,
+        markDemo: playerIdentifier === DEMO_IDENTIFIER,
+        initialCredits: playerIdentifier === DEMO_IDENTIFIER ? 5000 : 0,
+        returnPassword: false
+      });
+
+      if (testPlayerResult?.error || !testPlayerResult.player) {
+        return res.status(500).json({
+          success: false,
+          error: 'TEST_PLAYER_UNAVAILABLE',
+          message: testPlayerResult?.error || 'Test player account is not provisioned'
+        });
+      }
+
+      const playerRecord = testPlayerResult.player;
+
       // Use real engine to generate deterministic cascades without auth
       const spin = await demoEngine.processCompleteSpin({
         betAmount: parseFloat(betAmount),
-        playerId: 'demo-player',
-        sessionId: 'demo-session',
+        playerId: playerRecord.id,
+        sessionId: sessionIdentifier,
         freeSpinsActive: Boolean(freeSpinsActive),
         accumulatedMultiplier: parseFloat(accumulatedMultiplier),
         quickSpinMode: Boolean(quickSpinMode),
@@ -136,8 +180,8 @@ router.post('/demo-spin',
       });
 
       // Save demo spin result to Supabase (async, non-blocking)
-      saveSpinResult('demo-player', {
-        sessionId: 'demo-session',
+      saveSpinResult(playerRecord.id, {
+        sessionId: sessionIdentifier,
         bet: parseFloat(betAmount),
         initialGrid: spin.initialGrid,
         cascades: spin.cascadeSteps,
@@ -189,15 +233,51 @@ router.post('/demo-spin',
   }
 );
 
-const demoAuthBypass = (req, res, next) => {
-  if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true' || req.body?.playerId === 'demo-player') {
-    req.demoBypass = true;
+const demoAuthBypass = async (req, res, next) => {
+  try {
+    if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true') {
+      req.demoBypass = true;
+    }
+
+    if (!req.demoBypass) {
+      return next();
+    }
+
+    const bypassIdentifier = resolveBypassIdentifier(req);
+    const result = await ensureTestPlayer(bypassIdentifier, {
+      allowCreate: true,
+      markDemo: bypassIdentifier === DEMO_IDENTIFIER,
+      initialCredits: bypassIdentifier === DEMO_IDENTIFIER ? 5000 : 0,
+      returnPassword: false
+    });
+
+    if (result?.error || !result.player) {
+      return res.status(500).json({
+        success: false,
+        error: 'TEST_PLAYER_UNAVAILABLE',
+        message: result?.error || 'Test player account is not provisioned'
+      });
+    }
+
+    const player = result.player;
+
+    req.user = {
+      id: player.id,
+      username: player.username || bypassIdentifier,
+      is_demo: Boolean(player.is_demo),
+      status: player.status || 'active'
+    };
+    req.session_info = { id: DEMO_SESSION_ID, is_demo: Boolean(player.is_demo), player_id: player.id };
+
+    return next();
+  } catch (error) {
+    console.error('Demo auth bypass failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'TEST_PLAYER_LOOKUP_FAILED',
+      message: error.message
+    });
   }
-  if (req.demoBypass) {
-    req.user = { id: 'demo-player', username: 'demo-player', is_demo: true, status: 'active' };
-    req.session_info = { id: 'demo-session', is_demo: true };
-  }
-  next();
 };
 
 /**

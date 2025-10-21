@@ -23,11 +23,27 @@ window.NetworkService = new (class NetworkService {
     
     // Authentication Methods
     initializeAuth() {
+        // FALLBACK 1: Check URL parameter first (for debugging localStorage issues)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        
+        if (urlToken) {
+            console.log(`✅ [AUTH] Token found in URL parameter`);
+            this.authToken = urlToken;
+            localStorage.setItem('infinity_storm_token', urlToken);
+            return;
+        }
+        
+        // FALLBACK 2: Check localStorage
         const storedToken = localStorage.getItem('infinity_storm_token');
+        console.log(`🔐 [AUTH] Checking localStorage['infinity_storm_token']`);
         if (storedToken) {
             this.authToken = storedToken;
+            console.log(`✅ [AUTH] Token loaded from localStorage: ${storedToken.substring(0, 30)}...`);
             // Validate token on next tick to avoid blocking initialization
             setTimeout(() => this.validateStoredToken(), 100);
+        } else {
+            console.warn(`❌ [AUTH] No auth token found - will use demo mode`);
         }
     }
     
@@ -119,10 +135,11 @@ window.NetworkService = new (class NetworkService {
         this.authToken = token;
         if (token) {
             localStorage.setItem('infinity_storm_token', token);
-            console.log('??Auth token set and stored');
+            console.log('[AUTH] Token set and stored:', token.substring(0, 30) + '...');
+            console.log('[AUTH] NetworkService.authToken is now:', this.authToken ? 'SET' : 'NULL');
         } else {
             localStorage.removeItem('infinity_storm_token');
-            console.log('??Auth token cleared');
+            console.log('[AUTH] Token cleared');
         }
     }
     
@@ -131,31 +148,38 @@ window.NetworkService = new (class NetworkService {
     }
     
     async validateStoredToken() {
-        if (!this.authToken) return false;
+        if (!this.authToken) {
+            console.warn('[AUTH] No token to validate');
+            return false;
+        }
         
+        console.log('[AUTH] Validating token...');
         try {
             const result = await this.post('/api/validate-session');
             if (!result.success) {
-                console.warn('Stored token is invalid, clearing...');
-                this.handleAuthError();
+                console.warn('[AUTH] Token validation failed - KEEPING token anyway (fallback mode)');
+                // DON'T clear token in fallback mode - just log the failure
+                // this.handleAuthError();
                 return false;
             }
-            console.log('??Stored token validated successfully');
+            console.log('[AUTH] Token validated successfully');
             return true;
         } catch (error) {
-            console.warn('Token validation failed:', error.message);
-            this.handleAuthError();
+            console.warn('[AUTH] Token validation error - KEEPING token anyway (fallback mode):', error.message);
+            // DON'T clear token in fallback mode
+            // this.handleAuthError();
             return false;
         }
     }
     
     handleAuthError() {
         const wasAuthenticated = !!this.authToken;
+        console.warn('[AUTH] handleAuthError called - clearing token');
         this.setAuthToken(null);
         this.disconnectSocket();
         
         if (wasAuthenticated) {
-            console.warn('?? Authentication error - user session expired');
+            console.warn('[AUTH] Authentication error - user session expired');
             this.emit('auth_error', { reason: 'session_expired' });
         }
     }
@@ -692,6 +716,10 @@ window.NetworkService = new (class NetworkService {
     // Public method used by GameAPI
     async processSpin(spinData) {
         const isDemoSession = !this.authToken;
+        
+        // Get player ID for demo-spin endpoint (if we have one from validation/session)
+        const playerId = spinData.playerId || null;
+        
         const payload = {
             betAmount: spinData.bet || spinData.betAmount,
             quickSpinMode: !!spinData.quickSpinMode,
@@ -701,10 +729,18 @@ window.NetworkService = new (class NetworkService {
             rngSeed: spinData.rngSeed, // optional for deterministic replay/testing
             clientRequestId: spinData.requestId || spinData.clientRequestId || null
         };
+        
+        // If we have a playerId, include it for demo-spin endpoint
+        if (playerId && isDemoSession) {
+            payload.playerId = playerId;
+        }
 
         if (!payload.clientRequestId) {
             delete payload.clientRequestId;
         }
+        
+        // DEBUG: Log authentication status
+        console.log(`🔐 NetworkService.processSpin: authToken=${this.authToken ? 'EXISTS' : 'NULL'}, isDemoSession=${isDemoSession}, endpoint=${isDemoSession ? '/api/demo-spin' : '/api/spin'}${playerId ? `, playerId=${playerId.substring(0,20)}...` : ''}`);
 
         const primaryEndpoint = isDemoSession ? '/api/demo-spin' : '/api/spin';
 

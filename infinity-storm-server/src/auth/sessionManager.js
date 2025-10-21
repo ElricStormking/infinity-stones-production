@@ -139,7 +139,70 @@ class SessionManager {
         };
       }
 
-      // 2. Verify against database session (double-check)
+      // Check if Redis is disabled - use JWT-only validation
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      
+      if (skipRedis) {
+        // JWT-only validation mode - skip database session checks
+        // Use supabaseAdmin to bypass Row Level Security (RLS) policies
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        
+        // Get player data from Supabase
+        console.log('[SessionManager] Querying player from Supabase, player_id:', validation.player_id);
+        const { data: player, error: playerError } = await supabaseAdmin
+          .from('players')
+          .select('*')
+          .eq('id', validation.player_id)
+          .single();
+
+        if (playerError) {
+          console.error('[SessionManager] Supabase query error:', playerError);
+          return {
+            valid: false,
+            error: 'Player query failed: ' + playerError.message
+          };
+        }
+
+        if (!player) {
+          console.error('[SessionManager] Player not found for ID:', validation.player_id);
+          return {
+            valid: false,
+            error: 'Player not found in database'
+          };
+        }
+
+        console.log('[SessionManager] Player found:', player.username, player.id);
+
+        if (player.status !== 'active') {
+          return {
+            valid: false,
+            error: `Account is ${player.status}`
+          };
+        }
+
+        // Return validation with player data
+        return {
+          valid: true,
+          player: {
+            id: player.id,
+            username: player.username,
+            email: player.email,
+            credits: player.credits,
+            is_demo: player.is_demo,
+            is_admin: player.is_admin,
+            status: player.status
+          },
+          session: {
+            id: 'fallback_session_' + player.id.substring(0, 8),
+            player_id: player.id,
+            last_activity: new Date(),
+            expires_at: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+            needs_refresh: false
+          }
+        };
+      }
+
+      // 2. Verify against database session (double-check) - only when Redis is enabled
       const tokenHash = this.jwtAuth.generateTokenHash(accessToken);
       const dbSession = await Session.findByToken(accessToken);
 

@@ -1,0 +1,177 @@
+# Artillery Load Testing Configuration for Infinity Storm
+# Tests concurrent user capacity, performance under load, and identifies bottlenecks
+
+config:
+  target: "http://localhost:8080"
+  phases:
+    # Phase 1: Warm-up (30 seconds)
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up phase"
+    
+    # Phase 2: Ramp-up (2 minutes)
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: "Gradual ramp-up to 50 users/sec"
+    
+    # Phase 3: Sustained load (5 minutes)
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained 50 users/sec"
+    
+    # Phase 4: Peak load (2 minutes)
+    - duration: 120
+      arrivalRate: 100
+      name: "Peak load 100 users/sec"
+    
+    # Phase 5: Spike test (1 minute)
+    - duration: 60
+      arrivalRate: 200
+      name: "Spike test 200 users/sec"
+    
+    # Phase 6: Cool-down (1 minute)
+    - duration: 60
+      arrivalRate: 10
+      name: "Cool-down phase"
+  
+  # Performance thresholds
+  ensure:
+    maxErrorRate: 1           # Max 1% error rate
+    p95: 500                  # 95th percentile < 500ms
+    p99: 1000                 # 99th percentile < 1000ms
+  
+  # HTTP configuration
+  http:
+    timeout: 10               # 10 second timeout
+    pool: 50                  # Connection pool size
+  
+  # Plugins
+  plugins:
+    expect: {}                # Response validation
+    metrics-by-endpoint: {}   # Per-endpoint metrics
+  
+  # Variables
+  variables:
+    betAmounts:
+      - 0.10
+      - 0.50
+      - 1.00
+      - 5.00
+      - 10.00
+
+# Test Scenarios
+scenarios:
+  # Scenario 1: Demo Spin (No Authentication)
+  - name: "Demo Spin Load Test"
+    weight: 60                # 60% of traffic
+    flow:
+      - post:
+          url: "/api/demo-spin"
+          json:
+            betAmount: "{{ betAmounts }}"
+            quickSpinMode: "{{ $randomBoolean() }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: data.spinId
+          capture:
+            - json: "$.data.spinId"
+              as: "spinId"
+            - json: "$.data.totalWin"
+              as: "totalWin"
+      
+      - think: 3               # 3 second think time between spins
+  
+  # Scenario 2: Health Check
+  - name: "Health Check Monitoring"
+    weight: 10                # 10% of traffic
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: status
+            - equals:
+                - "{{ status }}"
+                - "healthy"
+      
+      - think: 10             # Check every 10 seconds
+  
+  # Scenario 3: Game State Retrieval
+  - name: "Game State Load Test"
+    weight: 15                # 15% of traffic
+    flow:
+      - get:
+          url: "/api/game-state"
+          headers:
+            x-demo-bypass: "true"
+          expect:
+            - statusCode: 200
+            - contentType: json
+      
+      - think: 5
+  
+  # Scenario 4: Multiple Spins (Burst)
+  - name: "Burst Spin Test"
+    weight: 10                # 10% of traffic
+    flow:
+      - loop:
+          - post:
+              url: "/api/demo-spin"
+              json:
+                betAmount: 1.0
+                quickSpinMode: true
+              expect:
+                - statusCode: 200
+          count: 5            # 5 rapid spins
+      
+      - think: 10             # Longer pause after burst
+  
+  # Scenario 5: Mixed Workload
+  - name: "Mixed Player Behavior"
+    weight: 5                 # 5% of traffic
+    flow:
+      # Get game state
+      - get:
+          url: "/api/game-state"
+          headers:
+            x-demo-bypass: "true"
+      
+      - think: 2
+      
+      # Do a spin
+      - post:
+          url: "/api/demo-spin"
+          json:
+            betAmount: "{{ betAmounts }}"
+            quickSpinMode: false
+          expect:
+            - statusCode: 200
+      
+      - think: 5
+      
+      # Check health
+      - get:
+          url: "/health"
+      
+      - think: 3
+      
+      # Another spin
+      - post:
+          url: "/api/demo-spin"
+          json:
+            betAmount: 1.0
+            quickSpinMode: true
+
+# Custom expectations and validations
+expect:
+  - statusCode: 200
+  - contentType: json
+  - hasHeader: "x-payload-bytes"
+
+
+
+
+

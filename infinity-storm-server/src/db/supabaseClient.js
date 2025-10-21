@@ -1,6 +1,31 @@
 // Supabase client configuration
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+const bcrypt = require('bcrypt');
+const dotenv = require('dotenv');
+
+// Load environment variables from multiple potential locations so local dev works regardless of cwd
+const envCandidates = [
+  path.resolve(__dirname, '..', '.env'),
+  path.resolve(__dirname, '..', '..', '.env'),
+  path.resolve(process.cwd(), '.env')
+];
+
+envCandidates.forEach((candidate) => {
+  if (fs.existsSync(candidate)) {
+    dotenv.config({ path: candidate, override: false });
+  }
+});
+
+// Utility to normalize usernames for comparisons
+const normalizeUsername = (value) => {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+};
 
 // Initialize Supabase client with environment variables
 const supabaseUrl = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
@@ -22,6 +47,18 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey || '', {
   }
 });
 
+const DEFAULT_TEST_PASSWORD = process.env.TEST_PLAYER_DEFAULT_PASSWORD || 'PortalTest!234';
+const DEFAULT_TEST_EMAIL_DOMAIN = process.env.TEST_PLAYER_DEFAULT_EMAIL_DOMAIN || 'portal.test';
+const DEMO_IDENTIFIER = 'demo-player';
+const DEMO_SESSION_ID = 'demo-session';
+
+const normalizeInitialCredits = (value, fallback = 0) => {
+  const parsed = parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parseFloat(parsed.toFixed(2));
+};
 // Create admin client (for server-side operations with full privileges)
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || '', {
   auth: {
@@ -40,21 +77,26 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || '', {
  */
 async function getPlayer(identifier) {
   try {
+    console.log('[getPlayer] Looking up identifier:', identifier, 'type:', typeof identifier);
     let query = supabaseAdmin.from('players').select('*');
 
     // Check if identifier is UUID or username
     if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      console.log('[getPlayer] Querying by ID');
       query = query.eq('id', identifier);
     } else {
+      console.log('[getPlayer] Querying by username');
       query = query.eq('username', identifier);
     }
 
     const { data, error } = await query.single();
 
     if (error) {
-      console.error('Error fetching player:', error);
+      console.error('[getPlayer] Error fetching player:', error, 'identifier:', identifier);
       return null;
     }
+    
+    console.log('[getPlayer] Found player:', data ? data.username : 'NULL');
 
     return data;
   } catch (err) {
@@ -269,23 +311,35 @@ async function saveSpinResult(playerId, spinData) {
     // Handle demo player - convert string 'demo-player' to actual UUID
     let actualPlayerId = playerId;
     let actualSessionId = spinData.sessionId;
-    
-    if (playerId === 'demo-player' || playerId === 'demo_player') {
-      const demoPlayer = await getDemoPlayer();
-      if (!demoPlayer) {
-        console.error('Demo player not found in Supabase');
-        return { error: 'Demo player not found' };
+
+    const playerIdentifier = typeof playerId === 'string' ? playerId.trim() : '';
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = uuidRegex.test(playerIdentifier);
+
+    if (playerIdentifier && !isUuid) {
+      const ensureResult = await ensureTestPlayer(playerIdentifier, {
+        allowCreate: true,
+        markDemo: normalizeUsername(playerIdentifier) === normalizeUsername(DEMO_IDENTIFIER),
+        initialCredits: normalizeInitialCredits(spinData.initialCredits || 0),
+        returnPassword: false
+      });
+
+      if (ensureResult?.error) {
+        return { error: ensureResult.error };
       }
-      actualPlayerId = demoPlayer.id;
-      console.log(`Converted demo player ID from '${playerId}' to UUID: ${actualPlayerId}`);
+
+      actualPlayerId = ensureResult.player.id;
     }
-    
+
     // Handle demo session - set to null since we don't have a real session UUID
-    if (actualSessionId === 'demo-session') {
+    if (actualSessionId === DEMO_SESSION_ID) {
       actualSessionId = null;
     }
     
     // Save to spin_results table
+    // Ensure cascades is always an array (not null/undefined) to satisfy NOT NULL constraint
+    const cascadesArray = Array.isArray(spinData.cascades) ? spinData.cascades : [];
+    
     const { data: spinResult, error: spinError } = await supabaseAdmin
       .from('spin_results')
       .insert({
@@ -293,7 +347,7 @@ async function saveSpinResult(playerId, spinData) {
         session_id: actualSessionId,
         bet_amount: spinData.bet,
         initial_grid: spinData.initialGrid,
-        cascades: spinData.cascades,
+        cascades: cascadesArray,
         total_win: spinData.totalWin,
         multipliers_applied: spinData.multipliers || [],
         rng_seed: spinData.rngSeed || 'demo_seed_' + Date.now(),
@@ -320,53 +374,118 @@ async function saveSpinResult(playerId, spinData) {
  * Get demo player or create one
  */
 async function getDemoPlayer() {
-  try {
-    // Try to get existing demo player
-    const { data: existing, error: fetchError } = await supabaseAdmin
-      .from('players')
-      .select('*')
-      .eq('username', 'demo_player')
-      .single();
+  const result = await ensureTestPlayer(DEMO_IDENTIFIER, {
+    allowCreate: true,
+    markDemo: true,
+    initialCredits: 5000,
+    returnPassword: false
+  });
+  return result.player || null;
+}
 
-    if (existing && !fetchError) {
-      return existing;
+/**
+ * Ensure a test player exists (create if missing)
+ */
+async function ensureTestPlayer(identifier, options = {}) {
+  try {
+    const trimmed = (identifier || '').trim();
+    const {
+      allowCreate = true,
+      markDemo = false,
+      initialCredits = 0,
+      returnPassword = false,
+      predefinedId = null
+    } = options;
+
+    if (!trimmed) {
+      return { error: 'Player identifier is required' };
     }
 
-    // Create new demo player if doesn't exist
-    const { data: newPlayer, error: createError } = await supabaseAdmin
+    // Build a set of identifiers we consider equivalent to the canonical test player
+    const candidateIdentifiers = new Set();
+    candidateIdentifiers.add(trimmed);
+    candidateIdentifiers.add(normalizeUsername(trimmed));
+
+    if (markDemo) {
+      candidateIdentifiers.add(DEMO_IDENTIFIER);
+      candidateIdentifiers.add(normalizeUsername(DEMO_IDENTIFIER));
+    }
+
+    // Attempt to fetch an existing player using any candidate identifier
+    for (const candidate of candidateIdentifiers) {
+      if (!candidate) {
+        continue;
+      }
+      const player = await getPlayer(candidate);
+      if (player) {
+        return {
+          player,
+          created: false,
+          password: returnPassword ? DEFAULT_TEST_PASSWORD : undefined
+        };
+      }
+    }
+
+    if (!allowCreate) {
+      return { error: `Player '${trimmed}' not found and automatic creation disabled` };
+    }
+
+    const normalizedUsername = normalizeUsername(trimmed);
+    const username = normalizedUsername || `test_player_${Date.now()}`;
+    const now = new Date().toISOString();
+    const email = `${username}@${DEFAULT_TEST_EMAIL_DOMAIN}`;
+    const passwordHash = await bcrypt.hash(DEFAULT_TEST_PASSWORD, 10);
+    const insertPayload = {
+      username,
+      email,
+      password_hash: passwordHash,
+      credits: normalizeInitialCredits(initialCredits),
+      is_demo: Boolean(markDemo),
+      status: 'active',
+      created_at: now,
+      updated_at: now
+    };
+
+    if (predefinedId) {
+      insertPayload.id = predefinedId;
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('players')
-      .insert({
-        username: 'demo_player',
-        email: 'demo@game.local',
-        password_hash: 'demo_hash',
-        credits: 5000.00,
-        is_demo: true,
-        status: 'active'
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
-    if (createError) {
-      console.error('Error creating demo player:', createError);
-      // Return a default demo player object
-      return {
-        id: 'demo_' + Date.now(),
-        username: 'demo_player',
-        credits: 5000.00,
-        is_demo: true
-      };
+    if (error) {
+      console.error('Error creating test player:', error);
+
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        for (const retryCandidate of candidateIdentifiers) {
+          if (!retryCandidate) {
+            continue;
+          }
+          const retryPlayer = await getPlayer(retryCandidate);
+          if (retryPlayer) {
+            return {
+              player: retryPlayer,
+              created: false,
+              password: returnPassword ? DEFAULT_TEST_PASSWORD : undefined
+            };
+          }
+        }
+      }
+
+      return { error: error.message };
     }
 
-    return newPlayer;
-  } catch (err) {
-    console.error('Error in getDemoPlayer:', err);
-    // Return a default demo player object
     return {
-      id: 'demo_' + Date.now(),
-      username: 'demo_player',
-      credits: 5000.00,
-      is_demo: true
+      player: data,
+      created: true,
+      password: returnPassword ? DEFAULT_TEST_PASSWORD : undefined
     };
+  } catch (err) {
+    console.error('ensureTestPlayer failed:', err);
+    return { error: err.message };
   }
 }
 
@@ -381,7 +500,8 @@ module.exports = {
   processBet,
   processWin,
   saveSpinResult,
-  getDemoPlayer
+  getDemoPlayer,
+  ensureTestPlayer
 };
 
 /**

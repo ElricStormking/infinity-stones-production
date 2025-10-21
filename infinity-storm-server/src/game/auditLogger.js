@@ -251,10 +251,16 @@ class AuditLogger {
      * Log anti-cheat violation
      * @param {string} playerId - Player ID
      * @param {string} violationType - Type of violation
-     * @param {Array} violations - List of violations
+     * @param {Array|Object} violations - List of violations or result object
      * @param {Object} context - Additional context
      */
   async logAntiCheatViolation(playerId, violationType, violations, context = {}) {
+    // Handle when violations is an anti-cheat result object
+    const violationsList = Array.isArray(violations) ? violations : 
+      (violations && violations.violations ? violations.violations : []);
+    const riskScore = violations && violations.confidenceScore ? violations.confidenceScore : 
+      (context.riskScore || 0);
+    
     const auditEntry = {
       id: uuidv4(),
       timestamp: new Date().toISOString(),
@@ -264,9 +270,9 @@ class AuditLogger {
       player_id: playerId,
       data: {
         violation_type: violationType,
-        violations,
+        violations: violationsList,
         context,
-        risk_score: context.riskScore || 0
+        risk_score: riskScore
       },
       source: 'anti_cheat',
       compliance_required: true,
@@ -276,6 +282,93 @@ class AuditLogger {
 
     await this.writeSecurityLog(auditEntry);
     this.metrics.errorsLogged++;
+  }
+
+  /**
+     * Log spin error
+     * @param {string} playerId - Player ID
+     * @param {string} spinId - Spin ID
+     * @param {string} errorType - Error type
+     * @param {Object} errorData - Error data
+     */
+  async logSpinError(playerId, spinId, errorType, errorData = {}) {
+    const auditEntry = {
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      category: 'gameplay',
+      event_type: 'spin_error',
+      player_id: playerId,
+      data: {
+        spin_id: spinId,
+        error_type: errorType,
+        error_data: errorData
+      },
+      source: 'game_controller',
+      compliance_required: true
+    };
+
+    await this.writeErrorLog(auditEntry);
+    this.metrics.errorsLogged++;
+  }
+
+  /**
+     * Log spin completed
+     * @param {string} playerId - Player ID
+     * @param {string} spinId - Spin ID
+     * @param {Object} spinResult - Spin result
+     * @param {Object} metadata - Additional metadata
+     */
+  async logSpinCompleted(playerId, spinId, spinResult, metadata = {}) {
+    const auditEntry = {
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      level: 'AUDIT',
+      category: 'gameplay',
+      event_type: 'spin_completed',
+      player_id: playerId,
+      data: {
+        spin_id: spinId,
+        spin_result: {
+          total_win: spinResult.totalWin,
+          base_win: spinResult.baseWin,
+          game_mode: spinResult.gameMode
+        },
+        metadata
+      },
+      source: 'game_controller',
+      compliance_required: true
+    };
+
+    await this.writeAuditLog(auditEntry);
+  }
+
+  /**
+     * Log manual state update
+     * @param {string} playerId - Player ID
+     * @param {Object} stateUpdates - State updates
+     * @param {string} reason - Reason for update
+     * @param {Object} user - User performing update
+     */
+  async logManualStateUpdate(playerId, stateUpdates, reason, user = {}) {
+    const auditEntry = {
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      level: 'AUDIT',
+      category: 'admin',
+      event_type: 'manual_state_update',
+      player_id: playerId,
+      data: {
+        state_updates: stateUpdates,
+        reason,
+        performed_by: user.id || 'system'
+      },
+      source: 'admin_controller',
+      compliance_required: true,
+      alert_required: true
+    };
+
+    await this.writeAuditLog(auditEntry);
   }
 
   /**

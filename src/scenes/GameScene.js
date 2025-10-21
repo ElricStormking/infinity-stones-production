@@ -432,10 +432,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // Task 6.2: Initialize server integration system
     initializeServerIntegration() {
         // Load auth token from localStorage if available
-        const storedToken = localStorage.getItem('authToken');
+        // Use 'infinity_storm_token' to match NetworkService storage key
+        const storedToken = localStorage.getItem('infinity_storm_token');
         if (storedToken && window.NetworkService) {
-            console.log('🔐 Loading auth token from localStorage');
+            console.log('🔐 [GAMESCENE] Loading auth token from localStorage:', storedToken.substring(0, 30) + '...');
             window.NetworkService.setAuthToken(storedToken);
+            
+            // VERIFY it was set
+            setTimeout(() => {
+                const isSet = window.NetworkService.authToken ? 'SET' : 'NULL';
+                console.log(`🔐 [GAMESCENE] Verification check - NetworkService.authToken is: ${isSet}`);
+                if (!window.NetworkService.authToken) {
+                    console.error('❌ [GAMESCENE] TOKEN WAS CLEARED! Re-setting it...');
+                    window.NetworkService.authToken = storedToken;
+                    console.log('✅ [GAMESCENE] Token forcefully re-set');
+                }
+            }, 200);
+        } else if (!storedToken) {
+            console.warn('❌ [GAMESCENE] No token found in localStorage');
         }
         
         // Check feature flags for server sync

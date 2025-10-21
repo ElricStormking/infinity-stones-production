@@ -260,6 +260,15 @@ WHERE is_active = TRUE;
 -- Database triggers for automated data management
 -- =====================================================
 
+-- Ensure function signatures are clear of previous versions
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS deactivate_expired_sessions() CASCADE;
+DROP FUNCTION IF EXISTS process_bet_transaction(UUID, DECIMAL, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS process_win_transaction(UUID, DECIMAL, UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS get_player_balance(UUID) CASCADE;
+DROP FUNCTION IF EXISTS cleanup_expired_sessions() CASCADE;
+DROP FUNCTION IF EXISTS health_check() CASCADE;
+
 -- Update timestamps trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

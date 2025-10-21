@@ -1,39 +1,62 @@
+#!/usr/bin/env node
+/**
+ * Simple migration runner
+ * Usage:
+ *   node src/db/migrate.js up   # apply latest schema
+ *   node src/db/migrate.js down # drop public schema (dev only)
+ */
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
-const { pool } = require('./pool');
+const { Client } = require('pg');
 
-async function ensureCryptoExt() {
+function resolveDsn() {
+  const raw = process.env.DATABASE_URL || '';
+  const trimmed = raw.trim().replace(/^"|"$/g, '');
+  if (trimmed) return trimmed;
+  return 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+}
+
+async function runSql(sql) {
+  const client = new Client({ connectionString: resolveDsn() });
+  await client.connect();
   try {
-    await pool.query('create extension if not exists pgcrypto');
-    console.log('pgcrypto extension ensured');
-  } catch (err) {
-    console.warn('Could not create pgcrypto extension:', err.message);
-    console.warn('Continuing without pgcrypto - some features may be limited');
+    await client.query('BEGIN');
+    await client.query(sql);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    await client.end();
   }
 }
 
-async function run() {
-  // Sanity: ensure we actually have a DB to talk to
-  if (!process.env.DATABASE_URL) {
-    console.warn('[migrate] WARNING: DATABASE_URL is not set. Using pool default (likely localhost:54321).');
-  }
-  await ensureCryptoExt();
+async function main() {
   const dir = path.join(__dirname, 'migrations');
-  const files = fs.readdirSync(dir).filter(f => f.match(/^\d+_.*\.sql$/)).sort();
-  for (const f of files) {
-    const sql = fs.readFileSync(path.join(dir, f), 'utf8');
-    console.log('Applying migration', f);
-    await pool.query(sql);
+  const mode = (process.argv[2] || 'up').toLowerCase();
+
+  if (mode === 'down') {
+    console.warn('[migrate] dropping public schema (DEV ONLY)');
+    await runSql('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;');
+    console.log('[migrate] reset public schema');
+    return;
   }
-  console.log('Migrations complete');
-  await pool.end();
+
+  const files = fs.readdirSync(dir)
+    .filter(f => f.endsWith('.sql'))
+    .sort();
+  console.log('[migrate] applying', files.length, 'files');
+  for (const f of files) {
+    const p = path.join(dir, f);
+    const sql = fs.readFileSync(p, 'utf8');
+    console.log('[migrate] →', f);
+    await runSql(sql);
+  }
+  console.log('[migrate] complete');
 }
 
-run().catch(err => {
-  console.error('Migration failed:', err);
+main().catch(err => {
+  console.error('[migrate] failed:', err.message);
   process.exit(1);
 });
-
-
-

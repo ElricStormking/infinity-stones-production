@@ -1,8 +1,9 @@
-const express = require('express');
+﻿const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -25,12 +26,30 @@ const GameSession = require('./src/models/GameSession');
 // Authentication system
 const authRoutes = require('./src/routes/auth');
 const apiRoutes = require('./src/routes/api');
+const portalRoutes = require('./src/routes/portal');
 const walletRoutes = require('./src/routes/wallet');
 const adminRoutes = require('./src/routes/admin');
 const { authenticate, optionalAuth, authErrorHandler } = require('./src/middleware/auth');
-// const { initializeRedis, testConnection } = require('./src/config/redis');
+const { initializeRedis, testConnection, shouldSkipRedis } = require('./src/config/redis');
 const { logger } = require('./src/utils/logger');
 const metricsService = require('./src/services/metricsService');
+
+// Security middleware
+const {
+  enforceHttps,
+  securityHeaders,
+  corsOptions,
+  ALLOWED_ORIGINS,
+  globalRateLimiter,
+  apiRateLimiter,
+  spinRateLimiter,
+  demoSpinRateLimiter,
+  authRateLimiter,
+  validateRequestSize,
+  checkIpBlacklist,
+  addSecurityHeaders,
+  securityAuditLogger
+} = require('./src/middleware/security');
 
 // Load environment variables
 dotenv.config();
@@ -48,42 +67,33 @@ const cascadeValidator = new CascadeValidator();
 const app = express();
 const server = http.createServer(app);
 
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000'
-];
+// ========================================
+// SECURITY MIDDLEWARE (Applied first)
+// ========================================
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+// 1. HTTPS Enforcement (production only)
+app.use(enforceHttps);
 
-if (process.env.ENABLE_DEV_CORS === 'true') {
-  app.use(cors());
-}
+// 2. Security Headers (Helmet.js)
+app.use(securityHeaders);
 
-// Global OPTIONS handler to satisfy preflight in dev
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.origin;
-    if (!origin || allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin || '*');
-    }
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    return res.sendStatus(204);
-  }
-  next();
-});
+// 3. IP Blacklist Check
+app.use(checkIpBlacklist);
+
+// 4. Global Rate Limiting
+app.use(globalRateLimiter);
+
+// 5. Additional Security Headers
+app.use(addSecurityHeaders);
+
+// 6. Security Audit Logging
+app.use(securityAuditLogger);
+
+// 7. CORS Configuration with Whitelist
+app.use(cors(corsOptions));
 
 // Explicit preflight handler for wallet balance in dev/playtest
-app.options('/api/wallet/balance', cors({
-  origin: allowedOrigins,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin']
-}));
+app.options('/api/wallet/balance', cors(corsOptions));
 
 // Disable caching in development so updated assets appear immediately
 app.use((req, res, next) => {
@@ -94,7 +104,7 @@ app.use((req, res, next) => {
 // Socket.io setup
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -108,31 +118,41 @@ app.use(compression());
 app.use(morgan('combined'));
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Request body parsing with size limits (10KB max)
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ limit: '10kb', extended: true }));
+app.use(validateRequestSize);
 app.use(cookieParser());
 
 // Set view engine for admin panel
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Redis disabled for demo mode
-console.log('⚠️  Redis disabled - using fallback authentication');
+// Redis setup
+console.log('Redis configuration', {
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT || 6379,
+  hasPassword: Boolean(process.env.REDIS_PASSWORD),
+  skipRedis: shouldSkipRedis
+});
 
-// // Initialize Redis connection
-// (async () => {
-//     try {
-//         initializeRedis();
-//         const connected = await testConnection();
-//         if (connected) {
-//             console.log('✅ Redis connection established for session management');
-//         } else {
-//             console.warn('⚠️  Redis connection failed - authentication will use fallback');
-//         }
-//     } catch (error) {
-//         console.error('Redis initialization error:', error);
-//     }
-// })();
+if (shouldSkipRedis) {
+  console.log('⚠️  Redis disabled - using fallback authentication');
+} else {
+  (async () => {
+    try {
+      initializeRedis();
+      const connected = await testConnection();
+      if (connected) {
+        console.log('✅ Redis connection established for session management');
+      } else {
+        console.warn('⚠️  Redis connection failed - authentication will use fallback');
+      }
+    } catch (error) {
+      console.error('Redis initialization error:', error);
+    }
+  })();
+}
 
 // Admin Panel routes (before other static routes)
 // In development, expose a quick dashboard without auth
@@ -167,11 +187,17 @@ if (process.env.NODE_ENV !== 'production') {
 }
 app.use('/admin', adminRoutes);
 
-// Authentication routes
-app.use('/api/auth', authRoutes);
+// Authentication routes (with strict rate limiting)
+app.use('/api/auth', authRateLimiter, authRoutes);
 
 // Wallet API routes (temporarily disabled due to Redis dependency)
 // app.use('/api/wallet', walletRoutes);
+
+// API routes (with general API rate limiting)
+app.use('/api', apiRateLimiter);
+
+// Mock portal routes for Supabase transaction testing
+app.use('/portal/mock', portalRoutes);
 
 // Demo balance endpoint (no auth required)
 app.get('/api/wallet/balance', async (req, res) => {
@@ -373,7 +399,7 @@ app.get('/api/test-wallet-balance', async (req, res) => {
 
 // Get player transaction history
 app.get('/api/wallet/transactions', async (req, res) => {
-  console.log('🔍 Transaction history endpoint reached');
+  console.log('?? Transaction history endpoint reached');
   try {
     const jwt = require('jsonwebtoken');
     const transactionLogger = require('./src/services/transactionLogger');
@@ -565,7 +591,7 @@ app.post('/api/auth/validate-portal', async (req, res) => {
       await dbPool.end();
     }
 
-    console.log(`✅ Portal session validated for player ${player.username}`);
+    console.log(`??Portal session validated for player ${player.username}`);
 
     res.json({
       success: true,
@@ -670,7 +696,7 @@ app.post('/api/auth/create-session', async (req, res) => {
       await dbPool.end();
     }
 
-    console.log(`🎮 Portal session created for player ${decoded.username}`);
+    console.log(`? Portal session created for player ${decoded.username}`);
 
     res.status(201).json({
       success: true,
@@ -811,7 +837,7 @@ app.post('/api/auth-spin', async (req, res) => {
       }
     };
 
-    console.log(`🎰 Auth Spin: Player ${player.username} bet $${betAmount}, won $${spinResult.totalWin}`);
+    console.log(`? Auth Spin: Player ${player.username} bet $${betAmount}, won $${spinResult.totalWin}`);
 
     // Calculate new balance
     const balanceBefore = parseFloat(player.credits);
@@ -884,7 +910,7 @@ app.post('/api/auth-spin', async (req, res) => {
         );
       }
 
-      console.log(`💰 Transactions logged: bet=-$${betAmountFloat}, win=+$${winAmountFloat}, balance=${newCredits.toFixed(2)}`);
+      console.log(`? Transactions logged: bet=-$${betAmountFloat}, win=+$${winAmountFloat}, balance=${newCredits.toFixed(2)}`);
 
     } catch (transactionError) {
       console.error('Transaction logging failed:', transactionError.message);
@@ -934,7 +960,7 @@ app.post('/api/spin-legacy', authenticate, async (req, res) => {
   try {
     const { bet = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1 } = req.body;
 
-    console.log(`🎰 Spin request: bet=$${bet}, quickSpin=${quickSpinMode}, freeSpins=${freeSpinsActive}, multiplier=${accumulatedMultiplier}x`);
+    console.log(`? Spin request: bet=$${bet}, quickSpin=${quickSpinMode}, freeSpins=${freeSpinsActive}, multiplier=${accumulatedMultiplier}x`);
 
     // Check if player can place bet (not in demo mode for real money)
     if (!req.user.is_demo && !req.user.canPlaceBet(bet)) {
@@ -957,7 +983,7 @@ app.post('/api/spin-legacy', authenticate, async (req, res) => {
 
     if (spinResult.success) {
       const cascadeCount = Array.isArray(spinResult.cascadeSteps) ? spinResult.cascadeSteps.length : 0;
-      console.log(`✅ Spin ${spinResult.spinId} (Player: ${req.user.username}): ${cascadeCount} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
+      console.log(`??Spin ${spinResult.spinId} (Player: ${req.user.username}): ${cascadeCount} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
 
       // Update player credits (if not demo mode)
       if (!req.user.is_demo && spinResult.totalWin > 0) {
@@ -974,7 +1000,7 @@ app.post('/api/spin-legacy', authenticate, async (req, res) => {
         }
       }
     } else {
-      console.error(`❌ Spin failed for ${req.user.username}: ${spinResult.errorMessage}`);
+      console.error(`??Spin failed for ${req.user.username}: ${spinResult.errorMessage}`);
     }
 
     // Database persistence disabled for demo mode
@@ -994,7 +1020,7 @@ app.post('/api/spin-legacy', authenticate, async (req, res) => {
     //         ]
     //     );
     // } catch (persistErr) {
-    //     console.error('⚠️  Persist spin failed:', persistErr.message);
+    //     console.error('??  Persist spin failed:', persistErr.message);
     // }
 
     res.json(spinResult);
@@ -1560,7 +1586,7 @@ io.on('connection', (socket) => {
 
   // Enhanced spin request with cascade synchronization support
   socket.on('spin_request', async (data) => {
-    console.log('🎰 WebSocket spin request:', data);
+    console.log('? WebSocket spin request:', data);
 
     try {
       const { bet = 1.00, quickSpinMode = false, freeSpinsActive = false, accumulatedMultiplier = 1, enableSync = false, playerId } = data;
@@ -1591,7 +1617,7 @@ io.on('connection', (socket) => {
       const betResult = await processBet(actualPlayerId, betAmount);
 
       if (betResult.error) {
-        console.error(`❌ Bet failed: ${betResult.error}`);
+        console.error(`??Bet failed: ${betResult.error}`);
         socket.emit('spin_result', {
           success: false,
           error: 'INSUFFICIENT_BALANCE',
@@ -1600,7 +1626,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      console.log(`💰 Bet processed: $${betAmount}, new balance: $${betResult.newBalance || betResult.balance}`);
+      console.log(`? Bet processed: $${betAmount}, new balance: $${betResult.newBalance || betResult.balance}`);
 
       // Generate complete spin result using GridEngine
       const spinResult = gridEngine.generateSpinResult({
@@ -1611,7 +1637,7 @@ io.on('connection', (socket) => {
       });
 
       if (spinResult.success) {
-        console.log(`✅ WebSocket Spin ${spinResult.spinId}: ${spinResult.cascades.length} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
+        console.log(`??WebSocket Spin ${spinResult.spinId}: ${spinResult.cascades.length} cascades, $${spinResult.totalWin} win, ${spinResult.totalSpinDuration}ms duration`);
 
         // Process win if any
         if (spinResult.totalWin > 0) {
@@ -1619,7 +1645,7 @@ io.on('connection', (socket) => {
           if (winResult.error) {
             console.error('Failed to process win:', winResult.error);
           } else {
-            console.log(`🎉 Win processed: $${spinResult.totalWin}, new balance: $${winResult.newBalance}`);
+            console.log(`?? Win processed: $${spinResult.totalWin}, new balance: $${winResult.newBalance}`);
             spinResult.newBalance = winResult.newBalance;
           }
         } else {
@@ -1638,7 +1664,7 @@ io.on('connection', (socket) => {
             freeSpinsActive: freeSpinsActive
           });
           if (saveResult && !saveResult.error) {
-            console.log('📊 Spin result saved to spin_results with ID:', saveResult.spinResultId);
+            console.log('?? Spin result saved to spin_results with ID:', saveResult.spinResultId);
             spinResult.spinResultId = saveResult.spinResultId;
           } else if (saveResult && saveResult.error) {
             console.warn('saveSpinResult error:', saveResult.error);
@@ -1661,7 +1687,7 @@ io.on('connection', (socket) => {
         if (recordResult.error) {
           console.error('Failed to record spin:', recordResult.error);
         } else {
-          console.log('📝 Spin recorded to spins table');
+          console.log('?? Spin recorded to spins table');
         }
 
         // If cascade sync enabled, prepare sync session data
@@ -1671,7 +1697,7 @@ io.on('connection', (socket) => {
           spinResult.syncSeed = cascadeSynchronizer.generateSyncSeed();
         }
       } else {
-        console.error(`❌ WebSocket Spin failed: ${spinResult.errorMessage}`);
+        console.error(`??WebSocket Spin failed: ${spinResult.errorMessage}`);
       }
 
       socket.emit('spin_result', spinResult);
@@ -1689,7 +1715,7 @@ io.on('connection', (socket) => {
   socket.on('cascade_sync_start', async (data) => {
     try {
       const { spinId, playerId, gridState } = data;
-      console.log(`🔄 Cascade sync start: ${spinId} for player ${playerId}`);
+      console.log(`?? Cascade sync start: ${spinId} for player ${playerId}`);
 
       const gameSession = new GameSession(playerId);
       const syncSession = await cascadeSynchronizer.startSyncSession(spinId, gameSession, {
@@ -1718,7 +1744,7 @@ io.on('connection', (socket) => {
   socket.on('step_validation_request', async (data) => {
     try {
       const { syncSessionId, stepIndex, gridState, clientHash, clientTimestamp } = data;
-      console.log(`✅ Step validation: session ${syncSessionId}, step ${stepIndex}`);
+      console.log(`??Step validation: session ${syncSessionId}, step ${stepIndex}`);
 
       const acknowledgment = await cascadeSynchronizer.processStepAcknowledgment(syncSessionId, {
         stepIndex,
@@ -1749,7 +1775,7 @@ io.on('connection', (socket) => {
   socket.on('desync_detected', async (data) => {
     try {
       const { syncSessionId, desyncType, clientState, stepIndex } = data;
-      console.log(`⚠️ Desync detected: session ${syncSessionId}, type ${desyncType}, step ${stepIndex}`);
+      console.log(`?? Desync detected: session ${syncSessionId}, type ${desyncType}, step ${stepIndex}`);
 
       const recovery = await cascadeSynchronizer.requestRecovery(syncSessionId, {
         desyncType,
@@ -1778,7 +1804,7 @@ io.on('connection', (socket) => {
   socket.on('sync_session_complete', async (data) => {
     try {
       const { syncSessionId, finalGridState, totalWin, clientHash } = data;
-      console.log(`🏁 Cascade sync complete: session ${syncSessionId}`);
+      console.log(`?? Cascade sync complete: session ${syncSessionId}`);
 
       const completion = await cascadeSynchronizer.completeSyncSession(syncSessionId, {
         finalGridState,
@@ -1810,7 +1836,7 @@ io.on('connection', (socket) => {
   // Admin dashboard real-time metrics subscription
   socket.on('subscribe_metrics', (data) => {
     try {
-      console.log(`📊 Admin ${data.adminId || 'unknown'} subscribed to real-time metrics`);
+      console.log(`?? Admin ${data.adminId || 'unknown'} subscribed to real-time metrics`);
       socket.join('admin_metrics'); // Join admin metrics room
       socket.admin_id = data.adminId;
 
@@ -1827,7 +1853,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('unsubscribe_metrics', (data) => {
-    console.log(`📊 Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from real-time metrics`);
+    console.log(`?? Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from real-time metrics`);
     socket.leave('admin_metrics');
     socket.admin_id = null;
   });
@@ -1835,7 +1861,7 @@ io.on('connection', (socket) => {
   // RTP alert subscription
   socket.on('subscribe_rtp_alerts', (data) => {
     try {
-      console.log(`⚠️ Admin ${data.adminId || 'unknown'} subscribed to RTP alerts`);
+      console.log(`?? Admin ${data.adminId || 'unknown'} subscribed to RTP alerts`);
       socket.join('rtp_alerts');
       socket.admin_id = data.adminId;
     } catch (error) {
@@ -1844,14 +1870,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('unsubscribe_rtp_alerts', (data) => {
-    console.log(`⚠️ Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from RTP alerts`);
+    console.log(`?? Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from RTP alerts`);
     socket.leave('rtp_alerts');
   });
 
   // System alerts subscription
   socket.on('subscribe_system_alerts', (data) => {
     try {
-      console.log(`🚨 Admin ${data.adminId || 'unknown'} subscribed to system alerts`);
+      console.log(`? Admin ${data.adminId || 'unknown'} subscribed to system alerts`);
       socket.join('system_alerts');
       socket.admin_id = data.adminId;
     } catch (error) {
@@ -1860,7 +1886,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('unsubscribe_system_alerts', (data) => {
-    console.log(`🚨 Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from system alerts`);
+    console.log(`? Admin ${data.adminId || socket.admin_id || 'unknown'} unsubscribed from system alerts`);
     socket.leave('system_alerts');
   });
 
@@ -1908,7 +1934,7 @@ function startMetricsBroadcasting() {
       if (rtpMetrics && rtpMetrics.alerts && rtpMetrics.alerts.length > 0) {
         rtpMetrics.alerts.forEach(alert => {
           io.to('rtp_alerts').emit('rtp_alert', alert);
-          console.log(`⚠️ RTP Alert broadcasted: ${alert.message}`);
+          console.log(`?? RTP Alert broadcasted: ${alert.message}`);
         });
       }
 
@@ -1927,7 +1953,7 @@ function startMetricsBroadcasting() {
         };
 
         io.to('system_alerts').emit('system_alert', systemAlert);
-        console.log(`🚨 System Alert broadcasted: ${systemAlert.message}`);
+        console.log(`? System Alert broadcasted: ${systemAlert.message}`);
       }
 
     } catch (error) {
@@ -1935,15 +1961,90 @@ function startMetricsBroadcasting() {
     }
   }, 5 * 60 * 1000); // 5 minutes
 
-  console.log('📡 Real-time metrics broadcasting started');
+  console.log('? Real-time metrics broadcasting started');
 }
 
 // Serve client static files from repo root so API and client share origin
 // This avoids CORS and port conflicts while developing.
+const portalStaticPath = path.resolve(__dirname, '..', 'src', 'portal-mock');
+if (fs.existsSync(portalStaticPath)) {
+  app.use('/debug/portal', express.static(portalStaticPath));
+}
+
 const clientRoot = path.resolve(__dirname, '..');
 app.use(express.static(clientRoot));
 
-// Healthcheck for static server
+// Comprehensive health check endpoint
+app.get('/health', async (req, res) => {
+  const healthStatus = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: require('./package.json').version || '1.0.0',
+    checks: {}
+  };
+
+  try {
+    // Check database connectivity (if available)
+    try {
+      const { pool } = require('./src/db/pool');
+      await pool.query('SELECT 1');
+      healthStatus.checks.database = { status: 'healthy', message: 'PostgreSQL connected' };
+    } catch (dbError) {
+      healthStatus.checks.database = { status: 'degraded', message: 'Database check failed', error: dbError.message };
+      healthStatus.status = 'degraded';
+    }
+
+    // Check Redis connectivity (if enabled)
+    try {
+      const { getRedisClient, shouldSkipRedis } = require('./src/config/redis');
+      if (!shouldSkipRedis()) {
+        const redis = getRedisClient();
+        await redis.ping();
+        healthStatus.checks.redis = { status: 'healthy', message: 'Redis connected' };
+      } else {
+        healthStatus.checks.redis = { status: 'skipped', message: 'Redis disabled' };
+      }
+    } catch (redisError) {
+      healthStatus.checks.redis = { status: 'degraded', message: 'Redis check failed', error: redisError.message };
+      // Redis is optional, don't mark as degraded
+    }
+
+    // Memory check
+    const memUsage = process.memoryUsage();
+    const memLimit = 1024 * 1024 * 1024; // 1GB
+    const memPercent = (memUsage.heapUsed / memLimit) * 100;
+    healthStatus.checks.memory = {
+      status: memPercent > 90 ? 'warning' : 'healthy',
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      percentage: `${memPercent.toFixed(2)}%`
+    };
+
+    // Check if any checks failed
+    const hasUnhealthy = Object.values(healthStatus.checks).some(check => check.status === 'unhealthy');
+    if (hasUnhealthy) {
+      healthStatus.status = 'unhealthy';
+    }
+
+    // Return appropriate status code
+    const statusCode = healthStatus.status === 'healthy' ? 200 : 
+                       healthStatus.status === 'degraded' ? 200 : 503;
+
+    res.status(statusCode).json(healthStatus);
+
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
+// Simple healthcheck for load balancers
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 function stopMetricsBroadcasting() {
@@ -1955,17 +2056,17 @@ function stopMetricsBroadcasting() {
     clearInterval(rtpInterval);
     rtpInterval = null;
   }
-  console.log('📡 Real-time metrics broadcasting stopped');
+  console.log('? Real-time metrics broadcasting stopped');
 }
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
-  console.log('📡 SIGTERM received, stopping metrics broadcasting...');
+  console.log('? SIGTERM received, stopping metrics broadcasting...');
   stopMetricsBroadcasting();
 });
 
 process.on('SIGINT', () => {
-  console.log('📡 SIGINT received, stopping metrics broadcasting...');
+  console.log('? SIGINT received, stopping metrics broadcasting...');
   stopMetricsBroadcasting();
 });
 
@@ -1979,12 +2080,12 @@ const isTestEnv = process.env.NODE_ENV === 'test' || typeof process.env.JEST_WOR
 if (!isTestEnv) {
   server.listen(PORT, () => {
     // app.listen(PORT); // legacy fallback for single-process deployments
-    console.log(`🎰 Infinity Storm Server running on port ${PORT}`);
-    console.log(`🌐 Client URL: ${CLIENT_URL}`);
-    console.log('📡 WebSocket server ready');
-    console.log(`🎮 Game available at: http://localhost:${PORT}`);
-    console.log('🔐 Authentication system active');
-    console.log(`🏛️ Admin panel available at: http://localhost:${PORT}/admin`);
+    console.log(`? Infinity Storm Server running on port ${PORT}`);
+    console.log(`?? Client URL: ${CLIENT_URL}`);
+    console.log('? WebSocket server ready');
+    console.log(`? Game available at: http://localhost:${PORT}`);
+    console.log('?? Authentication system active');
+    console.log(`??儭?Admin panel available at: http://localhost:${PORT}/admin`);
 
     // Start real-time metrics broadcasting
     startMetricsBroadcasting();
@@ -1992,8 +2093,4 @@ if (!isTestEnv) {
 }
 
 module.exports = { app, server, io };
-
-
-
-
 

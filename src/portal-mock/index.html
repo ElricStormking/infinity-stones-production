@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Infinity Storm - Mock Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" />
+</head>
+<body>
+  <main>
+    <h1>Infinity Storm Mock Portal</h1>
+    <p>Use this tool to credit a test player with a fixed amount and verify Supabase transaction logging.</p>
+
+    <div id="root"></div>
+  </main>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState } = React;
+
+    function MockPortalApp() {
+      const [playerId, setPlayerId] = useState('portal_test_player');
+      const [amount, setAmount] = useState(10000);
+      const [notes, setNotes] = useState('');
+      const [secret, setSecret] = useState('portal-dev-secret');
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [result, setResult] = useState(null);
+
+      const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError(null);
+        setResult(null);
+
+        const trimmedPlayerId = playerId.trim();
+        if (!trimmedPlayerId) {
+          setError('Player ID is required.');
+          return;
+        }
+
+        const parsedAmount = parseFloat(amount);
+        if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+          setError('Amount must be a positive number.');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const response = await fetch('/portal/mock/credit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-portal-secret': secret
+            },
+            body: JSON.stringify({
+              playerId: trimmedPlayerId,
+              amount: parsedAmount,
+              notes: notes.trim() || null
+            })
+          });
+
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.message || 'Request failed');
+          }
+
+          setResult(payload.data);
+        } catch (err) {
+          setError(err.message || 'Unknown error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <section>
+          <form onSubmit={handleSubmit}>
+            <label>
+              Portal Secret
+              <input
+                type="text"
+                value={secret}
+                onChange={(event) => setSecret(event.target.value)}
+                placeholder="portal-dev-secret"
+                required
+              />
+            </label>
+
+            <label>
+              Test Player Identifier
+              <input
+                type="text"
+                value={playerId}
+                onChange={(event) => setPlayerId(event.target.value)}
+                placeholder="portal_test_player"
+                required
+              />
+            </label>
+
+            <label>
+              Credit Amount
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                required
+              />
+            </label>
+
+            <label>
+              Notes (optional)
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="QA reference or test scenario details"
+                rows="3"
+              />
+            </label>
+
+            <button type="submit" disabled={loading}>
+              {loading ? 'Processing…' : 'Credit Test Player'}
+            </button>
+          </form>
+
+          {error && (
+            <div style={{ border: '1px solid #e74c3c', padding: '1rem', marginTop: '1rem', background: '#fdecea' }}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {result && (
+            <div style={{ border: '1px solid #2ecc71', padding: '1rem', marginTop: '1rem', background: '#ecf9f1' }}>
+              <h2>Transaction Recorded</h2>
+              <p><strong>Player ID:</strong> {result.player.id}</p>
+              <p><strong>Username:</strong> {result.player.username}</p>
+              <p><strong>Balance Before:</strong> {result.transaction.balance_before}</p>
+              <p><strong>Balance After:</strong> {result.transaction.balance_after}</p>
+              <p><strong>Amount Credited:</strong> {result.transaction.amount}</p>
+              <p><strong>Transaction Type:</strong> {result.transaction.type}</p>
+              <p><strong>Transaction ID:</strong> {result.transaction.id}</p>
+              <p><strong>Description:</strong> {result.transaction.description}</p>
+              <p><strong>Created At:</strong> {result.transaction.created_at}</p>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<MockPortalApp />);
+  </script>
+</body>
+</html>

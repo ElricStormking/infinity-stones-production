@@ -1957,8 +1957,9 @@ window.UIManager = class UIManager {
         const headerY = (height / 2) - (panelHeight / 2) + 80 * scaleY;
         const leftX = (width / 2) - (panelWidth / 2) + 20 * scaleX;
         const cols = [
-            { key: 'bet_time', label: 'BET TIME', width: 260 * scaleX },
-            { key: 'spin_id', label: 'SPIN ID', width: 300 * scaleX },
+            { key: 'bet_time', label: 'BET TIME', width: 200 * scaleX },
+            { key: 'player_id', label: 'PLAYER ID', width: 200 * scaleX },
+            { key: 'spin_id', label: 'SPIN ID', width: 150 * scaleX },
             { key: 'bet_amount', label: 'BET', width: 100 * scaleX },
             { key: 'total_win', label: 'WIN', width: 100 * scaleX },
             { key: 'game_mode', label: 'MODE', width: 120 * scaleX }
@@ -2007,11 +2008,13 @@ window.UIManager = class UIManager {
 
             let colX = leftX;
             const timeText = new Date(r.bet_time).toLocaleString();
+            const playerId = (r.player_id || '').toString();
+            const playerIdShort = playerId.length > 20 ? `${playerId.slice(0, 8)}…${playerId.slice(-8)}` : playerId;
             const spinId = (r.spin_id || '').toString();
-            const spinIdShort = spinId.length > 18 ? `${spinId.slice(0, 8)}…${spinId.slice(-6)}` : spinId;
+            const spinIdShort = spinId.length > 18 ? `${spinId.slice(0, 6)}…${spinId.slice(-4)}` : spinId;
             const betStr = r.bet_amount?.toFixed ? r.bet_amount.toFixed(2) : String(r.bet_amount);
             const winStr = r.total_win?.toFixed ? r.total_win.toFixed(2) : String(r.total_win);
-            const values = [timeText, spinIdShort, betStr, winStr, (r.game_mode || 'base').toUpperCase()];
+            const values = [timeText, playerIdShort, spinIdShort, betStr, winStr, (r.game_mode || 'base').toUpperCase()];
             cols.forEach((col, i) => {
                 const isNumeric = (col.key === 'bet_amount' || col.key === 'total_win');
                 const textX = isNumeric ? (colX + col.width - paddingRight) : colX;

@@ -1,0 +1,20 @@
+[dotenv@17.1.0] injecting env (44) from .env (tip: ⚙️  suppress all logs with { quiet: true })
+{
+  "players": [
+    {
+      "id": "f9b42f9d-423a-4d39-9a4a-00d59a8c2441",
+      "username": "demo_player",
+      "email": "demo@example.com",
+      "password_hash": "$2b$10$demo",
+      "credits": "10000.00",
+      "is_demo": true,
+      "is_admin": false,
+      "created_at": "2025-10-16T18:28:07.530Z",
+      "updated_at": "2025-10-16T18:28:07.530Z",
+      "last_login_at": null,
+      "status": "active"
+    }
+  ],
+  "sessions": [],
+  "spin_results": []
+}
