@@ -94,6 +94,7 @@ window.SessionService = new (class SessionService {
      */
     loadStoredSession() {
         try {
+            // Check for new session format first
             const sessionData = localStorage.getItem('infinity_storm_session');
             if (sessionData) {
                 const session = JSON.parse(sessionData);
@@ -105,13 +106,34 @@ window.SessionService = new (class SessionService {
                     console.log('🔐 Loaded valid session from storage');
                     return true;
                 } else {
-                    console.log('🔐 Stored session expired, clearing');
-                    this.clearSession();
+                    console.log('🔐 Stored session expired');
                 }
+            }
+            
+            // FALLBACK: Check for legacy token format from test-player-login
+            const legacyToken = localStorage.getItem('infinity_storm_token');
+            if (legacyToken) {
+                console.log('🔐 Found legacy token format (infinity_storm_token), migrating to session format');
+                
+                // Migrate to new session format with 24h expiry
+                const now = Date.now();
+                this.sessionToken = legacyToken;
+                this.sessionExpiry = now + (24 * 60 * 60 * 1000); // 24 hours
+                this.refreshExpiry = now + (7 * 24 * 60 * 60 * 1000); // 7 days
+                
+                // Store in new format
+                this.storeSession();
+                
+                // Update NetworkService
+                if (window.NetworkService) {
+                    window.NetworkService.setAuthToken(legacyToken);
+                }
+                
+                console.log('🔐 ✅ Legacy token migrated to session format');
+                return true;
             }
         } catch (error) {
             console.error('🔐 Error loading stored session:', error);
-            this.clearSession();
         }
         return false;
     }
@@ -210,8 +232,8 @@ window.SessionService = new (class SessionService {
             
             // Check expiry locally first
             if (Date.now() >= this.sessionExpiry) {
-                console.log('🔐 Session expired locally');
-                this.clearSession();
+                console.log('🔐 Session expired locally (keeping token for demo mode testing)');
+                // Don't clear session - keep token for testing
                 return false;
             }
             
@@ -231,8 +253,8 @@ window.SessionService = new (class SessionService {
                     console.log('🔐 ✅ Session validated successfully');
                     return true;
                 } else {
-                    console.log('🔐 ❌ Session validation failed:', data.message);
-                    this.clearSession();
+                    console.log('🔐 ❌ Session validation failed:', data.message, '(keeping token for demo mode testing)');
+                    // Don't clear session - keep token for testing
                     return false;
                 }
             } else if (response.status === 401) {
@@ -245,6 +267,8 @@ window.SessionService = new (class SessionService {
                     await this.delay(2000 * (retries + 1));
                     return await this.validateSession(retries + 1);
                 }
+                // Don't clear session - keep token for testing
+                console.log('🔐 Max retries reached, but keeping token for demo mode testing');
                 return false;
             }
         } catch (error) {
@@ -254,6 +278,8 @@ window.SessionService = new (class SessionService {
                 await this.delay(2000 * (retries + 1));
                 return await this.validateSession(retries + 1);
             }
+            // Don't clear session - keep token for testing
+            console.log('🔐 Validation error, but keeping token for demo mode testing');
             return false;
         } finally {
             this.isValidating = false;
@@ -385,8 +411,8 @@ window.SessionService = new (class SessionService {
     redirectToPortal(reason = 'authentication_required') {
         console.log(`🔐 Would redirect to portal: ${reason} (disabled for testing)`);
         
-        // Clear any invalid session data
-        this.clearSession();
+        // For testing: Don't clear session data to allow demo mode testing
+        // this.clearSession(); // Commented out to preserve token for testing
         
         // For testing: Don't redirect, just log what would happen
         const returnUrl = new URL(window.location.href);
