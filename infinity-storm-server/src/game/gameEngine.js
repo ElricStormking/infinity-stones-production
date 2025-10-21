@@ -22,8 +22,9 @@ const FreeSpinsEngine = require('./freeSpinsEngine');
 const BonusFeatures = require('./bonusFeatures');
 const { getRNG } = require('./rng');
 const GridGenerator = require('./gridGenerator');
+const { DEMO_CONFIG } = require('./math/profileDemo');
 
-// Game configuration constants
+// Game configuration constants (real money mode)
 const GAME_CONFIG = {
   GRID_COLS: 6,
   GRID_ROWS: 5,
@@ -102,17 +103,31 @@ const GAME_CONFIG = {
 
 class GameEngine {
   constructor(options = {}) {
+    // Determine mode: 'real' (default) or 'demo'
+    this.mode = options.mode === 'demo' ? 'demo' : 'real';
+    
+    // Select configuration based on mode
+    const config = this.mode === 'demo' ? DEMO_CONFIG : GAME_CONFIG;
+    this.config = config;
+    
+    // GUARD: Log and validate mode selection
+    if (this.mode === 'demo') {
+      console.log('[GameEngine] DEMO MODE ENABLED - RTP:', config.RTP);
+    } else {
+      console.log('[GameEngine] Real money mode - RTP:', config.RTP);
+    }
+    
     // Initialize crypto RNG system
     this.rng = getRNG({ auditLogging: true });
     // Production: disable any forced cluster injection; audit logging stays on
     this.gridGenerator = new GridGenerator({ auditLogging: true, clusterInjection: false, minClustersPerGrid: 0 });
 
-    // Initialize all game systems
-    this.winCalculator = new WinCalculator(GAME_CONFIG);
-    this.cascadeProcessor = new CascadeProcessor(GAME_CONFIG, this.rng);
-    this.multiplierEngine = new MultiplierEngine(GAME_CONFIG, this.rng);
-    this.freeSpinsEngine = new FreeSpinsEngine(GAME_CONFIG, this.rng);
-    this.bonusFeatures = new BonusFeatures(GAME_CONFIG, this.rng);
+    // Initialize all game systems with selected config
+    this.winCalculator = new WinCalculator(config);
+    this.cascadeProcessor = new CascadeProcessor(config, this.rng);
+    this.multiplierEngine = new MultiplierEngine(config, this.rng);
+    this.freeSpinsEngine = new FreeSpinsEngine(config, this.rng);
+    this.bonusFeatures = new BonusFeatures(config, this.rng);
 
     // Game state tracking
     this.sessionStats = {
@@ -125,9 +140,10 @@ class GameEngine {
     };
 
     this.logAuditEvent('GAME_ENGINE_INITIALIZED', {
+      mode: this.mode,
       systems_loaded: ['winCalculator', 'cascadeProcessor', 'multiplierEngine', 'freeSpinsEngine', 'bonusFeatures'],
-      rtp_target: GAME_CONFIG.RTP,
-      max_win_multiplier: GAME_CONFIG.MAX_WIN_MULTIPLIER
+      rtp_target: config.RTP,
+      max_win_multiplier: config.MAX_WIN_MULTIPLIER
     });
   }
 
