@@ -11,7 +11,8 @@ window.SpinResult = class SpinResult {
     constructor(data = {}) {
         // Basic spin information
         this.success = data.success || false;
-        this.spinId = data.spinId || null;
+        // Note: spinId (runtime temp ID) is no longer exposed client-side
+        // The database UUID in spin_results.id is the authoritative spin ID
         this.quickSpinMode = data.quickSpinMode || false;
         
         // Grid data - 6 columns × 5 rows of symbol IDs
@@ -200,7 +201,6 @@ window.SpinResult = class SpinResult {
     toJSON() {
         return {
             success: this.success,
-            spinId: this.spinId,
             quickSpinMode: this.quickSpinMode,
             initialGrid: this.initialGrid,
             cascades: this.cascades.map(cascade => cascade.toJSON()),

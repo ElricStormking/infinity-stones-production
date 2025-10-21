@@ -95,7 +95,6 @@ window.GameAPI = {
                 
                 // Simple demo spin simulation
                 const demoResult = {
-                    spinId: `demo-${Date.now()}`,
                     success: true,
                     initialGrid: this.generateDemoGrid(),
                     cascades: [],

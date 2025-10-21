@@ -1571,7 +1571,6 @@ window.GameScene = class GameScene extends Phaser.Scene {
         try {
             if (window.serverDebugWindow && typeof window.serverDebugWindow.show === 'function') {
                 const debugPayload = {
-                    spinId: 'DEMO',
                     betAmount: this.stateManager?.gameData?.currentBet,
                     totalWin: this.totalWin,
                     cascadesCount: this.lastCascadeCount || 0,
