@@ -88,6 +88,14 @@ const DEMO_CONFIG = {
     MIN_MULTIPLIER: 2,
     MAX_MULTIPLIER: 100,
     ANIMATION_DURATION: 3000
+  },
+
+  // Cascading random multiplier configuration (boosted)
+  CASCADE_RANDOM_MULTIPLIER: {
+    TRIGGER_CHANCE: 0.30,  // increased from 0.20
+    MIN_MULTIPLIERS: 1,
+    MAX_MULTIPLIERS: 3,
+    MIN_WIN_REQUIRED: 0.01
   }
 };
 
