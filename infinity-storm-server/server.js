@@ -256,73 +256,15 @@ app.get('/api/wallet/balance', async (req, res) => {
   }
 });
 
-// Spin history endpoint (paginated)
+// DEPRECATED: Spin history endpoint (use /api/spin-history with auth instead)
+// Kept for backward compatibility but returns error
 app.get('/api/history/spins', async (req, res) => {
-  try {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || 200, 200);
-    const order = (req.query.order === 'asc') ? 'asc' : 'desc';
-
-    // Determine player id: prefer JWT, else demo when from client host
-    let playerId = null;
-    const origin = req.headers.origin || '';
-    const demoOrigin = (
-      origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000')
-    );
-
-    // Try JWT
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const jwt = require('jsonwebtoken');
-        const token = authHeader.slice(7);
-        const jwtSecret = process.env.JWT_ACCESS_SECRET || 'default-access-secret';
-        const decoded = jwt.verify(token, jwtSecret);
-        playerId = decoded.player_id || decoded.id;
-      } catch (e) {
-        // ignore, will fallback to demo if allowed
-      }
-    }
-
-    if (!playerId && demoOrigin) {
-      const { getDemoPlayer } = require('./src/db/supabaseClient');
-      const demoPlayer = await getDemoPlayer();
-      playerId = demoPlayer.id;
-    }
-
-    if (!playerId) {
-      // Fallback to demo player if no auth available
-      const { getDemoPlayer } = require('./src/db/supabaseClient');
-      const demoPlayer = await getDemoPlayer();
-      playerId = demoPlayer.id;
-    }
-
-    const { getSpinHistory } = require('./src/db/supabaseClient');
-    const offset = (page - 1) * limit;
-    const result = await getSpinHistory(playerId, limit, offset, order);
-
-    if (result.error) {
-      return res.status(500).json({ success: false, error: 'HISTORY_ERROR', message: result.error });
-    }
-
-    // Map to required fields
-    const rows = (result.rows || []).map(r => ({
-      bet_time: r.created_at || r.createdAt || r.timestamp || null,
-      player_id: r.player_id || null,
-      spin_id: r.id || r.spin_id || r.spinId || null, // Use database UUID 'id' as spin_id
-      bet_amount: Number(r.bet_amount || r.bet || 0),
-      total_win: Number(r.total_win || r.win || 0),
-      game_mode: r.game_mode || (r.freeSpinsActive ? 'free_spins' : 'base')
-    }));
-
-    const total = Number(result.total || 0);
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-
-    res.json({ success: true, page, limit, total, totalPages, data: rows });
-  } catch (error) {
-    console.error('History endpoint error:', error);
-    res.status(500).json({ success: false, error: 'HISTORY_ENDPOINT_ERROR', message: error.message });
-  }
+  res.status(410).json({ 
+    success: false, 
+    error: 'ENDPOINT_DEPRECATED', 
+    message: 'This endpoint is deprecated. Please use /api/spin-history with authentication.',
+    redirectTo: '/api/spin-history'
+  });
 });
 
 // NOTE: Legacy inline /api/spin handler removed.

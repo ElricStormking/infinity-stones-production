@@ -485,9 +485,60 @@ router.get('/spin-history',
   ],
   validateAndProceed,
   async (req, res) => {
-    // Spin history logic would go here
-    // For now, return not implemented
-    responseHelper.notImplemented(res, 'Spin history endpoint not yet implemented');
+    try {
+      const { getSpinHistory } = require('../db/supabaseClient');
+      
+      // Get authenticated player ID from middleware
+      const playerId = req.user.id;
+      
+      // Parse query parameters
+      const limit = Math.min(parseInt(req.query.limit) || 200, 200);
+      const offset = parseInt(req.query.offset) || 0;
+      const order = 'desc'; // Always descending (newest first)
+      
+      // Fetch spin history for the authenticated player
+      const result = await getSpinHistory(playerId, limit, offset, order);
+      
+      if (result.error) {
+        return res.status(500).json({ 
+          success: false, 
+          error: 'HISTORY_ERROR', 
+          message: result.error 
+        });
+      }
+      
+      // Map to required fields
+      const rows = (result.rows || []).map(r => ({
+        bet_time: r.created_at || r.createdAt || r.timestamp || null,
+        player_id: r.player_id || null,
+        spin_id: r.id || r.spin_id || r.spinId || null,
+        bet_amount: Number(r.bet_amount || r.bet || 0),
+        total_win: Number(r.total_win || r.win || 0),
+        game_mode: r.game_mode || (r.freeSpinsActive ? 'free_spins' : 'base')
+      }));
+      
+      const total = Number(result.total || 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      
+      // Calculate page number from offset
+      const page = Math.floor(offset / limit) + 1;
+      
+      res.json({ 
+        success: true, 
+        page, 
+        limit, 
+        total, 
+        totalPages, 
+        data: rows 
+      });
+    } catch (error) {
+      console.error('Spin history endpoint error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'HISTORY_ENDPOINT_ERROR', 
+        message: error.message 
+      });
+    }
   }
 );
 

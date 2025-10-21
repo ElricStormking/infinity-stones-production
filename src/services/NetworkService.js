@@ -417,11 +417,13 @@ window.NetworkService = new (class NetworkService {
 
     // Spin history (game history) API
     async getSpinHistory(page = 1, limit = 200, order = 'desc') {
+        const cappedLimit = Math.min(Math.max(1, limit || 200), 200);
+        const offset = (Math.max(1, page || 1) - 1) * cappedLimit;
         const p = new URLSearchParams();
-        p.append('page', String(page || 1));
-        p.append('limit', String(Math.min(Math.max(1, limit || 200), 200)));
+        p.append('limit', String(cappedLimit));
+        p.append('offset', String(offset));
         if (order && (order === 'asc' || order === 'desc')) p.append('order', order);
-        return this.get(`/api/history/spins?${p.toString()}`);
+        return this.get(`/api/spin-history?${p.toString()}`);
     }
     
     // Cascade API Methods (for future cascade synchronization)
