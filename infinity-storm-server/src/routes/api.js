@@ -163,25 +163,40 @@ router.post('/demo-spin',
       // Credit win to balance
       demoState.balance += spin.totalWin;
       
+      // CRITICAL: Update accumulated multiplier FIRST (before any mode transitions that might reset it)
+      if (spin.newAccumulatedMultiplier !== undefined && demoState.game_state.game_mode === 'free_spins') {
+        demoState.game_state.accumulated_multiplier = spin.newAccumulatedMultiplier;
+        console.log('[DemoSpin] Updated accumulated multiplier:', spin.newAccumulatedMultiplier);
+      }
+      
       // Update game state
-      if (spin.freeSpinsTriggered || spin.freeSpinsRetriggered) {
+      if (spin.freeSpinsTriggered) {
+        // Initial free spins trigger
         demoState.game_state.game_mode = 'free_spins';
         demoState.game_state.free_spins_remaining = spin.freeSpinsRemaining || 15;
+        demoState.game_state.accumulated_multiplier = 1; // Reset on initial trigger
+        console.log('[DemoSpin] Free spins TRIGGERED - Remaining:', demoState.game_state.free_spins_remaining);
+      } else if (spin.freeSpinsRetriggered) {
+        // Retrigger during free spins (add 5 more)
+        demoState.game_state.game_mode = 'free_spins';
+        demoState.game_state.free_spins_remaining = spin.freeSpinsRemaining || (demoState.game_state.free_spins_remaining + 5);
+        // DON'T reset accumulated multiplier on retrigger
+        console.log('[DemoSpin] Free spins RETRIGGERED - Remaining:', demoState.game_state.free_spins_remaining);
       } else if (spin.freeSpinsEnded) {
+        // Free spins naturally ended
         demoState.game_state.game_mode = 'base';
         demoState.game_state.free_spins_remaining = 0;
         demoState.game_state.accumulated_multiplier = 1;
+        console.log('[DemoSpin] Free spins ENDED');
       } else if (demoState.game_state.game_mode === 'free_spins' && demoState.game_state.free_spins_remaining > 0) {
+        // Normal free spin decrement
         demoState.game_state.free_spins_remaining -= 1;
+        console.log('[DemoSpin] Free spin consumed - Remaining:', demoState.game_state.free_spins_remaining);
         if (demoState.game_state.free_spins_remaining === 0) {
           demoState.game_state.game_mode = 'base';
           demoState.game_state.accumulated_multiplier = 1;
+          console.log('[DemoSpin] Free spins depleted - returning to base mode');
         }
-      }
-      
-      // Update accumulated multiplier from spin result
-      if (spin.newAccumulatedMultiplier) {
-        demoState.game_state.accumulated_multiplier = spin.newAccumulatedMultiplier;
       }
       
       // Save updated demo state to cookie (NO DATABASE WRITES)
