@@ -369,12 +369,35 @@ class GameController {
           // In fallback mode, skip state manager and update Supabase game_states directly
           const { supabaseAdmin } = require('../db/supabaseClient');
           
-          const newGameMode = spinResult.gameMode || 'base';
-          const newFreeSpinsRemaining = spinResult.freeSpinsRemaining || 0;
-          // CRITICAL: Use newAccumulatedMultiplier from gameEngine (includes accumulated + new multipliers from this spin)
-          const newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier || spinResult.accumulatedMultiplier || gameState.accumulated_multiplier || 1;
+          // CRITICAL: Calculate game mode and free spins like stateManager does
+          // Mimic stateManager.calculateStateUpdates() logic exactly
+          let newGameMode = gameState.game_mode || 'base';
+          let newFreeSpinsRemaining = gameState.free_spins_remaining || 0;
+          let newAccumulatedMultiplier = gameState.accumulated_multiplier || 1;
           
-          console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'source:', spinResult.newAccumulatedMultiplier ? 'newAccumulatedMultiplier' : 'fallback');
+          // Step 1: Handle currently in free spins (decrement)
+          if (serverFreeSpinsActive) {
+            newFreeSpinsRemaining = Math.max(0, (gameState.free_spins_remaining || 0) - 1);
+            // Check if free spins ended
+            if (newFreeSpinsRemaining === 0) {
+              newGameMode = 'base';
+              newAccumulatedMultiplier = 1.00;
+            }
+          }
+          
+          // Step 2: Handle free spins trigger (overrides decrement)
+          if (spinResult.features?.free_spins) {
+            newGameMode = 'free_spins';
+            newFreeSpinsRemaining = spinResult.features.free_spins.count;
+            newAccumulatedMultiplier = spinResult.features.free_spins.multiplier || 1.00;
+          }
+          
+          // Step 3: Update accumulated multiplier if in free spins and new multipliers were awarded
+          if (newGameMode === 'free_spins' && typeof spinResult.newAccumulatedMultiplier === 'number') {
+            newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier;
+          }
+          
+          console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'triggeredThisSpin:', !!spinResult.features?.free_spins, 'retriggered:', !!spinResult.bonusFeatures?.freeSpinsRetriggered);
           
           // Update or insert game state
           const { error: stateError } = await supabaseAdmin
