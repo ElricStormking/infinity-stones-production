@@ -216,11 +216,11 @@ class GameController {
         console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining, 'multiplier:', serverAccumulatedMultiplier);
         console.log('[GameController] Client claims: freeSpinsActive:', clientFreeSpinsActive, 'freeSpinsRemaining:', clientFreeSpinsRemaining, 'accumulatedMultiplier:', clientAccumulatedMultiplier);
         
-        // CRITICAL FIX: Handle free spins purchase case
+        // CRITICAL FIX: Handle free spins purchase case and ending spins
         // If client says it's in free spins mode but server doesn't know, trust the client
-        // This happens when free spins are purchased (client-side state change before first spin)
-        if (clientFreeSpinsActive && !originalServerFreeSpinsActive && clientFreeSpinsRemaining > 0) {
-          console.log('[GameController] ⚠️ Client in free spins but server is not - using client values (FREE SPINS PURCHASE)');
+        // This happens when: 1) free spins are purchased, or 2) client is on ending spin (remaining=0)
+        if (clientFreeSpinsActive && !originalServerFreeSpinsActive) {
+          console.log('[GameController] ⚠️ Client in free spins but server is not - using client values (FREE SPINS PURCHASE or ENDING SPIN), remaining:', clientFreeSpinsRemaining, 'multiplier:', clientAccumulatedMultiplier);
           serverFreeSpinsActive = true;
           // Don't override serverFreeSpinsRemaining and serverAccumulatedMultiplier yet - let the state update logic handle it
         }
@@ -285,16 +285,16 @@ class GameController {
         }
 
         // Process spin with game engine
-        // CRITICAL: Trust server state first! Only use client values for purchase case.
+        // CRITICAL: Trust server state first! Only use client values when server is out of sync.
         // If server says we're in free spins, use server values.
-        // Only trust client if server doesn't know AND client has a valid count.
-        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0);
+        // If client says we're in free spins but server doesn't know, trust client (including when remaining=0, which is the ending spin).
+        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && !serverFreeSpinsActive);
         const effectiveFreeSpinsRemaining = serverFreeSpinsActive 
           ? serverFreeSpinsRemaining  // Trust server when it knows we're in free spins
-          : (clientFreeSpinsActive && clientFreeSpinsRemaining > 0 ? clientFreeSpinsRemaining : 0);
+          : (clientFreeSpinsActive ? Math.max(0, clientFreeSpinsRemaining) : 0);  // Trust client even if remaining=0 (ending spin)
         const effectiveAccumulatedMultiplier = serverFreeSpinsActive
           ? serverAccumulatedMultiplier  // Trust server when it knows we're in free spins
-          : (clientFreeSpinsActive && clientAccumulatedMultiplier > 1 ? clientAccumulatedMultiplier : 1);
+          : (clientFreeSpinsActive && clientAccumulatedMultiplier >= 1 ? clientAccumulatedMultiplier : 1);  // Trust client's accumulated multiplier
         
         const spinRequest = {
           betAmount: normalizedBetAmount,
@@ -407,10 +407,10 @@ class GameController {
           // Step 1: Handle currently in free spins (decrement)
           // Use effectiveFreeSpinsActive to handle purchase case where client is in FS but server doesn't know
           if (effectiveFreeSpinsActive) {
-            // If this is a purchase (client says FS but server doesn't), start with client's count
-            // CRITICAL: Use originalServerFreeSpinsActive (before modification) to detect purchase
-            const currentCount = clientFreeSpinsActive && !originalServerFreeSpinsActive && clientFreeSpinsRemaining > 0
-              ? clientFreeSpinsRemaining
+            // If this is a purchase or ending spin (client says FS but server doesn't), start with client's count
+            // CRITICAL: Use originalServerFreeSpinsActive (before modification) to detect client-ahead case
+            const currentCount = clientFreeSpinsActive && !originalServerFreeSpinsActive
+              ? Math.max(0, clientFreeSpinsRemaining)  // Trust client even if 0 (ending spin)
               : (gameState.free_spins_remaining || 0);
             newFreeSpinsRemaining = Math.max(0, currentCount - 1);
             newGameMode = 'free_spins'; // Ensure mode is set
