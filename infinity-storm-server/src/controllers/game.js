@@ -56,7 +56,10 @@ class GameController {
       const {
         betAmount = 1.00,
         quickSpinMode = false,
-        bonusMode = false
+        bonusMode = false,
+        freeSpinsActive: clientFreeSpinsActive = false,
+        freeSpinsRemaining: clientFreeSpinsRemaining = 0,
+        accumulatedMultiplier: clientAccumulatedMultiplier = 1
       } = req.body;
       const normalizedBetAmount = Number.isFinite(betAmount) ? betAmount : (parseFloat(betAmount) || 0);
       const clientRequestId = req.body.clientRequestId || req.body.requestId || null;
@@ -204,10 +207,20 @@ class GameController {
         const serverAccumulatedMultiplier = typeof rawAccumulatedMultiplier === 'number'
           ? rawAccumulatedMultiplier
           : parseFloat(rawAccumulatedMultiplier) || 1;
-        const serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
+        let serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
 
         console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining, 'multiplier:', serverAccumulatedMultiplier);
+        console.log('[GameController] Client claims: freeSpinsActive:', clientFreeSpinsActive, 'freeSpinsRemaining:', clientFreeSpinsRemaining, 'accumulatedMultiplier:', clientAccumulatedMultiplier);
+        
+        // CRITICAL FIX: Handle free spins purchase case
+        // If client says it's in free spins mode but server doesn't know, trust the client
+        // This happens when free spins are purchased (client-side state change before first spin)
+        if (clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0) {
+          console.log('[GameController] ⚠️ Client in free spins but server is not - using client values (FREE SPINS PURCHASE)');
+          serverFreeSpinsActive = true;
+          // Don't override serverFreeSpinsRemaining and serverAccumulatedMultiplier yet - let the state update logic handle it
+        }
 
         // Process bet transaction using wallet ledger (skip during free spins or demo)
         let betTransaction = null;
@@ -269,17 +282,28 @@ class GameController {
         }
 
         // Process spin with game engine
+        // If client is in free spins mode but server doesn't know (purchase case), use client values
+        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && clientFreeSpinsRemaining > 0);
+        const effectiveFreeSpinsRemaining = effectiveFreeSpinsActive && clientFreeSpinsActive && clientFreeSpinsRemaining > serverFreeSpinsRemaining 
+          ? clientFreeSpinsRemaining 
+          : serverFreeSpinsRemaining;
+        const effectiveAccumulatedMultiplier = effectiveFreeSpinsActive && clientFreeSpinsActive && clientAccumulatedMultiplier > serverAccumulatedMultiplier
+          ? clientAccumulatedMultiplier
+          : serverAccumulatedMultiplier;
+        
         const spinRequest = {
           betAmount: normalizedBetAmount,
           playerId,
           sessionId,
-          freeSpinsActive: serverFreeSpinsActive,
-          freeSpinsRemaining: serverFreeSpinsRemaining,
-          accumulatedMultiplier: serverAccumulatedMultiplier,
+          freeSpinsActive: effectiveFreeSpinsActive,
+          freeSpinsRemaining: effectiveFreeSpinsRemaining,
+          accumulatedMultiplier: effectiveAccumulatedMultiplier,
           quickSpinMode: Boolean(quickSpinMode),
           bonusMode: Boolean(bonusMode),
           spinId
         };
+        
+        console.log('[GameController] Spin request to engine - freeSpinsActive:', effectiveFreeSpinsActive, 'remaining:', effectiveFreeSpinsRemaining, 'multiplier:', effectiveAccumulatedMultiplier);
 
         console.log('[GameController] Step 6: About to call gameEngine.processCompleteSpin');
         const spinResult = await this.gameEngine.processCompleteSpin(spinRequest);
@@ -376,8 +400,14 @@ class GameController {
           let newAccumulatedMultiplier = gameState.accumulated_multiplier || 1;
           
           // Step 1: Handle currently in free spins (decrement)
-          if (serverFreeSpinsActive) {
-            newFreeSpinsRemaining = Math.max(0, (gameState.free_spins_remaining || 0) - 1);
+          // Use effectiveFreeSpinsActive to handle purchase case where client is in FS but server doesn't know
+          if (effectiveFreeSpinsActive) {
+            // If this is a purchase (client says FS but server doesn't), start with client's count
+            const currentCount = clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0
+              ? clientFreeSpinsRemaining
+              : (gameState.free_spins_remaining || 0);
+            newFreeSpinsRemaining = Math.max(0, currentCount - 1);
+            newGameMode = 'free_spins'; // Ensure mode is set
             // Check if free spins ended
             if (newFreeSpinsRemaining === 0) {
               newGameMode = 'base';
@@ -545,14 +575,14 @@ class GameController {
         const freeSpinsAwarded = freeSpinFeature?.spinsAwarded
           ?? spinResult.bonusFeatures?.freeSpinsAwarded
           ?? 0;
-        const freeSpinsTriggered = Boolean(spinResult.bonusFeatures?.freeSpinsTriggered || (freeSpinFeature && !serverFreeSpinsActive));
+        const freeSpinsTriggered = Boolean(spinResult.bonusFeatures?.freeSpinsTriggered || (freeSpinFeature && !effectiveFreeSpinsActive));
         const freeSpinsRetriggered = Boolean(spinResult.bonusFeatures?.freeSpinsRetriggered || freeSpinFeature?.retrigger);
         const nextFreeSpinCount = typeof stateResult.gameState.free_spins_remaining === 'number'
           ? stateResult.gameState.free_spins_remaining
           : 0;
         const nextGameMode = stateResult.gameState.game_mode;
         const freeSpinsActiveNext = nextGameMode === 'free_spins';
-        const freeSpinsEnded = serverFreeSpinsActive && !freeSpinsActiveNext;
+        const freeSpinsEnded = effectiveFreeSpinsActive && !freeSpinsActiveNext;
 
         // DEBUG: Log accumulated multiplier and free spins retrigger
         if (freeSpinsActiveNext) {
