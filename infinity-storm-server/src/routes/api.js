@@ -172,7 +172,7 @@ router.post('/demo-spin',
       demoState.balance += spin.totalWin;
       
       console.log('[DemoSpin] Spin result:', {
-        freeSpinsActive: freeSpinsActive,
+        freeSpinsActive: isCurrentlyInFreeSpins,
         currentMode: demoState.game_state.game_mode,
         triggered: spin.bonusFeatures?.freeSpinsTriggered,
         retriggered: spin.bonusFeatures?.freeSpinsRetriggered,
