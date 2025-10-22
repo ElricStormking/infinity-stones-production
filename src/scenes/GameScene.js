@@ -129,6 +129,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Initialize server integration
         this.initializeServerIntegration();
         
+        // Initialize connection monitor (CRITICAL for casino game)
+        if (window.ConnectionMonitor) {
+            this.connectionMonitor = new window.ConnectionMonitor(this);
+            console.log('🔌 ConnectionMonitor initialized');
+        } else {
+            console.warn('⚠️ ConnectionMonitor not available - connection checks disabled');
+        }
+        
         // Initialize network error recovery system (check feature flags)
         const errorRecoveryEnabled = !window.FeatureFlags || window.FeatureFlags.isErrorRecoveryEnabled();
         if (errorRecoveryEnabled && window.NetworkErrorRecovery && window.NetworkService) {
@@ -1093,6 +1101,18 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (!window.SafeSound.currentBGM) {
             console.log('?�� First user interaction - starting main BGM');
             window.SafeSound.startMainBGM(this);
+        }
+        
+        // CRITICAL: Check connection status for authenticated players
+        if (this.connectionMonitor && !this.connectionMonitor.canSpin()) {
+            console.error('🚫 Spin blocked - server connection required for authenticated players');
+            this.showMessage('Connection lost! Please wait for reconnection.');
+            
+            // Ensure warning is visible
+            if (!this.connectionMonitor.warningOverlay) {
+                this.connectionMonitor.showDisconnectedWarning();
+            }
+            return;
         }
         
         // Check if player can afford bet
@@ -3177,6 +3197,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     switchToDemoMode() {
+        // CRITICAL: Prevent demo mode fallback for authenticated players
+        const authToken = localStorage.getItem('infinity_storm_token');
+        if (authToken) {
+            console.error('🚫 Cannot switch to demo mode - player is authenticated');
+            console.log('🔒 Gameplay suspended until server connection is restored');
+            
+            // Show persistent warning instead
+            if (this.connectionMonitor) {
+                this.connectionMonitor.showDisconnectedWarning();
+            }
+            
+            // Block gameplay
+            this.serverMode = true; // Keep server mode active
+            this.demoMode = false; // Prevent demo mode
+            this.isServerSpinning = false;
+            
+            return;
+        }
+        
+        // For non-authenticated players, allow demo mode
         this.serverMode = false;
         this.demoMode = true;
         this.isServerSpinning = false;
@@ -4600,6 +4640,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         if (this.errorRecovery && this.errorRecovery.destroy) {
             this.errorRecovery.destroy();
             this.errorRecovery = null;
+        }
+        
+        // Clean up connection monitor
+        if (this.connectionMonitor && this.connectionMonitor.destroy) {
+            this.connectionMonitor.destroy();
+            this.connectionMonitor = null;
         }
         
         // Clear cascade sync references
