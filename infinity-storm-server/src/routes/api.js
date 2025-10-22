@@ -244,9 +244,9 @@ router.post('/demo-spin',
           quickSpinMode,
           freeSpinsActive: demoState.game_state.game_mode === 'free_spins',
           freeSpinsRemaining: demoState.game_state.free_spins_remaining,
-          freeSpinsTriggered: spin.freeSpinsTriggered,
-          freeSpinsRetriggered: spin.freeSpinsRetriggered,
-          freeSpinsEnded: spin.freeSpinsEnded,
+          freeSpinsTriggered: spin.bonusFeatures?.freeSpinsTriggered || false,
+          freeSpinsRetriggered: spin.bonusFeatures?.freeSpinsRetriggered || false,
+          freeSpinsEnded: demoState.game_state.free_spins_remaining === 0 && demoState.game_state.game_mode === 'base',
           gameMode: demoState.game_state.game_mode,
           accumulatedMultiplier: demoState.game_state.accumulated_multiplier,
           balance: demoState.balance, // Return updated balance
@@ -269,8 +269,15 @@ router.post('/demo-spin',
 
       return res.json(responsePayload);
     } catch (e) {
-      console.error('Demo spin engine error:', e.message, e.stack);
-      return res.status(500).json({ success: false, error: 'DEMO_SPIN_FAILED', message: e.message });
+      console.error('[DemoSpin] ❌ ERROR:', e.message);
+      console.error('[DemoSpin] Stack:', e.stack);
+      console.error('[DemoSpin] Full error:', e);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'DEMO_SPIN_FAILED', 
+        message: e.message,
+        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      });
     }
   }
 );
