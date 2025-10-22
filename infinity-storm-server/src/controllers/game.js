@@ -412,11 +412,6 @@ class GameController {
               : (gameState.free_spins_remaining || 0);
             newFreeSpinsRemaining = Math.max(0, currentCount - 1);
             newGameMode = 'free_spins'; // Ensure mode is set
-            // Check if free spins ended
-            if (newFreeSpinsRemaining === 0) {
-              newGameMode = 'base';
-              newAccumulatedMultiplier = 1.00;
-            }
           }
           
           // Step 2: Handle free spins trigger (overrides decrement)
@@ -427,8 +422,16 @@ class GameController {
           }
           
           // Step 3: Update accumulated multiplier if in free spins and new multipliers were awarded
+          // CRITICAL: Do this BEFORE checking if free spins ended, so the last spin's multipliers are saved
           if (newGameMode === 'free_spins' && typeof spinResult.newAccumulatedMultiplier === 'number') {
             newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier;
+          }
+          
+          // Step 4: Check if free spins ended (after updating multiplier)
+          // MOVED FROM STEP 1: Check AFTER accumulating multipliers from current spin
+          if (newGameMode === 'free_spins' && newFreeSpinsRemaining === 0) {
+            newGameMode = 'base';
+            newAccumulatedMultiplier = 1.00;
           }
           
           console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'triggeredThisSpin:', !!spinResult.features?.free_spins, 'retriggered:', !!spinResult.bonusFeatures?.freeSpinsRetriggered);
