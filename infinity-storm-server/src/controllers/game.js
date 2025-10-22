@@ -285,14 +285,16 @@ class GameController {
         }
 
         // Process spin with game engine
-        // If client is in free spins mode but server doesn't know (purchase case), use client values
-        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && clientFreeSpinsRemaining > 0);
-        const effectiveFreeSpinsRemaining = effectiveFreeSpinsActive && clientFreeSpinsActive && clientFreeSpinsRemaining > serverFreeSpinsRemaining 
-          ? clientFreeSpinsRemaining 
-          : serverFreeSpinsRemaining;
-        const effectiveAccumulatedMultiplier = effectiveFreeSpinsActive && clientFreeSpinsActive && clientAccumulatedMultiplier > serverAccumulatedMultiplier
-          ? clientAccumulatedMultiplier
-          : serverAccumulatedMultiplier;
+        // CRITICAL: Trust server state first! Only use client values for purchase case.
+        // If server says we're in free spins, use server values.
+        // Only trust client if server doesn't know AND client has a valid count.
+        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0);
+        const effectiveFreeSpinsRemaining = serverFreeSpinsActive 
+          ? serverFreeSpinsRemaining  // Trust server when it knows we're in free spins
+          : (clientFreeSpinsActive && clientFreeSpinsRemaining > 0 ? clientFreeSpinsRemaining : 0);
+        const effectiveAccumulatedMultiplier = serverFreeSpinsActive
+          ? serverAccumulatedMultiplier  // Trust server when it knows we're in free spins
+          : (clientFreeSpinsActive && clientAccumulatedMultiplier > 1 ? clientAccumulatedMultiplier : 1);
         
         const spinRequest = {
           betAmount: normalizedBetAmount,
