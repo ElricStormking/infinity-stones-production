@@ -544,20 +544,45 @@ window.FreeSpinsManager = class FreeSpinsManager {
         if (deco) purchaseElements.push(deco);
         
         // Purchase button handler
-        purchaseHit.on('pointerup', () => {
+        purchaseHit.on('pointerup', async () => {
             // Double-check balance
             if (this.scene.stateManager.gameData.balance >= freeSpinsCost) {
-                // Deduct cost
-                this.scene.stateManager.gameData.balance -= freeSpinsCost;
-                this.scene.uiManager.updateBalanceDisplay();
-                
-                // Close purchase UI
+                // Close purchase UI first
                 purchaseElements.forEach(element => element.destroy());
                 
-                // Start free spins immediately
-                this.purchaseFreeSpins(freeSpinsAmount);
-                
-                window.SafeSound.play(this.scene, 'bonus');
+                // Call server to process purchase
+                try {
+                    const response = await window.NetworkService.purchaseFreeSpins('free_spins', freeSpinsCost);
+                    
+                    if (response && response.success) {
+                        console.log('✅ Free spins purchased successfully:', response);
+                        
+                        // Update balance from server response
+                        if (typeof response.balance === 'number') {
+                            this.scene.stateManager.setBalanceFromServer(response.balance);
+                            if (window.WalletAPI) {
+                                window.WalletAPI.setBalance(response.balance);
+                            }
+                            this.scene.updateBalanceDisplay();
+                        }
+                        
+                        // Update local free spins state BEFORE first spin
+                        this.scene.stateManager.freeSpinsData.active = true;
+                        this.scene.stateManager.freeSpinsData.count = response.freeSpinsRemaining || response.spinsAwarded;
+                        this.scene.stateManager.freeSpinsData.multiplierAccumulator = response.accumulatedMultiplier || 1;
+                        
+                        // Start free spins UI
+                        this.purchaseFreeSpins(response.spinsAwarded || freeSpinsAmount);
+                        
+                        window.SafeSound.play(this.scene, 'bonus');
+                    } else {
+                        this.scene.showMessage('Purchase failed: ' + (response.message || 'Unknown error'));
+                        console.error('❌ Purchase failed:', response);
+                    }
+                } catch (error) {
+                    console.error('❌ Purchase error:', error);
+                    this.scene.showMessage('Purchase failed: ' + (error.message || 'Network error'));
+                }
             } else {
                 this.scene.showMessage('Insufficient Balance!');
             }

@@ -944,3 +944,4 @@ class GameEngine {
 }
 
 module.exports = GameEngine;
+module.exports.GAME_CONFIG = GAME_CONFIG;

@@ -784,10 +784,64 @@ class GameController {
     try {
       const playerId = req.user.id;
       const statePlayerId = req.user?.is_demo ? 'demo-player' : playerId;
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
 
-      // Get game state from state manager
-      let gameState = await this.stateManager.getPlayerState(statePlayerId);
-      let sessionInfo = this.stateManager.getActiveSession(req.session_info.id);
+      // Get game state from state manager or Supabase
+      let gameState;
+      let sessionInfo = null;
+      
+      if (skipRedis && !req.user?.is_demo) {
+        // Direct Supabase query in fallback mode
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        const { data: supabaseState, error: stateError } = await supabaseAdmin
+          .from('game_states')
+          .select('*')
+          .eq('player_id', playerId)
+          .single();
+        
+        if (supabaseState) {
+          gameState = supabaseState;
+        } else if (stateError && stateError.code === 'PGRST116') {
+          // No game state exists - create one
+          console.log('[GET GAME STATE] No game state found for player, creating initial state');
+          const initialState = {
+            player_id: playerId,
+            session_id: null,
+            game_mode: 'base',
+            free_spins_remaining: 0,
+            accumulated_multiplier: 1.00,
+            state_data: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          const { data: createdState, error: createError } = await supabaseAdmin
+            .from('game_states')
+            .insert(initialState)
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('[GET GAME STATE] Failed to create initial state:', createError);
+            gameState = initialState; // Use in-memory state
+          } else {
+            gameState = createdState;
+          }
+        } else {
+          console.error('[GET GAME STATE] Error fetching game state:', stateError);
+          // Use default state
+          gameState = {
+            game_mode: 'base',
+            free_spins_remaining: 0,
+            accumulated_multiplier: 1.00,
+            state_data: {}
+          };
+        }
+      } else {
+        // Use state manager (normal mode or demo)
+        gameState = await this.stateManager.getPlayerState(statePlayerId);
+        sessionInfo = this.stateManager.getActiveSession(req.session_info?.id);
+      }
 
       if (!gameState && req.user?.is_demo) {
         const fallbackSafe = {
@@ -818,9 +872,75 @@ class GameController {
       // Get game engine statistics
       const gameStats = this.gameEngine.getGameStatistics();
 
+      // Extract safe data - handle both Sequelize models and raw Supabase data
+      let safeData;
+      if (typeof gameState.getSafeData === 'function') {
+        safeData = gameState.getSafeData();
+      } else {
+        // Raw Supabase data - create safe data format
+        safeData = {
+          id: gameState.id,
+          player_id: gameState.player_id,
+          session_id: gameState.session_id,
+          game_mode: gameState.game_mode || 'base',
+          free_spins_remaining: gameState.free_spins_remaining || 0,
+          accumulated_multiplier: gameState.accumulated_multiplier || 1.00,
+          state_data: gameState.state_data || {},
+          created_at: gameState.created_at,
+          updated_at: gameState.updated_at
+        };
+      }
+      
+      // Get player balance
+      let playerBalance = null;
+      if (skipRedis && !req.user?.is_demo) {
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        const { data: player, error: playerError } = await supabaseAdmin
+          .from('players')
+          .select('credits')
+          .eq('id', playerId)
+          .single();
+        if (!playerError && player) {
+          playerBalance = player.credits;
+          console.log('🎰 [GET GAME STATE] Player balance:', playerBalance);
+        }
+      } else if (req.user?.is_demo) {
+        playerBalance = 5000; // Demo balance
+      }
+      
+      // Generate initial grid if none exists
+      const stateData = safeData.state_data || {};
+      if (!stateData.current_grid) {
+        console.log('🎰 [GET GAME STATE] No current_grid found, generating initial grid');
+        const gridResult = this.gameEngine.gridGenerator.generateGrid(false, {
+          freeSpinsMode: false,
+          forceNonWinning: true,
+          maxScatters: 3 // Ensure <4 scatters
+        });
+        stateData.current_grid = gridResult.grid;
+        safeData.state_data = stateData;
+        
+        // Save the generated grid back to state if in fallback mode
+        if (skipRedis && !req.user?.is_demo) {
+          const { supabaseAdmin } = require('../db/supabaseClient');
+          await supabaseAdmin
+            .from('game_states')
+            .update({ state_data: stateData, updated_at: new Date().toISOString() })
+            .eq('player_id', playerId);
+          console.log('🎰 [GET GAME STATE] Initial grid saved to database');
+        }
+      }
+
+      // Add balance to gameState for client
+      if (playerBalance !== null) {
+        safeData.balance = playerBalance;
+        safeData.credits = playerBalance;
+      }
+
       const response = {
         success: true,
-        gameState: gameState.getSafeData(),
+        gameState: safeData,
+        balance: playerBalance,
         sessionInfo: sessionInfo,
         gameMode: gameState.game_mode,
         freeSpinsRemaining: gameState.free_spins_remaining,

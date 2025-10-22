@@ -375,6 +375,16 @@ window.NetworkService = new (class NetworkService {
         return this.get('/api/game-state', forceDemo);
     }
     
+    async purchaseFreeSpins(featureType, cost) {
+        console.log('🛒 Purchasing free spins:', { featureType, cost });
+        const response = await this.post('/api/buy-feature', {
+            featureType,
+            cost
+        });
+        console.log('✅ Purchase response:', response);
+        return response;
+    }
+    
     async updateGameState(stateUpdates, reason) {
         return this.put('/api/game-state', { stateUpdates, reason });
     }

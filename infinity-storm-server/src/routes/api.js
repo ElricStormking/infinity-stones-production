@@ -484,9 +484,170 @@ router.post('/buy-feature',
   ],
   validateAndProceed,
   async (req, res) => {
-    // Feature purchase logic would go here
-    // For now, return not implemented
-    responseHelper.notImplemented(res, 'Feature purchase not yet implemented');
+    try {
+      const { featureType, cost } = req.body;
+      const playerId = req.user.id;
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+
+      // Only support free_spins for now
+      if (featureType !== 'free_spins') {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_FEATURE',
+          message: 'Only free_spins feature is currently supported'
+        });
+      }
+
+      // Get game config
+      const GAME_CONFIG = require('../game/gameEngine').GAME_CONFIG;
+      const FREE_SPINS_COUNT = GAME_CONFIG.FREE_SPINS.BUY_FEATURE_SPINS;
+      const COST_MULTIPLIER = GAME_CONFIG.FREE_SPINS.BUY_FEATURE_COST;
+
+      // Get player's current balance
+      const { supabaseAdmin } = require('../db/supabaseClient');
+      const { data: player, error: playerError } = await supabaseAdmin
+        .from('players')
+        .select('credits')
+        .eq('id', playerId)
+        .single();
+
+      if (playerError || !player) {
+        return res.status(500).json({
+          success: false,
+          error: 'PLAYER_NOT_FOUND',
+          message: 'Could not retrieve player balance'
+        });
+      }
+
+      // Verify player has enough balance
+      if (player.credits < cost) {
+        return res.status(400).json({
+          success: false,
+          error: 'INSUFFICIENT_BALANCE',
+          message: `Insufficient balance. Required: ${cost}, Available: ${player.credits}`
+        });
+      }
+
+      // Deduct cost from balance
+      const newBalance = player.credits - cost;
+      const { error: updateError } = await supabaseAdmin
+        .from('players')
+        .update({ credits: newBalance })
+        .eq('id', playerId);
+
+      if (updateError) {
+        logger.error('Failed to deduct purchase cost', {
+          playerId,
+          cost,
+          error: updateError.message
+        });
+        return res.status(500).json({
+          success: false,
+          error: 'BALANCE_UPDATE_FAILED',
+          message: 'Failed to process purchase'
+        });
+      }
+
+      // Create transaction record
+      const { error: txError } = await supabaseAdmin
+        .from('transactions')
+        .insert({
+          player_id: playerId,
+          type: 'purchase',
+          amount: -cost,
+          balance_before: player.credits,
+          balance_after: newBalance,
+          reference_type: 'free_spins_purchase',
+          description: `Purchased ${FREE_SPINS_COUNT} free spins`
+        });
+
+      if (txError) {
+        logger.warn('Failed to record purchase transaction', {
+          playerId,
+          error: txError.message
+        });
+      }
+
+      // Update game state to free spins mode
+      const { data: existingState } = await supabaseAdmin
+        .from('game_states')
+        .select('*')
+        .eq('player_id', playerId)
+        .single();
+
+      const stateData = existingState?.state_data || {};
+      const gameStateUpdate = {
+        player_id: playerId,
+        game_mode: 'free_spins',
+        free_spins_remaining: FREE_SPINS_COUNT,
+        accumulated_multiplier: 1.00,
+        state_data: {
+          ...stateData,
+          purchase_timestamp: new Date().toISOString(),
+          purchase_cost: cost
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingState) {
+        // Update existing state
+        const { error: stateUpdateError } = await supabaseAdmin
+          .from('game_states')
+          .update(gameStateUpdate)
+          .eq('player_id', playerId);
+
+        if (stateUpdateError) {
+          logger.error('Failed to update game state for purchase', {
+            playerId,
+            error: stateUpdateError.message
+          });
+        }
+      } else {
+        // Insert new state
+        const { error: stateInsertError } = await supabaseAdmin
+          .from('game_states')
+          .insert(gameStateUpdate);
+
+        if (stateInsertError) {
+          logger.error('Failed to insert game state for purchase', {
+            playerId,
+            error: stateInsertError.message
+          });
+        }
+      }
+
+      logger.info('Free spins purchased', {
+        playerId,
+        cost,
+        spinsAwarded: FREE_SPINS_COUNT,
+        balanceBefore: player.credits,
+        balanceAfter: newBalance
+      });
+
+      res.json({
+        success: true,
+        featureType,
+        spinsAwarded: FREE_SPINS_COUNT,
+        cost,
+        balance: newBalance,
+        gameMode: 'free_spins',
+        freeSpinsRemaining: FREE_SPINS_COUNT,
+        accumulatedMultiplier: 1.00
+      });
+
+    } catch (error) {
+      logger.error('Feature purchase error', {
+        playerId: req.user.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'PURCHASE_ERROR',
+        message: 'An error occurred while processing the purchase'
+      });
+    }
   }
 );
 

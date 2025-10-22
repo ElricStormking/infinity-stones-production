@@ -517,7 +517,33 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (gameState) {
                 this.applyServerGameState(gameState, { source: 'initial-request', raw: response, initial: true });
             }
-            const balanceValue = (response.data && response.data.balance !== undefined) ? response.data.balance : response.balance;
+            
+            // Extract balance from multiple possible locations
+            let balanceValue = null;
+            if (typeof response.balance === 'number') {
+                balanceValue = response.balance;
+            } else if (response.data && typeof response.data.balance === 'number') {
+                balanceValue = response.data.balance;
+            } else if (gameState && typeof gameState.balance === 'number') {
+                balanceValue = gameState.balance;
+            } else if (gameState && gameState.state_data && typeof gameState.state_data.balance === 'number') {
+                balanceValue = gameState.state_data.balance;
+            } else if (response.gameState && typeof response.gameState.balance === 'number') {
+                balanceValue = response.gameState.balance;
+            } else if (response.gameState && response.gameState.credits !== undefined) {
+                // Fallback to credits field
+                balanceValue = response.gameState.credits;
+            } else if (gameState && gameState.credits !== undefined) {
+                balanceValue = gameState.credits;
+            }
+            
+            console.log('🔍 Balance extraction result:', balanceValue, 'from response:', {
+                'response.balance': response.balance,
+                'response.data?.balance': response.data?.balance,
+                'gameState?.balance': gameState?.balance,
+                'gameState?.credits': gameState?.credits
+            });
+            
             if (typeof balanceValue === 'number') {
                 this.stateManager.setBalanceFromServer(balanceValue);
                 
@@ -527,6 +553,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 }
                 
                 this.updateBalanceDisplay();
+                console.log('✅ Balance updated on game entry:', balanceValue);
+            } else {
+                console.warn('⚠️ No valid balance found in server response');
             }
         } catch (error) {
             console.warn('Initial server state fetch failed:', error);
@@ -2648,6 +2677,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
             }
             if (this.gridRenderer && typeof this.gridRenderer.setInitialGrid === 'function') {
                 this.gridRenderer.setInitialGrid(snapshot, { instant: true });
+            }
+        } else if (options.initial && this.gridManager) {
+            // No grid from server - generate a random non-winning grid for initial display
+            console.log('🎰 No grid from server, generating fallback grid');
+            this.gridManager.fillGrid();
+            if (this.time && typeof this.time.delayedCall === 'function') {
+                this.time.delayedCall(32, () => {
+                    if (this.gridManager && this.gridManager.startAllIdleAnimations) {
+                        this.gridManager.startAllIdleAnimations();
+                    }
+                });
             }
         }
         if (stateData.last_rng_seed) {
