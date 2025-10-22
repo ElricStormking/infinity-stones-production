@@ -590,16 +590,25 @@ class GameController {
         const nextGameMode = stateResult.gameState.game_mode;
         const freeSpinsActiveNext = nextGameMode === 'free_spins';
         const freeSpinsEnded = effectiveFreeSpinsActive && !freeSpinsActiveNext;
+        
+        // CRITICAL: The accumulated multiplier to display is the one USED for this spin,
+        // not the one saved for the next spin! If free spins just ended, the saved state
+        // will show multiplier=1, but we need to show what was actually applied.
+        const displayedAccumulatedMultiplier = spinResult.newAccumulatedMultiplier 
+          || effectiveAccumulatedMultiplier
+          || stateResult.gameState.accumulated_multiplier;
 
         // DEBUG: Log accumulated multiplier and free spins retrigger
-        if (freeSpinsActiveNext) {
+        if (freeSpinsActiveNext || freeSpinsEnded) {
           console.log(`🎰 [GAME CONTROLLER] FREE SPINS RESPONSE DEBUG:`, {
             freeSpinsAwarded,
             freeSpinsRetriggered,
+            freeSpinsEnded,
             freeSpinsRemaining: nextFreeSpinCount,
-            accumulatedMultiplier: stateResult.gameState.accumulated_multiplier,
-            randomMultipliersThisSpin: spinResult.bonusFeatures?.randomMultipliers?.length || 0,
-            newAccumulatedMultiplier: spinResult.newAccumulatedMultiplier
+            savedStateMultiplier: stateResult.gameState.accumulated_multiplier, // What we saved for next spin
+            displayedMultiplier: displayedAccumulatedMultiplier, // What we're sending to client
+            spinResultNewMultiplier: spinResult.newAccumulatedMultiplier,
+            randomMultipliersThisSpin: spinResult.bonusFeatures?.randomMultipliers?.length || 0
           });
         }
 
@@ -625,8 +634,8 @@ class GameController {
           freeSpinsRemaining: nextFreeSpinCount,
           freeSpinsEnded,
           gameMode: nextGameMode,
-          accumulatedMultiplier: stateResult.gameState.accumulated_multiplier,
-          newAccumulatedMultiplier: stateResult.gameState.accumulated_multiplier, // Also send as newAccumulatedMultiplier for NetworkService
+          accumulatedMultiplier: displayedAccumulatedMultiplier, // Use the multiplier that was applied to THIS spin
+          newAccumulatedMultiplier: displayedAccumulatedMultiplier, // Also send as newAccumulatedMultiplier for NetworkService
           playerCredits: player.is_demo ? null : currentBalance,
           balance: player.is_demo ? null : currentBalance,
           rngSeed: spinResult.rngSeed,
