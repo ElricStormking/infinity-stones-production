@@ -399,28 +399,40 @@ class GameController {
           
           console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'triggeredThisSpin:', !!spinResult.features?.free_spins, 'retriggered:', !!spinResult.bonusFeatures?.freeSpinsRetriggered);
           
-          // Update or insert game state
-          const { error: stateError } = await supabaseAdmin
-            .from('game_states')
-            .upsert({
-              player_id: playerId,
-              session_id: validSessionId,
-              game_mode: newGameMode,
-              free_spins_remaining: newFreeSpinsRemaining,
-              accumulated_multiplier: newAccumulatedMultiplier,
-              state_data: {
-                last_spin_id: spinId,
-                last_updated: new Date().toISOString()
-              },
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'player_id'
-            });
+          // Update or insert game state (manual upsert because player_id is not UNIQUE)
+          const gameStateUpdate = {
+            player_id: playerId,
+            session_id: validSessionId,
+            game_mode: newGameMode,
+            free_spins_remaining: newFreeSpinsRemaining,
+            accumulated_multiplier: newAccumulatedMultiplier,
+            state_data: {
+              last_spin_id: spinId,
+              last_updated: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+          };
           
-          if (stateError) {
-            console.warn('[GameController] Failed to update game state in Supabase:', stateError);
+          // Try update first
+          const { data: updateResult, error: updateError } = await supabaseAdmin
+            .from('game_states')
+            .update(gameStateUpdate)
+            .eq('player_id', playerId)
+            .select();
+          
+          // If no rows updated, insert
+          if (updateError || !updateResult || updateResult.length === 0) {
+            const { error: insertError } = await supabaseAdmin
+              .from('game_states')
+              .insert(gameStateUpdate);
+            
+            if (insertError) {
+              console.error('[GameController] ❌ Failed to insert game state:', insertError);
+            } else {
+              console.log('[GameController] ✅ Game state inserted (first time)');
+            }
           } else {
-            console.log('[GameController] ??Game state updated in Supabase');
+            console.log('[GameController] ✅ Game state updated, mode:', updateResult[0]?.game_mode, 'freeSpins:', updateResult[0]?.free_spins_remaining);
           }
           
           stateResult = {
