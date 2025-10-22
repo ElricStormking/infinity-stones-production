@@ -77,18 +77,23 @@ const GAME_CONFIG = {
     TRIGGER_CHANCE: 0.4,
     MIN_WIN_REQUIRED: 0.01,
     ANIMATION_DURATION: 2000,
-    TABLE: [].concat(
-      Array(487).fill(2),
-      Array(200).fill(3),
-      Array(90).fill(4),
-      Array(70).fill(5),
-      Array(70).fill(6),
-      Array(40).fill(8),
-      Array(20).fill(10),
-      Array(10).fill(20),
-      Array(10).fill(100),
-      Array(3).fill(500)
-    )
+    // WEIGHTED PROBABILITY TABLE (efficient - no large arrays!)
+    // Each entry: { multiplier: value, weight: probability }
+    // Weights are cumulative percentages (0-100)
+    WEIGHTED_TABLE: [
+      { multiplier: 2,   weight: 48.7 },    // 48.7% - Most common
+      { multiplier: 3,   weight: 20.0 },    // 20.0% - Common
+      { multiplier: 4,   weight: 9.0 },     //  9.0% - Uncommon
+      { multiplier: 5,   weight: 7.0 },     //  7.0% - Uncommon
+      { multiplier: 6,   weight: 7.0 },     //  7.0% - Uncommon
+      { multiplier: 8,   weight: 4.0 },     //  4.0% - Rare
+      { multiplier: 10,  weight: 2.0 },     //  2.0% - Rare
+      { multiplier: 20,  weight: 1.2989 },  //  1.2989% - Very rare
+      { multiplier: 100, weight: 0.001 },   //  0.001% - ULTRA RARE (1 in 100,000)
+      { multiplier: 500, weight: 0.0001 }   //  0.0001% - MEGA RARE (1 in 1,000,000)
+    ],
+    // Legacy TABLE for backwards compatibility (will be ignored if WEIGHTED_TABLE exists)
+    TABLE: null
   },
 
   // Cascading random multiplier configuration

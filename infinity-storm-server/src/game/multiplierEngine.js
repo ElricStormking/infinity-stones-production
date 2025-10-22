@@ -17,13 +17,14 @@ class MultiplierEngine {
     this.gameConfig = gameConfig;
     this.rng = rng || getRNG();
 
-    // Multiplier configuration (identical to client)
+    // Multiplier configuration (supports both WEIGHTED_TABLE and legacy TABLE)
     this.config = {
       randomMultiplier: {
         triggerChance: gameConfig.RANDOM_MULTIPLIER.TRIGGER_CHANCE,
         minWinRequired: gameConfig.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED,
         animationDuration: gameConfig.RANDOM_MULTIPLIER.ANIMATION_DURATION,
-        table: gameConfig.RANDOM_MULTIPLIER.TABLE
+        weightedTable: gameConfig.RANDOM_MULTIPLIER.WEIGHTED_TABLE,
+        table: gameConfig.RANDOM_MULTIPLIER.TABLE  // Legacy fallback
       },
       freeSpinsMultiplier: {
         baseMultiplier: gameConfig.FREE_SPINS.BASE_MULTIPLIER,
@@ -221,7 +222,8 @@ class MultiplierEngine {
 
         position: `${entry.position.col},${entry.position.row}`,
 
-        character: entry.character,
+        character: entry.character,
+
         id: entry.id
 
       }))
@@ -386,9 +388,34 @@ class MultiplierEngine {
      * @private
      */
   selectRandomMultiplier() {
-    const table = this.config.randomMultiplier.table;
-    const randomIndex = this.rng.randomInt(0, table.length - 1);
-    return table[randomIndex];
+    // Use new efficient WEIGHTED_TABLE if available, otherwise fall back to legacy TABLE
+    const weightedTable = this.config.randomMultiplier.weightedTable;
+    
+    if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
+      // NEW METHOD: Weighted random selection (efficient!)
+      const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
+      const randomValue = this.rng.random() * totalWeight;
+      
+      let currentWeight = 0;
+      for (const entry of weightedTable) {
+        currentWeight += entry.weight;
+        if (randomValue <= currentWeight) {
+          return entry.multiplier;
+        }
+      }
+      
+      // Fallback to most common (should never reach here)
+      return weightedTable[0].multiplier;
+    } else {
+      // LEGACY METHOD: Array-based selection (backwards compatibility)
+      const table = this.config.randomMultiplier.table;
+      if (!table || table.length === 0) {
+        console.error('No multiplier table configured! Returning default multiplier.');
+        return 2; // Default fallback
+      }
+      const randomIndex = this.rng.randomInt(0, table.length - 1);
+      return table[randomIndex];
+    }
   }
 
   /**
@@ -458,9 +485,20 @@ class MultiplierEngine {
      * @returns {number} Expected multiplier value
      */
   calculateExpectedMultiplier() {
-    const table = this.config.randomMultiplier.table;
-    const total = table.reduce((sum, multiplier) => sum + multiplier, 0);
-    return total / table.length;
+    const weightedTable = this.config.randomMultiplier.weightedTable;
+    
+    if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
+      // NEW METHOD: Weighted average
+      const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
+      const weightedSum = weightedTable.reduce((sum, entry) => sum + (entry.multiplier * entry.weight), 0);
+      return weightedSum / totalWeight;
+    } else {
+      // LEGACY METHOD: Array average
+      const table = this.config.randomMultiplier.table;
+      if (!table || table.length === 0) return 2; // Default
+      const total = table.reduce((sum, multiplier) => sum + multiplier, 0);
+      return total / table.length;
+    }
   }
 
   /**
@@ -468,28 +506,63 @@ class MultiplierEngine {
      * @returns {Object} Distribution statistics
      */
   getMultiplierDistribution() {
-    const table = this.config.randomMultiplier.table;
-    const distribution = {};
+    const weightedTable = this.config.randomMultiplier.weightedTable;
+    
+    if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
+      // NEW METHOD: Use weights directly
+      const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
+      const percentageDistribution = {};
+      const rawCounts = {};
+      
+      for (const entry of weightedTable) {
+        const percentage = (entry.weight / totalWeight) * 100;
+        percentageDistribution[entry.multiplier] = percentage.toFixed(4) + '%';
+        rawCounts[entry.multiplier] = entry.weight;
+      }
+      
+      return {
+        rawCounts,
+        percentages: percentageDistribution,
+        totalWeight,
+        uniqueMultipliers: weightedTable.length,
+        expectedValue: this.calculateExpectedMultiplier(),
+        method: 'weighted_table'
+      };
+    } else {
+      // LEGACY METHOD: Count array entries
+      const table = this.config.randomMultiplier.table;
+      if (!table || table.length === 0) {
+        return {
+          rawCounts: {},
+          percentages: {},
+          totalEntries: 0,
+          uniqueMultipliers: 0,
+          expectedValue: 2,
+          method: 'legacy_table',
+          error: 'No multiplier table configured'
+        };
+      }
+      
+      const distribution = {};
+      for (const multiplier of table) {
+        distribution[multiplier] = (distribution[multiplier] || 0) + 1;
+      }
 
-    // Count frequency of each multiplier value
-    for (const multiplier of table) {
-      distribution[multiplier] = (distribution[multiplier] || 0) + 1;
+      const totalEntries = table.length;
+      const percentageDistribution = {};
+      for (const [multiplier, count] of Object.entries(distribution)) {
+        percentageDistribution[multiplier] = ((count / totalEntries) * 100).toFixed(2) + '%';
+      }
+
+      return {
+        rawCounts: distribution,
+        percentages: percentageDistribution,
+        totalEntries,
+        uniqueMultipliers: Object.keys(distribution).length,
+        expectedValue: this.calculateExpectedMultiplier(),
+        method: 'legacy_table'
+      };
     }
-
-    // Convert to percentages
-    const totalEntries = table.length;
-    const percentageDistribution = {};
-    for (const [multiplier, count] of Object.entries(distribution)) {
-      percentageDistribution[multiplier] = ((count / totalEntries) * 100).toFixed(2) + '%';
-    }
-
-    return {
-      rawCounts: distribution,
-      percentages: percentageDistribution,
-      totalEntries,
-      uniqueMultipliers: Object.keys(distribution).length,
-      expectedValue: this.calculateExpectedMultiplier()
-    };
   }
 
   /**
