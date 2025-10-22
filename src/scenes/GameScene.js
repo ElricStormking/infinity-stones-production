@@ -1436,6 +1436,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 spinResult = await this.errorRecovery.handleSpinRequest({
                     betAmount,
                     freeSpinsActive: !!fsData.active,
+                    freeSpinsRemaining: fsData.count || 0,
                     accumulatedMultiplier: safeAccumulated,
                     quickSpinMode: this.quickSpinEnabled
                 });

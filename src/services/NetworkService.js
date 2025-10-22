@@ -727,6 +727,7 @@ window.NetworkService = new (class NetworkService {
             betAmount: spinData.bet || spinData.betAmount,
             quickSpinMode: !!spinData.quickSpinMode,
             freeSpinsActive: !!spinData.freeSpinsActive,
+            freeSpinsRemaining: spinData.freeSpinsRemaining || 0,
             accumulatedMultiplier: spinData.accumulatedMultiplier || 1,
             bonusMode: !!spinData.bonusMode,
             rngSeed: spinData.rngSeed, // optional for deterministic replay/testing
