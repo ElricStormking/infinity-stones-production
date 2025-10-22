@@ -371,9 +371,10 @@ class GameController {
           
           const newGameMode = spinResult.gameMode || 'base';
           const newFreeSpinsRemaining = spinResult.freeSpinsRemaining || 0;
-          const newAccumulatedMultiplier = spinResult.accumulatedMultiplier || 1;
+          // CRITICAL: Use newAccumulatedMultiplier from gameEngine (includes accumulated + new multipliers from this spin)
+          const newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier || spinResult.accumulatedMultiplier || gameState.accumulated_multiplier || 1;
           
-          console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier);
+          console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'source:', spinResult.newAccumulatedMultiplier ? 'newAccumulatedMultiplier' : 'fallback');
           
           // Update or insert game state
           const { error: stateError } = await supabaseAdmin
@@ -518,6 +519,18 @@ class GameController {
         const freeSpinsActiveNext = nextGameMode === 'free_spins';
         const freeSpinsEnded = serverFreeSpinsActive && !freeSpinsActiveNext;
 
+        // DEBUG: Log accumulated multiplier and free spins retrigger
+        if (freeSpinsActiveNext) {
+          console.log(`🎰 [GAME CONTROLLER] FREE SPINS RESPONSE DEBUG:`, {
+            freeSpinsAwarded,
+            freeSpinsRetriggered,
+            freeSpinsRemaining: nextFreeSpinCount,
+            accumulatedMultiplier: stateResult.gameState.accumulated_multiplier,
+            randomMultipliersThisSpin: spinResult.bonusFeatures?.randomMultipliers?.length || 0,
+            newAccumulatedMultiplier: spinResult.newAccumulatedMultiplier
+          });
+        }
+
         // Prepare response (canonical format with nested data, matching /api/demo-spin)
         const responseData = {
           spinId: spinResult.spinId,
@@ -541,6 +554,7 @@ class GameController {
           freeSpinsEnded,
           gameMode: nextGameMode,
           accumulatedMultiplier: stateResult.gameState.accumulated_multiplier,
+          newAccumulatedMultiplier: stateResult.gameState.accumulated_multiplier, // Also send as newAccumulatedMultiplier for NetworkService
           playerCredits: player.is_demo ? null : currentBalance,
           balance: player.is_demo ? null : currentBalance,
           rngSeed: spinResult.rngSeed,

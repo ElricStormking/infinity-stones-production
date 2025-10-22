@@ -429,8 +429,9 @@ class GameEngine {
         if (postCascadeScatterCount >= 4) {
           const retriggerResult = this.freeSpinsEngine.checkFreeSpinsRetrigger(postCascadeScatterCount);
           if (retriggerResult.triggered && retriggerResult.spinsAwarded > 0) {
+            const previousAwardedValue = spinResult.bonusFeatures.freeSpinsAwarded || 0;
             spinResult.bonusFeatures.freeSpinsRetriggered = true;
-            spinResult.bonusFeatures.freeSpinsAwarded = (spinResult.bonusFeatures.freeSpinsAwarded || 0) + retriggerResult.spinsAwarded;
+            spinResult.bonusFeatures.freeSpinsAwarded = previousAwardedValue + retriggerResult.spinsAwarded;
 
             const previousRemaining = Number.isFinite(freeSpinsRemaining) ? freeSpinsRemaining : 0;
             const remainingAfterSpin = Math.max(0, previousRemaining - 1);
@@ -443,6 +444,17 @@ class GameEngine {
               previousRemaining,
               retrigger: true
             };
+            
+            console.log(`🎰 FREE SPINS RETRIGGER:`, {
+              scatterCount: postCascadeScatterCount,
+              retriggeredSpinsAwarded: retriggerResult.spinsAwarded,
+              previousFreeSpinsAwarded: previousAwardedValue,
+              newTotalFreeSpinsAwarded: spinResult.bonusFeatures.freeSpinsAwarded,
+              previousRemaining,
+              remainingAfterSpin,
+              pendingFreeSpinsCount,
+              CONFIG_RETRIGGER_SPINS: this.gameConfig.FREE_SPINS.RETRIGGER_SPINS
+            });
           }
         }
       }
