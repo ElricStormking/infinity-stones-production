@@ -202,6 +202,10 @@ class GridGenerator {
 
     const metadata = this.enforceCascadeClusters(grid, rng, context);
 
+    // CRITICAL: Prevent 4+ scatters on winning grids (UI overlap fix)
+    // If grid has wins, cap scatters at 3 to avoid win celebration + free spins trigger overlap
+    this.enforceScatterWinConstraint(grid, rng, context);
+
     // Recalculate symbol counts after potential cluster injection
     const finalCounts = this.countSymbols(grid);
     this.applySymbolCountDiff(originalCounts, finalCounts);
@@ -289,6 +293,64 @@ class GridGenerator {
         existingClusters: existingClusters.length
       }
     };
+  }
+
+  /**
+     * Enforce scatter-win constraint: 4+ scatters only on non-winning grids
+     * This prevents UI overlap between win celebrations and free spins triggers
+     * @param {Array<Array<string>>} grid - Grid to enforce constraint on
+     * @param {Function} rng - Random number generator
+     * @param {Object} context - Generation context
+     * @private
+     */
+  enforceScatterWinConstraint(grid, rng, context = {}) {
+    // Count scatter symbols
+    const scatterPositions = [];
+    for (let col = 0; col < this.options.cols; col++) {
+      for (let row = 0; row < this.options.rows; row++) {
+        if (grid[col][row] === 'infinity_glove') {
+          scatterPositions.push({ col, row });
+        }
+      }
+    }
+
+    // If less than 4 scatters, no constraint needed
+    if (scatterPositions.length < 4) {
+      return;
+    }
+
+    // Check if grid has any winning clusters
+    const winningClusters = this.findClusters(grid);
+    const hasWins = winningClusters.length > 0;
+
+    // If grid has wins AND 4+ scatters, reduce scatters to 3
+    if (hasWins && scatterPositions.length >= 4) {
+      const scattersToRemove = scatterPositions.length - 3;
+      
+      // Randomly select which scatters to replace with regular symbols
+      // Shuffle scatter positions to pick randomly
+      const shuffledPositions = scatterPositions.sort(() => rng() - 0.5);
+      
+      // Replace excess scatters with weighted regular symbols
+      for (let i = 0; i < scattersToRemove; i++) {
+        const pos = shuffledPositions[i];
+        const weights = this.symbolDistribution.getWeightedDistribution(context.freeSpinsMode || false);
+        const replacementSymbol = this.selectWeightedSymbol(rng, weights);
+        grid[pos.col][pos.row] = replacementSymbol;
+      }
+
+      this.rng.emit('audit_event', {
+        timestamp: Date.now(),
+        event: 'SCATTER_WIN_CONSTRAINT_APPLIED',
+        data: {
+          original_scatter_count: scatterPositions.length,
+          final_scatter_count: 3,
+          scatters_replaced: scattersToRemove,
+          winning_clusters: winningClusters.length,
+          reason: 'prevent_ui_overlap'
+        }
+      });
+    }
   }
 
   /**

@@ -58,6 +58,43 @@ router.get('/admin/sync-health', async (req, res) => {
   }
 });
 
+// Reset game state for testing (dev only)
+router.post('/reset-game-state', async (req, res) => {
+  try {
+    const { supabaseAdmin } = require('../db/supabaseClient');
+    const playerId = req.body.playerId || req.query.playerId;
+    
+    if (!playerId) {
+      return res.status(400).json({ success: false, error: 'playerId required' });
+    }
+    
+    // Reset to base mode with default values
+    const { data, error } = await supabaseAdmin
+      .from('game_states')
+      .update({
+        game_mode: 'base',
+        free_spins_remaining: 0,
+        accumulated_multiplier: 1.00,
+        state_data: { reset_at: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      })
+      .eq('player_id', playerId)
+      .select();
+    
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Game state reset to base mode',
+      state: data[0] || null
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Middleware to validate request and handle errors
 const validateAndProceed = (req, res, next) => {
   const errors = validationResult(req);

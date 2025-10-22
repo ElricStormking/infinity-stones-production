@@ -423,14 +423,21 @@ class GameController {
             newAccumulatedMultiplier = spinResult.features.free_spins.multiplier || 1.00;
           }
           
+          // Step 2.5: Handle free spins RETRIGGER (add to remaining count)
+          // CRITICAL: This must happen BEFORE checking if free spins ended!
+          if (spinResult.bonusFeatures?.freeSpinsRetriggered && spinResult.bonusFeatures?.freeSpinsAwarded) {
+            newFreeSpinsRemaining += spinResult.bonusFeatures.freeSpinsAwarded;
+            console.log('[GameController] 🎰 FREE SPINS RETRIGGERED! Added', spinResult.bonusFeatures.freeSpinsAwarded, 'spins, new total:', newFreeSpinsRemaining);
+          }
+          
           // Step 3: Update accumulated multiplier if in free spins and new multipliers were awarded
           // CRITICAL: Do this BEFORE checking if free spins ended, so the last spin's multipliers are saved
           if (newGameMode === 'free_spins' && typeof spinResult.newAccumulatedMultiplier === 'number') {
             newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier;
           }
           
-          // Step 4: Check if free spins ended (after updating multiplier)
-          // MOVED FROM STEP 1: Check AFTER accumulating multipliers from current spin
+          // Step 4: Check if free spins ended (after updating multiplier AND after checking retrigger)
+          // MOVED FROM STEP 1: Check AFTER accumulating multipliers from current spin AND after retrigger
           if (newGameMode === 'free_spins' && newFreeSpinsRemaining === 0) {
             newGameMode = 'base';
             newAccumulatedMultiplier = 1.00;

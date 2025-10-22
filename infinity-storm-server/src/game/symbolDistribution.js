@@ -36,22 +36,22 @@ class SymbolDistribution {
 
     // Scatter probabilities (independent of regular symbol weights)
     this.scatterChance = {
-      base_game: 0.035,     // 3.5% in base game
-      free_spins: 0.025     // 2.5% in free spins (slightly lower)
+      base_game: 0.035,    //  3.5% in base game
+      free_spins: 0.04 // upped from 3.5% (kept same as base for clarity)
     };
 
     // Free spins mode adjustments (multipliers to base weights)
     this.freeSpinAdjustments = {
       // Slightly favor higher-paying symbols during free spins
-      'time_gem': 0.95,        // Slightly less common
-      'space_gem': 0.95,       // Slightly less common
-      'mind_gem': 0.98,        // Slightly less common
-      'power_gem': 1.02,       // Slightly more common
-      'reality_gem': 1.05,     // More common
-      'soul_gem': 1.08,        // More common
-      'thanos_weapon': 1.15,   // More common (better free spin value)
-      'scarlet_witch': 1.20,   // More common (better free spin value)
-      'thanos': 1.25           // More common (best free spin value)
+      'time_gem': 1.2,        // Slightly less common 0.95
+      'space_gem': 1.2,       // Slightly less common 0.95
+      'mind_gem': 0.7,        // Slightly less common 0.98
+      'power_gem': 0.7,       // Slightly more common 1.02
+      'reality_gem': 0.7,     // More common 1.05
+      'soul_gem': 0.7,        // More common 1.08
+      'thanos_weapon': 1.5,   // More common (better free spin value) 1.15
+      'scarlet_witch': 1.5,   // More common (better free spin value) 1.20
+      'thanos': 1.5           // More common (best free spin value) 1.25
     };
 
     // Symbol definitions with types and payout info

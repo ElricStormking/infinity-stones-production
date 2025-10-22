@@ -56,12 +56,33 @@ class MultiplierEngine {
       scarlet_witch: 0.2 // 20% chance for Scarlet Witch
     };
 
-    this.logAuditEvent('MULTIPLIER_ENGINE_INITIALIZED', {
-      random_multiplier_trigger_chance: this.config.randomMultiplier.triggerChance,
-      multiplier_table_size: this.config.randomMultiplier.table.length,
-      max_multiplier: Math.max(...this.config.randomMultiplier.table),
-      min_multiplier: Math.min(...this.config.randomMultiplier.table)
-    });
+    // Prepare audit log data based on table type
+    const auditData = {
+      random_multiplier_trigger_chance: this.config.randomMultiplier.triggerChance
+    };
+
+    if (this.config.randomMultiplier.weightedTable) {
+      // New weighted table format
+      const multipliers = this.config.randomMultiplier.weightedTable.map(e => e.multiplier);
+      auditData.multiplier_table_type = 'weighted';
+      auditData.multiplier_table_size = this.config.randomMultiplier.weightedTable.length;
+      auditData.max_multiplier = Math.max(...multipliers);
+      auditData.min_multiplier = Math.min(...multipliers);
+    } else if (this.config.randomMultiplier.table && Array.isArray(this.config.randomMultiplier.table)) {
+      // Legacy array table format
+      auditData.multiplier_table_type = 'legacy';
+      auditData.multiplier_table_size = this.config.randomMultiplier.table.length;
+      auditData.max_multiplier = Math.max(...this.config.randomMultiplier.table);
+      auditData.min_multiplier = Math.min(...this.config.randomMultiplier.table);
+    } else {
+      // No table configured
+      auditData.multiplier_table_type = 'none';
+      auditData.multiplier_table_size = 0;
+      auditData.max_multiplier = 2; // Default
+      auditData.min_multiplier = 2;
+    }
+
+    this.logAuditEvent('MULTIPLIER_ENGINE_INITIALIZED', auditData);
   }
 
   /**
@@ -70,7 +91,8 @@ class MultiplierEngine {
      * @param {number} betAmount - Current bet amount
      * @returns {Object} Random multiplier result
      */
-  async processRandomMultiplier(totalWin, betAmount) {
+  async processRandomMultiplier(totalWin, betAmount, options = {}) {
+    const { freeSpinsActive = false } = options;
     // Check minimum win requirement
     if (totalWin < this.config.randomMultiplier.minWinRequired) {
       return {
@@ -80,14 +102,18 @@ class MultiplierEngine {
       };
     }
 
-    // Check trigger probability
+    // Check trigger probability (boosted during free spins)
+    const baseChance = this.config.randomMultiplier.triggerChance;
+    const effectiveChance = Math.min(1, freeSpinsActive ? baseChance * 1.3 : baseChance);
     const triggerRoll = this.rng.random();
-    if (triggerRoll > this.config.randomMultiplier.triggerChance) {
+    if (triggerRoll > effectiveChance) {
       return {
         triggered: false,
         reason: 'probability_not_met',
         triggerRoll,
-        triggerChance: this.config.randomMultiplier.triggerChance
+        triggerChance: effectiveChance,
+        baseChance,
+        freeSpinsActive
       };
     }
 
@@ -116,8 +142,12 @@ class MultiplierEngine {
       multipliedWin: totalWin * multiplier,
       metadata: {
         triggerRoll,
-        triggerChance: this.config.randomMultiplier.triggerChance,
-        tableIndex: this.config.randomMultiplier.table.indexOf(multiplier)
+        triggerChance: effectiveChance,
+        baseChance,
+        freeSpinsActive,
+        tableIndex: (this.config.randomMultiplier.table && Array.isArray(this.config.randomMultiplier.table))
+          ? this.config.randomMultiplier.table.indexOf(multiplier)
+          : -1
       }
     };
 
@@ -614,8 +644,12 @@ class MultiplierEngine {
      * @returns {Object} Validation result
      */
   validateIntegrity() {
-    const hasValidTable = this.config.randomMultiplier.table.length > 0;
-    const hasPositiveMultipliers = this.config.randomMultiplier.table.every(m => m > 0);
+    const useWeighted = this.config.randomMultiplier.weightedTable && this.config.randomMultiplier.weightedTable.length > 0;
+    const legacyTable = this.config.randomMultiplier.table || [];
+    const hasValidTable = useWeighted || legacyTable.length > 0;
+    const hasPositiveMultipliers = useWeighted
+      ? this.config.randomMultiplier.weightedTable.every(e => (e && e.multiplier && e.multiplier > 0))
+      : legacyTable.every(m => m > 0);
     const hasValidTriggerChance = this.config.randomMultiplier.triggerChance >= 0 &&
                                       this.config.randomMultiplier.triggerChance <= 1;
     const hasValidCharacterWeights = Math.abs(
@@ -629,7 +663,7 @@ class MultiplierEngine {
         positiveMultipliers: hasPositiveMultipliers,
         validTriggerChance: hasValidTriggerChance,
         validCharacterWeights: hasValidCharacterWeights,
-        tableSize: this.config.randomMultiplier.table.length
+        tableSize: useWeighted ? this.config.randomMultiplier.weightedTable.length : legacyTable.length
       }
     };
   }

@@ -74,7 +74,7 @@ const GAME_CONFIG = {
 
   // Random multiplier configuration
   RANDOM_MULTIPLIER: {
-    TRIGGER_CHANCE: 0.4,
+    TRIGGER_CHANCE: 0.8,
     MIN_WIN_REQUIRED: 0.01,
     ANIMATION_DURATION: 2000,
     // WEIGHTED PROBABILITY TABLE (efficient - no large arrays!)
@@ -98,7 +98,7 @@ const GAME_CONFIG = {
 
   // Cascading random multiplier configuration
   CASCADE_RANDOM_MULTIPLIER: {
-    TRIGGER_CHANCE: 0.20,
+    TRIGGER_CHANCE: 0.40,
     MIN_MULTIPLIERS: 1,
     MAX_MULTIPLIERS: 3,
     MIN_WIN_REQUIRED: 0.01
@@ -107,6 +107,9 @@ const GAME_CONFIG = {
 
 class GameEngine {
   constructor(options = {}) {
+    // Store game configuration
+    this.gameConfig = GAME_CONFIG;
+    
     // Initialize crypto RNG system
     this.rng = getRNG({ auditLogging: true });
     // Production: disable any forced cluster injection; audit logging stays on
@@ -500,7 +503,7 @@ class GameEngine {
       }
 
       if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
-        const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount);
+        const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount, { freeSpinsActive });
 
         if (randomMultiplierResult.triggered) {
           // CRITICAL FIX: Don't apply yet, just accumulate the multiplier value
