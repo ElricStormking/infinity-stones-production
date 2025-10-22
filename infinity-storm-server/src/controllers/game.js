@@ -209,6 +209,9 @@ class GameController {
           : parseFloat(rawAccumulatedMultiplier) || 1;
         let serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
+        
+        // SAVE ORIGINAL VALUE before modification (critical for state update logic)
+        const originalServerFreeSpinsActive = serverFreeSpinsActive;
 
         console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining, 'multiplier:', serverAccumulatedMultiplier);
         console.log('[GameController] Client claims: freeSpinsActive:', clientFreeSpinsActive, 'freeSpinsRemaining:', clientFreeSpinsRemaining, 'accumulatedMultiplier:', clientAccumulatedMultiplier);
@@ -216,7 +219,7 @@ class GameController {
         // CRITICAL FIX: Handle free spins purchase case
         // If client says it's in free spins mode but server doesn't know, trust the client
         // This happens when free spins are purchased (client-side state change before first spin)
-        if (clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0) {
+        if (clientFreeSpinsActive && !originalServerFreeSpinsActive && clientFreeSpinsRemaining > 0) {
           console.log('[GameController] ⚠️ Client in free spins but server is not - using client values (FREE SPINS PURCHASE)');
           serverFreeSpinsActive = true;
           // Don't override serverFreeSpinsRemaining and serverAccumulatedMultiplier yet - let the state update logic handle it
@@ -403,7 +406,8 @@ class GameController {
           // Use effectiveFreeSpinsActive to handle purchase case where client is in FS but server doesn't know
           if (effectiveFreeSpinsActive) {
             // If this is a purchase (client says FS but server doesn't), start with client's count
-            const currentCount = clientFreeSpinsActive && !serverFreeSpinsActive && clientFreeSpinsRemaining > 0
+            // CRITICAL: Use originalServerFreeSpinsActive (before modification) to detect purchase
+            const currentCount = clientFreeSpinsActive && !originalServerFreeSpinsActive && clientFreeSpinsRemaining > 0
               ? clientFreeSpinsRemaining
               : (gameState.free_spins_remaining || 0);
             newFreeSpinsRemaining = Math.max(0, currentCount - 1);
