@@ -143,9 +143,6 @@ window.UIManager = class UIManager {
         // Create fallback buttons if UI images failed to load
         this.createFallbackButtons();
         
-        // Create demo mode UI if in demo mode
-        this.createDemoModeUI(scaleX, scaleY);
-        
         return this.uiElements;
     }
     
@@ -2114,135 +2111,8 @@ window.UIManager = class UIManager {
         }
     }
     
-    // Create demo mode UI elements
-    createDemoModeUI(scaleX, scaleY) {
-        // Only show demo UI if not authenticated
-        if (window.NetworkService && !window.NetworkService.isDemoMode()) {
-            return; // Real player - no demo UI
-        }
-
-        const width = this.scene.cameras.main.width;
-        const height = this.scene.cameras.main.height;
-
-        // DEMO badge (top-left)
-        const demoBadge = this.scene.add.graphics();
-        demoBadge.fillStyle(0xFF6600, 1);
-        demoBadge.fillRoundedRect(10, 10, 120, 40, 8);
-        demoBadge.setDepth(10000);
-
-        const demoBadgeText = this.scene.add.text(70, 30, 'DEMO', {
-            fontSize: '24px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            fontStyle: 'bold'
-        });
-        demoBadgeText.setOrigin(0.5);
-        demoBadgeText.setDepth(10001);
-
-        // Reset Demo Balance button (top-left, below badge)
-        const resetButton = this.scene.add.graphics();
-        resetButton.fillStyle(0x4CAF50, 1);
-        resetButton.fillRoundedRect(10, 60, 180, 45, 8);
-        resetButton.setDepth(10000);
-        resetButton.setInteractive(new Phaser.Geom.Rectangle(10, 60, 180, 45), Phaser.Geom.Rectangle.Contains);
-
-        const resetButtonText = this.scene.add.text(100, 82.5, 'Reset Balance', {
-            fontSize: '18px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            fontStyle: 'bold'
-        });
-        resetButtonText.setOrigin(0.5);
-        resetButtonText.setDepth(10001);
-
-        resetButton.on('pointerdown', async () => {
-            console.log('🔄 Resetting demo balance...');
-            if (window.NetworkService) {
-                const result = await window.NetworkService.resetDemoBalance();
-                if (result.success) {
-                    console.log('✅ Demo balance reset:', result.balance);
-                    // Refresh UI
-                    if (this.scene.stateManager) {
-                        this.scene.stateManager.updatePlayerCredits(result.balance);
-                    }
-                    this.updateBalance(result.balance);
-                } else {
-                    console.error('❌ Failed to reset demo balance:', result.message);
-                }
-            }
-        });
-
-        resetButton.on('pointerover', () => {
-            resetButton.clear();
-            resetButton.fillStyle(0x66BB6A, 1); // Lighter green on hover
-            resetButton.fillRoundedRect(10, 60, 180, 45, 8);
-        });
-
-        resetButton.on('pointerout', () => {
-            resetButton.clear();
-            resetButton.fillStyle(0x4CAF50, 1); // Original green
-            resetButton.fillRoundedRect(10, 60, 180, 45, 8);
-        });
-
-        // Play for Real button (top-left, below reset button)
-        const playRealButton = this.scene.add.graphics();
-        playRealButton.fillStyle(0x2196F3, 1);
-        playRealButton.fillRoundedRect(10, 115, 180, 45, 8);
-        playRealButton.setDepth(10000);
-        playRealButton.setInteractive(new Phaser.Geom.Rectangle(10, 115, 180, 45), Phaser.Geom.Rectangle.Contains);
-
-        const playRealButtonText = this.scene.add.text(100, 137.5, 'Play for Real', {
-            fontSize: '18px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            fontStyle: 'bold'
-        });
-        playRealButtonText.setOrigin(0.5);
-        playRealButtonText.setDepth(10001);
-
-        playRealButton.on('pointerdown', () => {
-            console.log('🎰 Redirecting to provider login...');
-            // Redirect to test player login page (or real provider URL in production)
-            window.location.href = '/test-player-login.html';
-        });
-
-        playRealButton.on('pointerover', () => {
-            playRealButton.clear();
-            playRealButton.fillStyle(0x42A5F5, 1); // Lighter blue on hover
-            playRealButton.fillRoundedRect(10, 115, 180, 45, 8);
-        });
-
-        playRealButton.on('pointerout', () => {
-            playRealButton.clear();
-            playRealButton.fillStyle(0x2196F3, 1); // Original blue
-            playRealButton.fillRoundedRect(10, 115, 180, 45, 8);
-        });
-
-        // Store references for cleanup
-        this.demoUI = {
-            badge: demoBadge,
-            badgeText: demoBadgeText,
-            resetButton,
-            resetButtonText,
-            playRealButton,
-            playRealButtonText
-        };
-
-        console.log('✅ Demo mode UI created');
-    }
-
     // Clean up wallet integration
     destroy() {
-        // Clean up demo UI
-        if (this.demoUI) {
-            Object.values(this.demoUI).forEach(element => {
-                if (element && element.destroy) {
-                    element.destroy();
-                }
-            });
-            this.demoUI = null;
-        }
-
         // Remove event listeners
         if (this.scene && this.scene.events) {
             this.scene.events.off('wallet_balance_update', this.handleWalletBalanceUpdate, this);

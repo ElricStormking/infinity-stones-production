@@ -84,13 +84,10 @@ router.use((req, res, next) => {
  * Process a demo spin request (no auth required for testing)
  * Body: { betAmount, quickSpinMode?, freeSpinsActive?, accumulatedMultiplier?, bonusMode? }
  */
-// Demo mode: separate game engine with boosted RTP
+// Reuse full game engine for demo spins so client sees real cascades
 const GameEngine = require('../game/gameEngine');
 const { saveSpinResult, ensureTestPlayer } = require('../db/supabaseClient');
-const { getDemoState, setDemoState, resetDemoState, initDemoState, DEMO_START_BALANCE } = require('../demo/demoSession');
-
-// Create demo engine with demo mode enabled
-const demoEngine = new GameEngine({ mode: 'demo' });
+const demoEngine = new GameEngine();
 
 const DEMO_IDENTIFIER = 'demo-player';
 const DEMO_SESSION_ID = 'demo-session';
@@ -104,10 +101,6 @@ const resolveBypassIdentifier = (req) => {
   );
 };
 
-/**
- * POST /api/demo-spin
- * Free-to-play demo spin (no auth, cookie-based state, boosted RTP)
- */
 router.post('/demo-spin',
   [
     body('betAmount')
@@ -120,6 +113,23 @@ router.post('/demo-spin',
       .optional()
       .isBoolean()
       .withMessage('Quick spin mode must be a boolean')
+      .toBoolean(),
+    body('freeSpinsActive')
+      .optional()
+      .isBoolean()
+      .withMessage('Free spins active must be a boolean')
+      .toBoolean(),
+    body('accumulatedMultiplier')
+      .optional()
+      .isNumeric()
+      .withMessage('Accumulated multiplier must be a number')
+      .isFloat({ min: 1, max: 5000 })
+      .withMessage('Accumulated multiplier must be between 1 and 5000')
+      .toFloat(),
+    body('bonusMode')
+      .optional()
+      .isBoolean()
+      .withMessage('Bonus mode must be a boolean')
       .toBoolean()
   ],
   validateAndProceed,
@@ -127,106 +137,62 @@ router.post('/demo-spin',
     const {
       betAmount = 1.0,
       quickSpinMode = false,
-      rngSeed
+      freeSpinsActive = false,
+      accumulatedMultiplier = 1,
+      rngSeed,
+      playerId: requestedPlayerId,
+      sessionId: requestedSessionId
     } = req.body;
-    
     try {
-      // Initialize or get demo state from cookie
-      const demoState = initDemoState(req, res);
-      
-      const isCurrentlyInFreeSpins = demoState.game_state.game_mode === 'free_spins';
-      const currentAccumulated = demoState.game_state.accumulated_multiplier || 1;
-      
-      console.log('[DemoSpin] Starting demo spin:', {
-        balance: demoState.balance,
-        mode: demoState.game_state.game_mode,
-        freeSpinsRemaining: demoState.game_state.free_spins_remaining,
-        accumulatedMultiplier: currentAccumulated
+      const playerIdentifier = typeof requestedPlayerId === 'string' && requestedPlayerId.trim().length > 0
+        ? requestedPlayerId.trim()
+        : DEMO_IDENTIFIER;
+      const sessionIdentifier = typeof requestedSessionId === 'string' && requestedSessionId.trim().length > 0
+        ? requestedSessionId.trim()
+        : DEMO_SESSION_ID;
+
+      const testPlayerResult = await ensureTestPlayer(playerIdentifier, {
+        allowCreate: true,
+        markDemo: playerIdentifier === DEMO_IDENTIFIER,
+        initialCredits: playerIdentifier === DEMO_IDENTIFIER ? 5000 : 0,
+        returnPassword: false
       });
-      
-      // Check balance
-      if (demoState.balance < betAmount) {
-        return res.status(400).json({
+
+      if (testPlayerResult?.error || !testPlayerResult.player) {
+        return res.status(500).json({
           success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: 'Insufficient demo balance. Please reset your demo balance.',
-          balance: demoState.balance
+          error: 'TEST_PLAYER_UNAVAILABLE',
+          message: testPlayerResult?.error || 'Test player account is not provisioned'
         });
       }
-      
-      // Deduct bet from balance
-      demoState.balance -= betAmount;
-      
-      // Process spin using demo engine (boosted RTP)
+
+      const playerRecord = testPlayerResult.player;
+
+      // Use real engine to generate deterministic cascades without auth
       const spin = await demoEngine.processCompleteSpin({
         betAmount: parseFloat(betAmount),
-        playerId: demoState.session_id, // Use session_id as virtual player ID
-        sessionId: demoState.session_id,
-        freeSpinsActive: isCurrentlyInFreeSpins,
-        accumulatedMultiplier: currentAccumulated,
+        playerId: playerRecord.id,
+        sessionId: sessionIdentifier,
+        freeSpinsActive: Boolean(freeSpinsActive),
+        accumulatedMultiplier: parseFloat(accumulatedMultiplier),
         quickSpinMode: Boolean(quickSpinMode),
         rngSeed: typeof rngSeed === 'string' ? rngSeed : undefined
       });
-      
-      // Credit win to balance
-      demoState.balance += spin.totalWin;
-      
-      console.log('[DemoSpin] Spin result:', {
-        freeSpinsActive: isCurrentlyInFreeSpins,
-        currentMode: demoState.game_state.game_mode,
-        triggered: spin.bonusFeatures?.freeSpinsTriggered,
-        retriggered: spin.bonusFeatures?.freeSpinsRetriggered,
-        newAccumulated: spin.newAccumulatedMultiplier,
-        randomMultipliers: spin.bonusFeatures?.randomMultipliers?.length || 0,
-        freeSpinsNextCount: spin.freeSpinsNextCount
+
+      // Save demo spin result to Supabase (async, non-blocking)
+      saveSpinResult(playerRecord.id, {
+        sessionId: sessionIdentifier,
+        bet: parseFloat(betAmount),
+        initialGrid: spin.initialGrid,
+        cascades: spin.cascadeSteps,
+        totalWin: spin.totalWin,
+        multipliers: spin.multipliers,
+        rngSeed: spin.rngSeed,
+        freeSpinsActive: Boolean(freeSpinsActive)
+      }).catch(err => {
+        console.error('Failed to save demo spin result to Supabase:', err.message);
       });
-      
-      // CRITICAL: Update accumulated multiplier FIRST (before any mode transitions that might reset it)
-      if (spin.newAccumulatedMultiplier !== undefined && demoState.game_state.game_mode === 'free_spins') {
-        demoState.game_state.accumulated_multiplier = spin.newAccumulatedMultiplier;
-        console.log('[DemoSpin] ✅ Updated accumulated multiplier:', spin.newAccumulatedMultiplier);
-      }
-      
-      // Update game state based on spin result
-      if (spin.bonusFeatures && spin.bonusFeatures.freeSpinsTriggered) {
-        // Initial free spins trigger from base game
-        demoState.game_state.game_mode = 'free_spins';
-        // Use freeSpinsNextCount (correct property from game engine)
-        demoState.game_state.free_spins_remaining = spin.freeSpinsNextCount || spin.bonusFeatures.freeSpinsAwarded || 15;
-        demoState.game_state.accumulated_multiplier = 1; // Reset on initial trigger
-        console.log('[DemoSpin] Free spins TRIGGERED - Remaining:', demoState.game_state.free_spins_remaining, 'Awarded:', spin.bonusFeatures.freeSpinsAwarded);
-      } else if (spin.bonusFeatures && spin.bonusFeatures.freeSpinsRetriggered) {
-        // Retrigger during free spins (adds more spins)
-        demoState.game_state.game_mode = 'free_spins';
-        // Use freeSpinsNextCount which already includes the new spins
-        demoState.game_state.free_spins_remaining = spin.freeSpinsNextCount || demoState.game_state.free_spins_remaining;
-        // DON'T reset accumulated multiplier on retrigger
-        console.log('[DemoSpin] Free spins RETRIGGERED - New Remaining:', demoState.game_state.free_spins_remaining, 'Added:', spin.bonusFeatures.freeSpinsAwarded);
-      } else if (demoState.game_state.game_mode === 'free_spins') {
-        // Currently in free spins mode, decrement counter
-        demoState.game_state.free_spins_remaining -= 1;
-        console.log('[DemoSpin] Free spin consumed - Remaining:', demoState.game_state.free_spins_remaining);
-        
-        // Check if free spins ended
-        if (demoState.game_state.free_spins_remaining <= 0) {
-          demoState.game_state.game_mode = 'base';
-          demoState.game_state.free_spins_remaining = 0;
-          demoState.game_state.accumulated_multiplier = 1;
-          console.log('[DemoSpin] Free spins ENDED - returning to base mode');
-        }
-      }
-      
-      // Save updated demo state to cookie (NO DATABASE WRITES)
-      setDemoState(res, demoState);
-      
-      console.log('[DemoSpin] Final state:', {
-        balance: demoState.balance,
-        win: spin.totalWin,
-        mode: demoState.game_state.game_mode,
-        freeSpinsRemaining: demoState.game_state.free_spins_remaining,
-        accumulatedMultiplier: demoState.game_state.accumulated_multiplier
-      });
-      
+
       const responsePayload = {
         success: true,
         data: {
@@ -242,19 +208,11 @@ router.post('/demo-spin',
           multiplierAwarded: spin.multiplierAwarded,
           timing: spin.timing,
           quickSpinMode,
-          freeSpinsActive: demoState.game_state.game_mode === 'free_spins',
-          freeSpinsRemaining: demoState.game_state.free_spins_remaining,
-          freeSpinsTriggered: spin.bonusFeatures?.freeSpinsTriggered || false,
-          freeSpinsRetriggered: spin.bonusFeatures?.freeSpinsRetriggered || false,
-          freeSpinsEnded: demoState.game_state.free_spins_remaining === 0 && demoState.game_state.game_mode === 'base',
-          gameMode: demoState.game_state.game_mode,
-          accumulatedMultiplier: demoState.game_state.accumulated_multiplier,
-          balance: demoState.balance, // Return updated balance
-          playerCredits: demoState.balance,
+          // CRITICAL FIX: Return the NEW accumulated multiplier from game engine, not the old input value!
+          accumulatedMultiplier: spin.newAccumulatedMultiplier || accumulatedMultiplier,
           rngSeed: spin.rngSeed,
           metadata: {
-            rngAuditId: spin.rngSeed,
-            mode: 'demo'
+            rngAuditId: spin.rngSeed
           }
         }
       };
@@ -269,58 +227,11 @@ router.post('/demo-spin',
 
       return res.json(responsePayload);
     } catch (e) {
-      console.error('[DemoSpin] ❌ ERROR:', e.message);
-      console.error('[DemoSpin] Stack:', e.stack);
-      console.error('[DemoSpin] Full error:', e);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'DEMO_SPIN_FAILED', 
-        message: e.message,
-        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
-      });
+      console.error('Demo spin engine error:', e.message);
+      return res.status(500).json({ success: false, error: 'DEMO_SPIN_FAILED', message: e.message });
     }
   }
 );
-
-/**
- * GET /api/demo/balance
- * Get current demo balance and game state
- */
-router.get('/demo/balance', async (req, res) => {
-  try {
-    const demoState = initDemoState(req, res);
-    
-    res.json({
-      success: true,
-      balance: demoState.balance,
-      game_state: demoState.game_state,
-      session_id: demoState.session_id
-    });
-  } catch (error) {
-    console.error('Demo balance error:', error);
-    res.status(500).json({ success: false, error: 'DEMO_BALANCE_ERROR', message: error.message });
-  }
-});
-
-/**
- * POST /api/demo/reset
- * Reset demo balance to initial amount
- */
-router.post('/demo/reset', async (req, res) => {
-  try {
-    const freshState = resetDemoState(res);
-    
-    res.json({
-      success: true,
-      balance: freshState.balance,
-      game_state: freshState.game_state,
-      message: 'Demo balance reset to initial amount'
-    });
-  } catch (error) {
-    console.error('Demo reset error:', error);
-    res.status(500).json({ success: false, error: 'DEMO_RESET_ERROR', message: error.message });
-  }
-});
 
 const demoAuthBypass = async (req, res, next) => {
   try {

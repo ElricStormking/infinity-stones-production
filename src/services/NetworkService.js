@@ -59,7 +59,6 @@ window.NetworkService = new (class NetworkService {
         this.api = axios.create({
             baseURL: this.baseURL,
             timeout: 15000, // Increased timeout for server communication
-            withCredentials: true, // Enable cookies for demo session
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -1195,32 +1194,6 @@ window.NetworkService = new (class NetworkService {
                 emptyRowsAbove: entry.emptyRowsAbove
             };
         }).filter(Boolean);
-    }
-
-    // Demo Mode Helpers
-    async getDemoBalance() {
-        try {
-            const resp = await this.get('/api/demo/balance', true); // forceDemo = true
-            return resp;
-        } catch (error) {
-            console.error('Failed to get demo balance:', error);
-            return { success: false, error: 'DEMO_BALANCE_ERROR', message: error.message };
-        }
-    }
-
-    async resetDemoBalance() {
-        try {
-            const resp = await this.post('/api/demo/reset', {}, true); // forceDemo = true
-            console.log('✅ Demo balance reset:', resp);
-            return resp;
-        } catch (error) {
-            console.error('Failed to reset demo balance:', error);
-            return { success: false, error: 'DEMO_RESET_ERROR', message: error.message };
-        }
-    }
-
-    isDemoMode() {
-        return !this.authToken;
     }
 })();
 
