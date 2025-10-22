@@ -2835,10 +2835,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     hasServerValue: serverTargetValue !== null && serverTargetValue !== undefined
                 });
                 
+                // CRITICAL: Use accumulatedMultiplier for THIS spin, nextSpinAccumulatedMultiplier for badge reset
+                // If free spins ended, server sends accumulatedMultiplier = x14 (this spin) and nextSpinAccumulatedMultiplier = 1 (next spin)
+                const nextSpinMultiplier = normalized.nextSpinAccumulatedMultiplier;
+                const freeSpinsEnded = normalized.freeSpinsEnded || (normalized.gameMode === 'base' && this.stateManager.freeSpinsData.active);
+                
                 // Only update if server explicitly sent a value (not null/undefined)
                 // IMPORTANT: If server sent a value, it is AUTHORITATIVE
                 if (typeof serverTargetValue === 'number' && serverTargetValue > 0) {
-                    console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Server sent value x${serverTargetValue}, current x${effectiveClientValue}`);
+                    console.log(`🎰 FREE SPINS ACCUMULATED MULTIPLIER - Server sent value x${serverTargetValue}, current x${effectiveClientValue}, freeSpinsEnded: ${freeSpinsEnded}, nextSpinMultiplier: x${nextSpinMultiplier}`);
                     
                     // Store the target value (where shooting stars will bring us)
                     this.fsTargetAccumulatedMultiplier = serverTargetValue;
@@ -2861,12 +2866,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
                         this.stateManager.freeSpinsData.multiplierAccumulator = effectiveClientValue;
                         this.fsTargetAccumulatedMultiplier = effectiveClientValue;
                     }
-                } else if (serverTargetValue === 0 || serverTargetValue === 1) {
-                    // Server explicitly sent 0 or 1 - this might be a bug, but log it
+                } else if ((serverTargetValue === 0 || serverTargetValue === 1) && !freeSpinsEnded) {
+                    // Server explicitly sent 0 or 1 DURING free spins - this is a bug, maintain client value
                     console.warn(`⚠️ Server sent accumulated multiplier of x${serverTargetValue} during free spins! This seems wrong. Maintaining client value x${effectiveClientValue}`);
                     // Don't reset to server's wrong value, keep client value
                     this.stateManager.freeSpinsData.multiplierAccumulator = effectiveClientValue;
                     this.fsTargetAccumulatedMultiplier = effectiveClientValue;
+                } else if ((serverTargetValue === 0 || serverTargetValue === 1) && freeSpinsEnded) {
+                    // Server sent 1 because free spins ended - this is expected! Use nextSpinMultiplier
+                    console.log(`✅ Free spins ended, server correctly sent nextSpinMultiplier: x${nextSpinMultiplier} for next spin`);
+                    // Don't update badge yet - animations still playing! Will update after all animations complete.
                 } else {
                     // Server didn't send accumulated multiplier value, maintain current client value
                     console.log(`🎰 Server didn't send accumulated multiplier (${serverTargetValue}), maintaining current: x${effectiveClientValue}`);

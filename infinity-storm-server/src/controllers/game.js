@@ -607,8 +607,9 @@ class GameController {
             freeSpinsRetriggered,
             freeSpinsEnded,
             freeSpinsRemaining: nextFreeSpinCount,
-            savedStateMultiplier: stateResult.gameState.accumulated_multiplier, // What we saved for next spin
-            displayedMultiplier: displayedAccumulatedMultiplier, // What we're sending to client
+            effectiveMultiplierSentToEngine: effectiveAccumulatedMultiplier,
+            savedStateMultiplier: stateResult.gameState.accumulated_multiplier, // What we saved for next spin (reset to 1 if ended)
+            displayedMultiplier: displayedAccumulatedMultiplier, // What we're sending to client for THIS spin
             spinResultNewMultiplier: spinResult.newAccumulatedMultiplier,
             randomMultipliersThisSpin: spinResult.bonusFeatures?.randomMultipliers?.length || 0
           });
@@ -638,6 +639,7 @@ class GameController {
           gameMode: nextGameMode,
           accumulatedMultiplier: displayedAccumulatedMultiplier, // Use the multiplier that was applied to THIS spin
           newAccumulatedMultiplier: displayedAccumulatedMultiplier, // Also send as newAccumulatedMultiplier for NetworkService
+          nextSpinAccumulatedMultiplier: stateResult.gameState.accumulated_multiplier, // The multiplier for the NEXT spin (1 if free spins ended)
           playerCredits: player.is_demo ? null : currentBalance,
           balance: player.is_demo ? null : currentBalance,
           rngSeed: spinResult.rngSeed,
