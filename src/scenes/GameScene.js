@@ -3959,142 +3959,81 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     async performBurstSpin() {
         try {
-        // SECURITY: Use controlled RNG for burst spin operations
-        if (!window.RNG) {
-            throw new Error('SECURITY: GameScene requires window.RNG to be initialized.');
-        }
-        const rng = new window.RNG();
-        
-        // Check if player can afford bet (unless in free spins)
-        if (!this.stateManager.freeSpinsData.active && !this.stateManager.canAffordBet()) {
-            return { win: 0, bet: 0, balance: this.stateManager.gameData.balance };
-        }
-        
-        this.isSpinning = true;
-        this.totalWin = 0;
-        this.cascadeMultiplier = 1;
-        
-        // Use the same bet logic as normal game
-        if (this.stateManager.freeSpinsData.active) {
-            this.stateManager.useFreeSpins();
-        } else {
-            this.stateManager.placeBet();
-        }
-        
-        const bet = this.stateManager.gameData.currentBet;
-        
-        // Clear and fill grid like normal game
-        if (this.gridManager) {
-        this.gridManager.initializeGrid();
-        this.gridManager.fillGrid();
-        } else {
-            throw new Error('GridManager not available');
-        }
-        
-        // Process cascades exactly like normal game but without animations
-        let cascadeCount = 0;
-        let hasMatches = true;
-        
-        while (hasMatches) {
-            const matches = this.gridManager.findMatches();
-            
-            if (matches.length > 0) {
-                // Calculate win using the same WinCalculator as normal game
-                const win = this.winCalculator.calculateTotalWin(matches, bet);
-                this.totalWin += win;
-                
-                // Remove matches without animation
-                if (this.gridManager && this.gridManager.removeMatches) {
-                this.gridManager.removeMatches(matches);
-                }
-                
-                // Cascade symbols without animation (simplified for burst mode)
-                try {
-                    if (this.gridManager && this.gridManager.cascadeSymbols) {
-                await this.gridManager.cascadeSymbols();
-                    } else {
-                        console.warn('GridManager or cascadeSymbols method not available');
-                    }
-                } catch (error) {
-                    console.warn('Cascade error in burst mode:', error);
-                    // Continue without cascading if there's an error
-                }
-                
-                cascadeCount++;
-                
-                // Apply cascade multiplier in free spins like normal game using controlled RNG
-                if (this.stateManager.freeSpinsData.active && cascadeCount > 1) {
-                    const shouldTrigger = rng.chance(window.GameConfig.FREE_SPINS.ACCUM_TRIGGER_CHANCE_PER_CASCADE);
-                    if (shouldTrigger) {
-                        const multiplierTable = window.GameConfig.RANDOM_MULTIPLIER.TABLE;
-                        const randomMultiplier = multiplierTable[
-                            rng.int(0, multiplierTable.length - 1)
-                    ];
-                    this.stateManager.accumulateMultiplier(randomMultiplier);
-                    
-                    // Update accumulated multiplier display in burst mode too
-                    this.updateAccumulatedMultiplierDisplay();
-                    }
-                }
-            } else {
-                hasMatches = false;
+            // Use server-authoritative spin in burst mode (same as normal spins)
+            if (!window.GameAPI || !window.NetworkService) {
+                throw new Error('NetworkService/GameAPI not initialized');
             }
-        }
-        
-        // Check for Cascading Random Multipliers in burst mode (simplified)
-        this.bonusManager.checkBonusesInBurstMode(cascadeCount);
-        
-        // Add win to balance like normal game
-        if (this.totalWin > 0) {
-            this.stateManager.addWin(this.totalWin);
-            
-            // Add free spins win like normal game
-            if (this.stateManager.freeSpinsData.active) {
-                this.stateManager.freeSpinsData.totalWin += this.totalWin;
+
+            // Check if player can afford bet (unless in free spins)
+            if (!this.stateManager.freeSpinsData.active && !this.stateManager.canAffordBet()) {
+                return { win: 0, bet: 0, balance: this.stateManager.gameData.balance };
             }
-        }
-        
-        // Check for bonus features like normal game
-        const scatterCount = this.gridManager && this.gridManager.countScatters ? 
-            this.gridManager.countScatters() : 0;
-        let bonusTriggered = false;
-        
-        if (scatterCount >= 4 && !this.stateManager.freeSpinsData.active) {
-            // Trigger free spins - 4+ scatters = 15 free spins
-            const freeSpins = window.GameConfig.FREE_SPINS.SCATTER_4_PLUS;
-            this.stateManager.startFreeSpins(freeSpins);
-            bonusTriggered = true;
-        } else if (scatterCount >= 4 && this.stateManager.freeSpinsData.active) {
-            // Retrigger free spins - 4+ scatters = +5 extra free spins
-            const extraSpins = window.GameConfig.FREE_SPINS.RETRIGGER_SPINS;
-            this.stateManager.addFreeSpins(extraSpins);
-            bonusTriggered = true;
-        }
-        
-        // Check for Random Multiplier in burst mode (simplified)
-        this.bonusManager.checkRandomMultiplierInBurstMode();
-        
-        // Check if free spins ended
-        let freeSpinsEnded = false;
-        if (this.stateManager.freeSpinsData.active && this.stateManager.freeSpinsData.count === 0) {
-            this.stateManager.endFreeSpins();
-            freeSpinsEnded = true;
-        }
-        
-        this.isSpinning = false;
-        
-        return {
-            win: this.totalWin,
-            bet: bet,
-            balance: this.stateManager.gameData.balance,
-            cascades: cascadeCount,
-            scatters: scatterCount,
-            bonusTriggered: bonusTriggered,
-            freeSpinsEnded: freeSpinsEnded,
-            freeSpinsActive: this.stateManager.freeSpinsData.active,
-            freeSpinsCount: this.stateManager.freeSpinsData.count,
-            multiplierAccumulator: this.stateManager.freeSpinsData.multiplierAccumulator
-        };
+
+            this.isSpinning = true;
+
+            // Call the same HTTP spin endpoint as normal spins
+            const betAmount = this.stateManager.gameData.currentBet;
+            const result = await window.GameAPI.requestSpinViaHTTP(betAmount);
+            
+            if (!result || !result.success) {
+                throw new Error('Burst spin failed: ' + (result?.error || 'Unknown error'));
+            }
+
+            const data = result.data;
+
+            // Apply final server state quickly (no animations in burst mode)
+            if (this.gridManager && data.finalGrid) {
+                try { 
+                    this.gridManager.setGrid(data.finalGrid); 
+                } catch (e) {
+                    console.warn('Failed to set grid:', e);
+                }
+            }
+
+            // Update totals and balance from server
+            this.totalWin = data.totalWin || 0;
+            const serverBalance = (typeof data.balance === 'number') ? data.balance : undefined;
+            if (serverBalance !== undefined && this.stateManager) {
+                this.stateManager.setBalanceFromServer(serverBalance);
+                if (window.WalletAPI) { 
+                    window.WalletAPI.setBalance(serverBalance); 
+                }
+            }
+
+            // Free spins handling from server payload
+            const freeSpinsActive = !!data.freeSpinsActive;
+            if (typeof data.freeSpinsCount === 'number') {
+                this.stateManager.freeSpinsData.count = data.freeSpinsCount;
+                this.stateManager.freeSpinsData.active = freeSpinsActive;
+            }
+            if (typeof data.accumulatedMultiplier === 'number' && freeSpinsActive) {
+                this.stateManager.freeSpinsData.multiplierAccumulator = data.accumulatedMultiplier;
+            }
+
+            // Check if free spins ended
+            const freeSpinsEnded = data.freeSpinsEnded || false;
+            if (freeSpinsEnded && typeof data.freeSpinsTotalWin === 'number') {
+                this.stateManager.freeSpinsData.totalWin = data.freeSpinsTotalWin;
+            }
+
+            // Bonus triggered flag
+            const bonusTriggered = data.bonusTriggered || false;
+
+            this.isSpinning = false;
+
+            return {
+                win: this.totalWin,
+                bet: betAmount,
+                balance: serverBalance || this.stateManager.gameData.balance,
+                cascades: (data.cascades && data.cascades.length) || 0,
+                scatters: data.scatterCount || 0,
+                bonusTriggered: bonusTriggered,
+                freeSpinsEnded: freeSpinsEnded,
+                freeSpinsActive: this.stateManager.freeSpinsData.active,
+                freeSpinsCount: this.stateManager.freeSpinsData.count,
+                multiplierAccumulator: this.stateManager.freeSpinsData.multiplierAccumulator,
+                freeSpinsTotalWin: data.freeSpinsTotalWin
+            };
         } catch (error) {
             console.error('Error in performBurstSpin:', error);
             this.isSpinning = false;
