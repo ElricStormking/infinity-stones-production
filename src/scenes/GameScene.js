@@ -3753,10 +3753,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
             color: '#FFD700'
         };
         
+        // BURST MODE UI LAYOUT FIX v2: Balance LEFT (339), Win CENTER (614), Bet RIGHT (877)
+        // Left position - Player Balance (gold)
         this.burstBalanceText = this.add.text(339 * scaleX, 545 * scaleY, `$${this.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
         this.burstBalanceText.setOrigin(0.5);
         this.burstModeUI.add(this.burstBalanceText);
         
+        // Center position - Win Amount (green)
         this.burstWinText = this.add.text(614 * scaleX, 545 * scaleY, '$0.00', {
             ...valueStyle,
             color: '#00FF00'
@@ -3764,6 +3767,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         this.burstWinText.setOrigin(0.5);
         this.burstModeUI.add(this.burstWinText);
         
+        // Right position - Bet Amount (white)
         this.burstBetText = this.add.text(877 * scaleX, 545 * scaleY, `$${this.stateManager.gameData.currentBet.toFixed(2)}`, {
             ...valueStyle,
             color: '#FFFFFF'
@@ -3843,12 +3847,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         
         // Handle bonus notifications
         if (spinResult.bonusTriggered) {
-            if (!spinResult.freeSpinsActive) {
-                // Show free spins message in burst mode
-                this.showMessage(`Free Spins Triggered! ${this.stateManager.freeSpinsData.count} spins`);
-            } else {
-                this.showMessage(`Free Spins Retriggered!`);
-            }
+            // Burst mode: always show simple banner without counts
+            this.showMessage(`Free Spins Mode Triggered!`);
         }
         
         if (spinResult.freeSpinsEnded) {
@@ -3916,13 +3916,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     }
                 
                 // Handle bonus notifications
-                if (spinResult.bonusTriggered) {
-                    if (!spinResult.freeSpinsActive) {
-                        this.showMessage(`Free Spins Triggered! ${this.stateManager.freeSpinsData.count} spins`);
-                    } else {
-                        this.showMessage(`Free Spins Retriggered!`);
-                    }
-                }
+        if (spinResult.bonusTriggered) {
+            // Burst mode demo: show simple banner without counts
+            this.showMessage(`Free Spins Mode Triggered!`);
+        }
                 
                 if (spinResult.freeSpinsEnded) {
                     this.showMessage(`Free Spins Complete! Total: $${this.stateManager.freeSpinsData.totalWin.toFixed(2)}`);
@@ -3963,13 +3960,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (!window.GameAPI || !window.NetworkService) {
                 throw new Error('NetworkService/GameAPI not initialized');
             }
-
-            // Check if player can afford bet (unless in free spins)
-            if (!this.stateManager.freeSpinsData.active && !this.stateManager.canAffordBet()) {
-                return { win: 0, bet: 0, balance: this.stateManager.gameData.balance };
-            }
-
-            this.isSpinning = true;
+        
+        // Check if player can afford bet (unless in free spins)
+        if (!this.stateManager.freeSpinsData.active && !this.stateManager.canAffordBet()) {
+            return { win: 0, bet: 0, balance: this.stateManager.gameData.balance };
+        }
+        
+        this.isSpinning = true;
 
             // Call the same HTTP spin endpoint as normal spins
             const betAmount = this.stateManager.gameData.currentBet;
@@ -4009,8 +4006,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (typeof data.accumulatedMultiplier === 'number' && freeSpinsActive) {
                 this.stateManager.freeSpinsData.multiplierAccumulator = data.accumulatedMultiplier;
             }
-
-            // Check if free spins ended
+        
+        // Check if free spins ended
             const freeSpinsEnded = data.freeSpinsEnded || false;
             if (freeSpinsEnded && typeof data.freeSpinsTotalWin === 'number') {
                 this.stateManager.freeSpinsData.totalWin = data.freeSpinsTotalWin;
@@ -4018,22 +4015,22 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
             // Bonus triggered flag
             const bonusTriggered = data.bonusTriggered || false;
-
-            this.isSpinning = false;
-
-            return {
-                win: this.totalWin,
+        
+        this.isSpinning = false;
+        
+        return {
+            win: this.totalWin,
                 bet: betAmount,
                 balance: serverBalance || this.stateManager.gameData.balance,
                 cascades: (data.cascades && data.cascades.length) || 0,
                 scatters: data.scatterCount || 0,
-                bonusTriggered: bonusTriggered,
-                freeSpinsEnded: freeSpinsEnded,
-                freeSpinsActive: this.stateManager.freeSpinsData.active,
-                freeSpinsCount: this.stateManager.freeSpinsData.count,
+            bonusTriggered: bonusTriggered,
+            freeSpinsEnded: freeSpinsEnded,
+            freeSpinsActive: this.stateManager.freeSpinsData.active,
+            freeSpinsCount: this.stateManager.freeSpinsData.count,
                 multiplierAccumulator: this.stateManager.freeSpinsData.multiplierAccumulator,
                 freeSpinsTotalWin: data.freeSpinsTotalWin
-            };
+        };
         } catch (error) {
             console.error('Error in performBurstSpin:', error);
             this.isSpinning = false;

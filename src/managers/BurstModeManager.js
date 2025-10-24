@@ -423,40 +423,40 @@ window.BurstModeManager = class BurstModeManager {
         
         const uiScale = 0.67; // Base scale from burstnew.scene
         
-        // Win label (left)
-        const winLabel = this.scene.add.image(254 * scaleX, 658 * scaleY, 'ui_bn_number_win');
-        winLabel.setScale(uiScale * scaleX, uiScale * scaleY);
-        this.burstModeUI.add(winLabel);
-        
-        // Score label (center)
-        const scoreLabel = this.scene.add.image(576 * scaleX, 658 * scaleY, 'ui_bn_number_score');
+        // Score label (left) — shows Player Balance
+        const scoreLabel = this.scene.add.image(254 * scaleX, 658 * scaleY, 'ui_bn_number_score');
         scoreLabel.setScale(uiScale * scaleX, uiScale * scaleY);
         this.burstModeUI.add(scoreLabel);
+        
+        // Win label (center)
+        const winLabel = this.scene.add.image(576 * scaleX, 658 * scaleY, 'ui_bn_number_win');
+        winLabel.setScale(uiScale * scaleX, uiScale * scaleY);
+        this.burstModeUI.add(winLabel);
         
         // Bet label (right)
         const betLabel = this.scene.add.image(929 * scaleX, 662 * scaleY, 'ui_bn_number_bet');
         betLabel.setScale(uiScale * scaleX, 0.674 * scaleY);
         this.burstModeUI.add(betLabel);
         
-        // Value displays for bottom row
+        // Value displays for bottom row (swap Balance to LEFT, Win to CENTER)
         const valueStyle = {
             fontSize: Math.floor(28 * Math.min(scaleX, scaleY)) + 'px',
             fontFamily: 'Arial Black',
             color: '#FFD700'
         };
         
-        // Win amount (centered on plate at x:254)
-        this.burstWinText = this.scene.add.text(254 * scaleX, 658 * scaleY, '$0.00', {
+        // Balance/Score (LEFT plate at x:254)
+        this.burstBalanceText = this.scene.add.text(254 * scaleX, 658 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
+        this.burstBalanceText.setOrigin(0.5, 0.5);
+        this.burstModeUI.add(this.burstBalanceText);
+
+        // Win amount (CENTER plate at x:576)
+        this.burstWinText = this.scene.add.text(576 * scaleX, 658 * scaleY, '$0.00', {
             ...valueStyle,
             color: '#00FF00'
         });
         this.burstWinText.setOrigin(0.5, 0.5);
         this.burstModeUI.add(this.burstWinText);
-        
-        // Balance/Score (centered on plate at x:576)
-        this.burstBalanceText = this.scene.add.text(576 * scaleX, 658 * scaleY, `$${this.scene.stateManager.gameData.balance.toFixed(2)}`, valueStyle);
-        this.burstBalanceText.setOrigin(0.5, 0.5);
-        this.burstModeUI.add(this.burstBalanceText);
         
         // Bet amount (centered on plate at x:929)
         this.burstBetText = this.scene.add.text(929 * scaleX, 662 * scaleY, `$${this.scene.stateManager.gameData.currentBet.toFixed(2)}`, {
@@ -636,8 +636,8 @@ window.BurstModeManager = class BurstModeManager {
         // Handle bonus notifications
         if (spinResult.bonusTriggered) {
             if (!spinResult.freeSpinsActive) {
-                // Show free spins message in burst mode
-                this.scene.showMessage(`Free Spins Triggered! ${this.scene.stateManager.freeSpinsData.count} spins`);
+                // Simplified message: no counts in burst mode
+                this.scene.showMessage(`Free Spins Mode Triggered!`);
             } else {
                 this.scene.showMessage(`Free Spins Retriggered!`);
             }
@@ -699,7 +699,7 @@ window.BurstModeManager = class BurstModeManager {
                     // Handle bonus notifications
                     if (spinResult.bonusTriggered) {
                         if (!spinResult.freeSpinsActive) {
-                            this.scene.showMessage(`Free Spins Triggered! ${this.scene.stateManager.freeSpinsData.count} spins`);
+                            this.scene.showMessage(`Free Spins Mode Triggered!`);
                         } else {
                             this.scene.showMessage(`Free Spins Retriggered!`);
                         }
