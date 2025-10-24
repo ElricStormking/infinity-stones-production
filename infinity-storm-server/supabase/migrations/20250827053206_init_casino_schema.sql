@@ -55,21 +55,6 @@ CREATE TABLE game_states (
 );
 
 -- =====================================================
--- SPINS TABLE (Legacy compatibility)
--- =====================================================
-CREATE TABLE spins (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    spin_id TEXT NOT NULL,
-    player_id TEXT,
-    bet_amount NUMERIC(12,2) NOT NULL,
-    total_win NUMERIC(12,2) NOT NULL,
-    rng_seed TEXT,
-    initial_grid JSONB NOT NULL,
-    cascades JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- =====================================================
 -- SPIN RESULTS TABLE (Complete history with replay data)
 -- Stores all spin results with complete audit trail
 -- =====================================================
@@ -214,10 +199,6 @@ CREATE INDEX idx_players_username ON players(username);
 -- Sessions table indexes
 CREATE INDEX idx_sessions_player_active ON sessions(player_id, is_active);
 CREATE INDEX idx_sessions_token ON sessions(token_hash);
-
--- Spins table indexes (legacy)
-CREATE INDEX idx_spins_created_at ON spins(created_at DESC);
-CREATE INDEX idx_spins_player ON spins(player_id, created_at DESC);
 
 -- Spin results table indexes
 CREATE INDEX idx_spin_results_player_time ON spin_results(player_id, created_at DESC);
