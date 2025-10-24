@@ -264,10 +264,10 @@ function generateWorkingMCPDemo() {
   console.log('-'.repeat(40));
 
   const demoCommands = [
-    'SELECT COUNT(*) as total_spins, SUM(bet_amount) as total_bets FROM spins;',
+    'SELECT COUNT(*) as total_spins, SUM(bet_amount) as total_bets FROM spin_results;',
     'SELECT username, balance FROM users WHERE active = true ORDER BY balance DESC LIMIT 5;',
-    'SELECT DATE(created_at) as day, COUNT(*) as spins FROM spins GROUP BY DATE(created_at) ORDER BY day DESC LIMIT 7;',
-    'SELECT spin_id, total_win, bet_amount, (total_win/bet_amount) as multiplier FROM spins WHERE total_win > bet_amount * 10 ORDER BY multiplier DESC;'
+    'SELECT DATE(created_at) as day, COUNT(*) as spins FROM spin_results GROUP BY DATE(created_at) ORDER BY day DESC LIMIT 7;',
+    'SELECT id, total_win, bet_amount, (total_win/bet_amount) as multiplier FROM spin_results WHERE total_win > bet_amount * 10 ORDER BY multiplier DESC;'
   ];
 
   console.log('🎮 Ready-to-use MCP Commands (when database is connected):');
@@ -281,13 +281,13 @@ function generateWorkingMCPDemo() {
 
 function getNaturalLanguageForSQL(sql) {
   const mapping = {
-    'SELECT COUNT(*) as total_spins, SUM(bet_amount) as total_bets FROM spins;':
+    'SELECT COUNT(*) as total_spins, SUM(bet_amount) as total_bets FROM spin_results;':
             'Show me total number of spins and sum of all bets',
     'SELECT username, balance FROM users WHERE active = true ORDER BY balance DESC LIMIT 5;':
             'Show me the top 5 players by balance who are active',
-    'SELECT DATE(created_at) as day, COUNT(*) as spins FROM spins GROUP BY DATE(created_at) ORDER BY day DESC LIMIT 7;':
+    'SELECT DATE(created_at) as day, COUNT(*) as spins FROM spin_results GROUP BY DATE(created_at) ORDER BY day DESC LIMIT 7;':
             'Show me daily spin counts for the last 7 days',
-    'SELECT spin_id, total_win, bet_amount, (total_win/bet_amount) as multiplier FROM spins WHERE total_win > bet_amount * 10 ORDER BY multiplier DESC;':
+    'SELECT id, total_win, bet_amount, (total_win/bet_amount) as multiplier FROM spin_results WHERE total_win > bet_amount * 10 ORDER BY multiplier DESC;':
             'Find all spins where the player won more than 10 times their bet'
   };
 

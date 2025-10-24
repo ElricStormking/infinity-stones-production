@@ -55,13 +55,13 @@ async function testSupabaseConnection() {
 
     // Test table access
     const { count: spinsCount, error: tableError } = await supabaseService
-      .from('spins')
+      .from('spin_results')
       .select('*', { count: 'exact', head: true });
 
     if (tableError) {
       console.log(`   ⚠️  Table access error: ${tableError.message}`);
     } else {
-      console.log(`   ✅ Service role can access tables (spins count: ${spinsCount ?? 0})`);
+      console.log(`   ✅ Service role can access tables (spin_results count: ${spinsCount ?? 0})`);
     }
 
     // Test 4: Database Schema Validation

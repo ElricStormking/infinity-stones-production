@@ -94,7 +94,7 @@ function verifyConfiguration() {
 
     const schemaChecks = [
       { check: seedContent.includes('CREATE TABLE IF NOT EXISTS users'), desc: 'Users table creation' },
-      { check: seedContent.includes('CREATE TABLE IF NOT EXISTS spins'), desc: 'Spins table creation' },
+      { check: seedContent.includes('CREATE TABLE IF NOT EXISTS spin_results'), desc: 'Spin results table creation' },
       { check: seedContent.includes('CREATE TABLE IF NOT EXISTS game_sessions'), desc: 'Game sessions table creation' },
       { check: seedContent.includes('CREATE TABLE IF NOT EXISTS cascade_steps'), desc: 'Cascade steps table creation' },
       { check: seedContent.includes('CREATE TABLE IF NOT EXISTS transaction_logs'), desc: 'Transaction logs table creation' },

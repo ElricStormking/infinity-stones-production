@@ -171,7 +171,7 @@ async function testSchemaValidation(results) {
     await pgClient.connect();
 
     // Check all required tables
-    const expectedTables = ['users', 'spins', 'game_sessions', 'cascade_steps', 'transaction_logs'];
+    const expectedTables = ['users', 'spin_results', 'game_sessions', 'cascade_steps', 'transaction_logs'];
     const tableQuery = `
             SELECT table_name 
             FROM information_schema.tables 
@@ -221,56 +221,58 @@ async function testBasicCRUDOperations(results) {
 
     // CREATE: Insert test spin
     const insertQuery = `
-            INSERT INTO spins (spin_id, player_id, bet_amount, total_win, rng_seed, initial_grid, cascades)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, spin_id, created_at
+            INSERT INTO spin_results (player_id, session_id, bet_amount, initial_grid, cascades, total_win, multipliers_applied, rng_seed, game_mode)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id, player_id, created_at
         `;
 
     const insertResult = await pgClient.query(insertQuery, [
-      TEST_SPIN_DATA.spin_id,
       TEST_SPIN_DATA.player_id,
+      null, // session_id
       TEST_SPIN_DATA.bet_amount,
-      TEST_SPIN_DATA.total_win,
-      TEST_SPIN_DATA.rng_seed,
       JSON.stringify(TEST_SPIN_DATA.initial_grid),
-      JSON.stringify(TEST_SPIN_DATA.cascades)
+      JSON.stringify(TEST_SPIN_DATA.cascades),
+      TEST_SPIN_DATA.total_win,
+      '[]', // multipliers_applied
+      TEST_SPIN_DATA.rng_seed,
+      'base' // game_mode
     ]);
 
     const insertedSpin = insertResult.rows[0];
-    console.log(`   ✅ CREATE: Inserted spin ${insertedSpin.spin_id}`);
+    console.log(`   ✅ CREATE: Inserted spin for player ${insertedSpin.player_id}`);
 
     // READ: Query the inserted spin
     const selectQuery = `
-            SELECT spin_id, player_id, bet_amount, total_win, created_at,
+            SELECT id, player_id, bet_amount, total_win, created_at,
                    initial_grid, cascades
-            FROM spins 
-            WHERE spin_id = $1
+            FROM spin_results 
+            WHERE id = $1
         `;
 
-    const selectResult = await pgClient.query(selectQuery, [TEST_SPIN_DATA.spin_id]);
+    const selectResult = await pgClient.query(selectQuery, [insertedSpin.id]);
     if (selectResult.rows.length === 0) {
       throw new Error('Failed to read inserted spin');
     }
 
     const retrievedSpin = selectResult.rows[0];
-    console.log(`   ✅ READ: Retrieved spin ${retrievedSpin.spin_id} (Win: $${retrievedSpin.total_win})`);
+    console.log(`   ✅ READ: Retrieved spin for player ${retrievedSpin.player_id} (Win: $${retrievedSpin.total_win})`);
 
     // UPDATE: Modify the spin
     const newWinAmount = 50.00;
     const updateQuery = `
-            UPDATE spins 
+            UPDATE spin_results 
             SET total_win = $1 
-            WHERE spin_id = $2
+            WHERE id = $2
             RETURNING total_win
         `;
 
-    const updateResult = await pgClient.query(updateQuery, [newWinAmount, TEST_SPIN_DATA.spin_id]);
+    const updateResult = await pgClient.query(updateQuery, [newWinAmount, insertedSpin.id]);
     console.log(`   ✅ UPDATE: Modified win amount to $${updateResult.rows[0].total_win}`);
 
     // DELETE: Remove the test spin
-    const deleteQuery = 'DELETE FROM spins WHERE spin_id = $1 RETURNING spin_id';
-    const deleteResult = await pgClient.query(deleteQuery, [TEST_SPIN_DATA.spin_id]);
-    console.log(`   ✅ DELETE: Removed spin ${deleteResult.rows[0].spin_id}`);
+    const deleteQuery = 'DELETE FROM spin_results WHERE id = $1 RETURNING id';
+    const deleteResult = await pgClient.query(deleteQuery, [insertedSpin.id]);
+    console.log(`   ✅ DELETE: Removed spin ${deleteResult.rows[0].id}`);
 
     await pgClient.end();
     results.passed++;
@@ -348,7 +350,7 @@ async function testComplexQueries(results) {
                 COALESCE(SUM(total_win), 0) as total_wins,
                 COALESCE(AVG(bet_amount), 0) as avg_bet,
                 COALESCE(MAX(total_win), 0) as max_win
-            FROM spins
+            FROM spin_results
         `;
 
     const statsResult = await pgClient.query(statsQuery);
@@ -369,7 +371,7 @@ async function testComplexQueries(results) {
                 COUNT(s.id) as spin_count,
                 COALESCE(SUM(s.total_win), 0) as total_winnings
             FROM users u
-            LEFT JOIN spins s ON u.id::text = s.player_id
+            LEFT JOIN spin_results s ON u.id::text = s.player_id
             GROUP BY u.id, u.username, u.balance
             ORDER BY total_winnings DESC
         `;
@@ -404,21 +406,26 @@ async function testTransactionSafety(results) {
       // Insert test data in transaction
       const testSpinId = 'transaction_test_' + Date.now();
 
-      await pgClient.query(`
-                INSERT INTO spins (spin_id, player_id, bet_amount, total_win, rng_seed, initial_grid, cascades)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+      const insertResult = await pgClient.query(`
+                INSERT INTO spin_results (player_id, session_id, bet_amount, initial_grid, cascades, total_win, multipliers_applied, rng_seed, game_mode)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                RETURNING id
             `, [
-        testSpinId,
         'transaction_test_player',
+        null,
         100.00,
-        0.00,
-        'tx_test_seed',
         JSON.stringify([]),
-        JSON.stringify([])
+        JSON.stringify([]),
+        0.00,
+        '[]',
+        'tx_test_seed',
+        'base'
       ]);
+      
+      const insertedId = insertResult.rows[0].id;
 
       // Verify data exists in transaction
-      const checkResult = await pgClient.query('SELECT spin_id FROM spins WHERE spin_id = $1', [testSpinId]);
+      const checkResult = await pgClient.query('SELECT id FROM spin_results WHERE id = $1', [insertedId]);
       if (checkResult.rows.length === 0) {
         throw new Error('Data not found within transaction');
       }
@@ -429,7 +436,7 @@ async function testTransactionSafety(results) {
       await pgClient.query('ROLLBACK');
 
       // Verify data was rolled back
-      const rollbackCheck = await pgClient.query('SELECT spin_id FROM spins WHERE spin_id = $1', [testSpinId]);
+      const rollbackCheck = await pgClient.query('SELECT id FROM spin_results WHERE id = $1', [insertedId]);
       if (rollbackCheck.rows.length > 0) {
         throw new Error('Transaction rollback failed');
       }
@@ -466,12 +473,12 @@ async function generateMCPExamples(results) {
         {
           description: 'Analyze recent spins',
           mcp_command: 'Show me the last 20 spins with their win amounts and player info',
-          sql_equivalent: 'SELECT s.spin_id, s.player_id, s.bet_amount, s.total_win, s.created_at FROM spins s ORDER BY s.created_at DESC LIMIT 20'
+          sql_equivalent: 'SELECT s.id, s.player_id, s.bet_amount, s.total_win, s.created_at FROM spin_results s ORDER BY s.created_at DESC LIMIT 20'
         },
         {
           description: 'Calculate RTP (Return to Player)',
           mcp_command: 'Calculate the overall RTP by summing total bets vs total wins',
-          sql_equivalent: 'SELECT (SUM(total_win) / NULLIF(SUM(bet_amount), 0) * 100) as rtp_percentage FROM spins'
+          sql_equivalent: 'SELECT (SUM(total_win) / NULLIF(SUM(bet_amount), 0) * 100) as rtp_percentage FROM spin_results'
         }
       ],
       data_operations: [
@@ -488,19 +495,19 @@ async function generateMCPExamples(results) {
         {
           description: 'Record spin result',
           mcp_command: 'Insert a new spin record for player \'demo_player\' with bet 10 and win 25',
-          sql_equivalent: 'INSERT INTO spins (spin_id, player_id, bet_amount, total_win, initial_grid, cascades) VALUES (...)'
+          sql_equivalent: 'INSERT INTO spin_results (player_id, session_id, bet_amount, initial_grid, cascades, total_win, multipliers_applied, rng_seed, game_mode) VALUES (...)'
         }
       ],
       analytics: [
         {
           description: 'Daily revenue report',
           mcp_command: 'Show daily revenue for the last 7 days',
-          sql_equivalent: 'SELECT DATE(created_at) as day, SUM(bet_amount) as total_bets, SUM(total_win) as total_wins FROM spins WHERE created_at >= NOW() - INTERVAL \'7 days\' GROUP BY DATE(created_at)'
+          sql_equivalent: 'SELECT DATE(created_at) as day, SUM(bet_amount) as total_bets, SUM(total_win) as total_wins FROM spin_results WHERE created_at >= NOW() - INTERVAL \'7 days\' GROUP BY DATE(created_at)'
         },
         {
           description: 'Top winning spins',
           mcp_command: 'Find the top 10 highest winning spins',
-          sql_equivalent: 'SELECT spin_id, player_id, bet_amount, total_win, (total_win/bet_amount) as multiplier FROM spins ORDER BY total_win DESC LIMIT 10'
+          sql_equivalent: 'SELECT id, player_id, bet_amount, total_win, (total_win/bet_amount) as multiplier FROM spin_results ORDER BY total_win DESC LIMIT 10'
         }
       ]
     };
@@ -586,7 +593,7 @@ node test-mcp-integration.js
 ### 2. Database Connection
 - **URL**: ${SUPABASE_URL}
 - **Database**: PostgreSQL 15+
-- **Tables**: users, spins, game_sessions, cascade_steps, transaction_logs
+- **Tables**: users, spin_results, game_sessions, cascade_steps, transaction_logs
 
 ## MCP Commands Reference
 
@@ -616,9 +623,9 @@ node test-mcp-integration.js
 
 ### Data Validation
 \`\`\`
-"Check for any spins with negative win amounts"
+"Check for any spin_results with negative win amounts"
 "Find users with balances below 0"
-"Validate that all spins have matching cascade data"
+"Validate that all spin_results have matching cascade data"
 "Count records in each table"
 \`\`\`
 

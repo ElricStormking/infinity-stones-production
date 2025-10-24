@@ -62,7 +62,7 @@ const MCPExamples = {
       if (rtpError) {
         // Fallback to manual calculation
         const { data: spins, error } = await supabase
-          .from('spins')
+          .from('spin_results')
           .select('bet_amount, total_win');
 
         if (error) {throw error;}
@@ -93,8 +93,8 @@ const MCPExamples = {
 
     try {
       const { data, error } = await supabase
-        .from('spins')
-        .select('spin_id, player_id, bet_amount, total_win, created_at')
+        .from('spin_results')
+        .select('id, player_id, bet_amount, total_win, created_at')
         .gt('total_win', 0)
         .order('total_win', { ascending: false })
         .limit(20);
@@ -105,7 +105,7 @@ const MCPExamples = {
       data.forEach((spin, index) => {
         const multiplier = spin.total_win / spin.bet_amount;
         const flag = multiplier > 100 ? '🚨' : multiplier > 50 ? '⚠️' : '✅';
-        console.log(`   ${index + 1}. ${flag} ${spin.spin_id}: $${spin.bet_amount} → $${spin.total_win} (${multiplier.toFixed(1)}x)`);
+        console.log(`   ${index + 1}. ${flag} ID ${spin.id}: $${spin.bet_amount} → $${spin.total_win} (${multiplier.toFixed(1)}x)`);
       });
 
       return data;
@@ -124,7 +124,7 @@ const MCPExamples = {
 
     try {
       const { data, error } = await supabase
-        .from('spins')
+        .from('spin_results')
         .select('created_at, bet_amount, total_win')
         .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false });
@@ -168,7 +168,7 @@ const MCPExamples = {
 
     try {
       // Check table sizes
-      const tables = ['users', 'spins', 'game_sessions', 'cascade_steps', 'transaction_logs'];
+      const tables = ['users', 'spin_results', 'game_sessions', 'cascade_steps', 'transaction_logs'];
       const tableStats = {};
 
       for (const table of tables) {
@@ -188,7 +188,7 @@ const MCPExamples = {
 
       // Check recent activity
       const { data: recentSpins, error } = await supabase
-        .from('spins')
+        .from('spin_results')
         .select('created_at')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false })
