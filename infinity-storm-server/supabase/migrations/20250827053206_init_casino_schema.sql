@@ -115,6 +115,40 @@ CREATE TABLE transactions (
 );
 
 -- =====================================================
+-- FINANCIAL TRANSACTIONS TABLE (Complete balance change audit)
+-- Records ALL player balance changes for complete audit trail
+-- More comprehensive than transactions table
+-- =====================================================
+CREATE TABLE financial_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+    transaction_type VARCHAR(30) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    balance_before DECIMAL(12,2) NOT NULL,
+    balance_after DECIMAL(12,2) NOT NULL,
+    reference_id TEXT,
+    reference_type VARCHAR(50),
+    description TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    CONSTRAINT valid_financial_transaction_type CHECK (
+        transaction_type IN (
+            'bet_deduction',
+            'win_payout', 
+            'free_spins_purchase',
+            'portal_deposit',
+            'portal_withdrawal',
+            'adjustment',
+            'bonus_credit'
+        )
+    ),
+    CONSTRAINT valid_balance_calculation CHECK (
+        balance_after = balance_before + amount
+    )
+);
+
+-- =====================================================
 -- JACKPOTS TABLE (Future progressive jackpot support)
 -- Supports progressive jackpot functionality
 -- =====================================================
@@ -191,6 +225,12 @@ CREATE INDEX idx_spin_results_session ON spin_results(session_id);
 
 -- Transactions table indexes
 CREATE INDEX idx_transactions_player_time ON transactions(player_id, created_at DESC);
+
+-- Financial transactions table indexes
+CREATE INDEX idx_financial_transactions_player ON financial_transactions(player_id);
+CREATE INDEX idx_financial_transactions_created ON financial_transactions(created_at DESC);
+CREATE INDEX idx_financial_transactions_type ON financial_transactions(transaction_type);
+CREATE INDEX idx_financial_transactions_reference ON financial_transactions(reference_id);
 
 -- =====================================================
 -- TRIGGERS (Automated maintenance)
