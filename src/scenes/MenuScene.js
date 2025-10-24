@@ -19,6 +19,14 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const stateManager = this.game.stateManager;
         
+        // FREE PLAY DEMO MODE: Skip auth for demo players
+        const authToken = localStorage.getItem('infinity_storm_token');
+        if (!authToken) {
+            console.log('🎮 [FREE PLAY] No auth token - auto-starting FREE PLAY demo mode');
+            this.showMainMenu(); // Or directly: this.scene.start('GameScene');
+            return;
+        }
+        
         // Show loading state during validation
         this.showValidatingState();
         

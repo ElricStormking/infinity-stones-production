@@ -10,20 +10,10 @@ const JWTAuth = require('../auth/jwt');
 const Player = require('../models/Player');
 const Session = require('../models/Session');
 const { logger } = require('../utils/logger.js');
-const { Pool } = require('pg');
+const { supabaseAdmin } = require('../db/supabaseClient'); // Use Supabase instead of broken pool
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const transactionLogger = require('../services/transactionLogger');
-
-// Create direct database connection for auth operations
-const dbPool = new Pool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: parseInt(process.env.DB_PORT) || 54322,
-  database: process.env.DB_NAME || 'postgres',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  ssl: false
-});
 
 class AuthController {
   /**
@@ -474,20 +464,22 @@ class AuthController {
      * POST /api/auth/register
      */
   async register(req, res) {
-    const client = await dbPool.connect();
     try {
       const { username, email, password } = req.body;
 
-      // Check if player already exists
-      const checkQuery = `
-                SELECT id, username, email 
-                FROM players 
-                WHERE username = $1 OR email = $2
-            `;
-      const checkResult = await client.query(checkQuery, [username, email]);
+      // Check if player already exists using Supabase
+      const { data: existingPlayers, error: checkError } = await supabaseAdmin
+        .from('players')
+        .select('id, username, email')
+        .or(`username.eq.${username},email.eq.${email}`)
+        .limit(1);
 
-      if (checkResult.rows.length > 0) {
-        const existingPlayer = checkResult.rows[0];
+      if (checkError) {
+        throw new Error(`Database check failed: ${checkError.message}`);
+      }
+
+      if (existingPlayers && existingPlayers.length > 0) {
+        const existingPlayer = existingPlayers[0];
         const field = existingPlayer.username === username ? 'username' : 'email';
         return res.status(409).json({
           error: 'Registration failed',
@@ -499,26 +491,27 @@ class AuthController {
       // Hash password
       const passwordHash = await bcrypt.hash(password, 10);
 
-      // Create new player
-      const insertQuery = `
-                INSERT INTO players (
-                    username, email, password_hash, credits, 
-                    is_demo, is_admin, status, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-                RETURNING id, username, email, credits
-            `;
+      // Create new player using Supabase
+      const { data: playerData, error: insertError } = await supabaseAdmin
+        .from('players')
+        .insert({
+          username,
+          email,
+          password_hash: passwordHash,
+          credits: 1000.00,
+          is_demo: false,
+          is_admin: false,
+          status: 'active',
+          created_at: new Date().toISOString()
+        })
+        .select('id, username, email, credits')
+        .single();
 
-      const insertResult = await client.query(insertQuery, [
-        username,
-        email,
-        passwordHash,
-        1000.00, // Starting credits
-        false, // is_demo
-        false, // is_admin
-        'active'
-      ]);
+      if (insertError) {
+        throw new Error(`Player creation failed: ${insertError.message}`);
+      }
 
-      const player = insertResult.rows[0];
+      const player = playerData;
 
       // Log registration bonus transaction for regulatory compliance
       try {
@@ -544,25 +537,15 @@ class AuthController {
         is_demo: false
       });
 
-      // Create session
-      const sessionQuery = `
-                INSERT INTO sessions (
-                    player_id, token_hash, ip_address, user_agent, 
-                    is_active, created_at, expires_at
-                ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '24 hours')
-                RETURNING id, expires_at
-            `;
-
-      // Use crypto SHA256 hash to match Session model's generateTokenHash
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      // TEMPORARY FIX: Skip session database record due to "stack depth limit exceeded" error
+      // Sessions will be validated by JWT token only
+      // Create session data without saving to database (JWT-only validation)
+      const sessionData = {
+        id: crypto.randomUUID(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      };
       
-      const sessionResult = await client.query(sessionQuery, [
-        player.id,
-        tokenHash, // Use SHA256 hash to match Session.generateTokenHash()
-        req.ip || req.connection.remoteAddress,
-        req.headers['user-agent'],
-        true
-      ]);
+      logger.info('Using JWT-only session (database session skipped due to trigger issues)');
 
       logger.info('New player registered', {
         player_id: player.id,
@@ -583,8 +566,8 @@ class AuthController {
           is_admin: false
         },
         session: {
-          id: sessionResult.rows[0].id,
-          expires_at: sessionResult.rows[0].expires_at
+          id: sessionData.id,
+          expires_at: sessionData.expires_at
         },
         token
       });
@@ -601,8 +584,6 @@ class AuthController {
         code: 'REGISTRATION_ERROR',
         message: 'Unable to complete registration'
       });
-    } finally {
-      client.release();
     }
   }
 
@@ -611,20 +592,17 @@ class AuthController {
      * POST /api/auth/login
      */
   async login(req, res) {
-    const client = await dbPool.connect();
     try {
       const { username, password } = req.body;
 
-      // Find player by username or email
-      const findQuery = `
-                SELECT id, username, email, password_hash, credits, 
-                       is_demo, is_admin, status
-                FROM players 
-                WHERE username = $1 OR email = $1
-            `;
-      const findResult = await client.query(findQuery, [username]);
+      // Find player by username or email using Supabase
+      const { data: players, error: findError } = await supabaseAdmin
+        .from('players')
+        .select('id, username, email, password_hash, credits, is_demo, is_admin, status')
+        .or(`username.eq.${username},email.eq.${username}`)
+        .limit(1);
 
-      if (findResult.rows.length === 0) {
+      if (findError || !players || players.length === 0) {
         return res.status(401).json({
           error: 'Authentication failed',
           code: 'INVALID_CREDENTIALS',
@@ -632,7 +610,7 @@ class AuthController {
         });
       }
 
-      const player = findResult.rows[0];
+      const player = players[0];
 
       // Check if player is active
       if (player.status !== 'active') {
@@ -667,35 +645,31 @@ class AuthController {
         is_admin: player.is_admin
       });
 
-      // Create new session (delete old ones first)
-      await client.query('DELETE FROM sessions WHERE player_id = $1', [player.id]);
+      // TEMPORARY FIX: Skip session database record due to "stack depth limit exceeded" error
+      // Sessions will be validated by JWT token only
+      // Delete old sessions (if any exist)
+      try {
+        await supabaseAdmin
+          .from('sessions')
+          .delete()
+          .eq('player_id', player.id);
+      } catch (deleteError) {
+        logger.warn('Failed to delete old sessions (non-critical)', { error: deleteError.message });
+      }
 
-      const sessionQuery = `
-                INSERT INTO sessions (
-                    player_id, token_hash, ip_address, user_agent,
-                    is_active, created_at, expires_at
-                ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '24 hours')
-                RETURNING id, expires_at
-            `;
-
-      // Use crypto SHA256 hash to match Session model's generateTokenHash
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      // Create session data without saving to database (JWT-only validation)
+      const sessionData = {
+        id: crypto.randomUUID(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      };
       
-      const sessionResult = await client.query(sessionQuery, [
-        player.id,
-        tokenHash, // Use SHA256 hash to match Session.generateTokenHash()
-        req.ip || req.connection.remoteAddress,
-        req.headers['user-agent'],
-        true
-      ]);
+      logger.info('Using JWT-only session (database session skipped due to trigger issues)');
 
-      // Update last login
-      const updateQuery = `
-                UPDATE players 
-                SET last_login_at = NOW()
-                WHERE id = $1
-            `;
-      await client.query(updateQuery, [player.id]);
+      // Update last login using Supabase
+      await supabaseAdmin
+        .from('players')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', player.id);
 
       logger.info('Player login successful', {
         player_id: player.id,
@@ -715,8 +689,8 @@ class AuthController {
           is_admin: player.is_admin
         },
         session: {
-          id: sessionResult.rows[0].id,
-          expires_at: sessionResult.rows[0].expires_at
+          id: sessionData.id,
+          expires_at: sessionData.expires_at
         },
         token
       });
@@ -733,8 +707,6 @@ class AuthController {
         code: 'LOGIN_ERROR',
         message: 'Unable to complete login'
       });
-    } finally {
-      client.release();
     }
   }
 }

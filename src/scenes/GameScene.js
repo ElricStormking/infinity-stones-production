@@ -1,5 +1,8 @@
 // Phaser is loaded globally
 // All classes are loaded globally
+// VERSION: 2025-10-23-FIX-DEMO-BALANCE-v3
+
+console.log('🔥🔥🔥 [GAMESCENE] FILE LOADED - VERSION 2025-10-23-v3 🔥🔥🔥');
 
 window.GameScene = class GameScene extends Phaser.Scene {
     constructor() {
@@ -7,10 +10,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     create() {
+        console.log('🔥 [GAMESCENE] create() method called');
         window.gameScene = this;
         if (window.GameAPI && typeof window.GameAPI.attachScene === 'function') { window.GameAPI.attachScene(this); }
         this.stateManager = this.game.stateManager;
         this.stateManager.setState(this.stateManager.states.PLAYING);
+        
+        // DEMO MODE: Always start with $10,000 (no localStorage persistence)
+        const authToken = localStorage.getItem('infinity_storm_token');
+        if (!authToken) {
+            console.log('🎮 [DEMO] Starting with fresh $10,000 balance');
+            if (this.stateManager) {
+                this.stateManager.gameData.balance = 10000;
+            }
+            
+            // Set WalletAPI balance immediately (UI reads from WalletAPI first)
+            if (window.WalletAPI) {
+                window.WalletAPI.currentBalance = 10000;
+                console.log('🎮 [DEMO] Balance initialized: $10,000');
+            }
+        }
         
         // Initialize cascade synchronization system
         this.initializeCascadeSync();
@@ -439,9 +458,37 @@ window.GameScene = class GameScene extends Phaser.Scene {
     
     // Task 6.2: Initialize server integration system
     initializeServerIntegration() {
+        // FREE PLAY DEMO MODE: Check for authentication first
+        const authToken = localStorage.getItem('infinity_storm_token');
+        if (!authToken) {
+            console.log('🎮 [FREE PLAY] No auth token - starting in FREE PLAY DEMO MODE');
+            this.serverMode = false;
+            this.demoMode = true;
+            this.isServerSpinning = false;
+            
+            // Balance already loaded in create() before UI initialization
+            // Just sync WalletAPI (no display update needed - UI was created with correct value)
+            if (window.WalletAPI) {
+                window.WalletAPI.setBalance(this.stateManager.gameData.balance);
+            }
+            
+            // Fill grid with initial symbols
+            this.gridManager.fillGrid();
+            if (this.gridManager && this.gridManager.startAllIdleAnimations) {
+                this.gridManager.startAllIdleAnimations();
+            }
+            
+            // Show demo mode indicator UI
+            this.showDemoModeIndicator();
+            
+            console.log('🎮 [FREE PLAY] Demo mode initialized - balance:', this.stateManager.gameData.balance);
+            return;
+        }
+        
+        // Authenticated player flow continues below
         // Load auth token from localStorage if available
         // Use 'infinity_storm_token' to match NetworkService storage key
-        const storedToken = localStorage.getItem('infinity_storm_token');
+        const storedToken = authToken;
         if (storedToken && window.NetworkService) {
             console.log('🔐 [GAMESCENE] Loading auth token from localStorage:', storedToken.substring(0, 30) + '...');
             window.NetworkService.setAuthToken(storedToken);
@@ -504,9 +551,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             if (window.DEBUG) {
                 console.log('?? Server integration disabled - running in demo mode');
             }
-
-            // Ensure players have free demo balance
-            this.ensureDemoBalance();
+            
+            // Balance already initialized in create() - no need to reset here
         }
     }
     
@@ -1103,8 +1149,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
             window.SafeSound.startMainBGM(this);
         }
         
-        // CRITICAL: Check connection status for authenticated players
-        if (this.connectionMonitor && !this.connectionMonitor.canSpin()) {
+        // CRITICAL: Check connection status for authenticated players (skip for demo mode)
+        if (!this.demoMode && this.connectionMonitor && !this.connectionMonitor.canSpin()) {
             console.error('🚫 Spin blocked - server connection required for authenticated players');
             this.showMessage('Connection lost! Please wait for reconnection.');
             
@@ -1193,9 +1239,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Update balance display
         this.updateBalanceDisplay();
         
-        // Task 6.2: Server integration - request spin from server or fallback to demo mode
-        if (this.gameAPI) { // always use server path; demo handled server-side
+        // Task 6.2: Server integration - request spin from server or demo mode
+        if (this.demoMode) {
+            // FREE PLAY DEMO MODE: Use demo spin endpoint
+            console.log('🎮 [DEMO] Processing demo spin');
+            await this.processServerSpin(); // Will use demo endpoint
+        } else if (this.gameAPI) {
+            // Real money mode: Use authenticated server endpoint
             await this.processServerSpin();
+        } else {
+            // Fallback: No server available
+            console.warn('⚠️ No server connection - spin skipped');
         }
         
         // End spin
@@ -3233,20 +3287,135 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
     ensureDemoBalance() {
         try {
-            const minDemo = 5000;
+            // Demo mode always resets to $10,000 (no persistence)
             if (this.demoMode && this.stateManager && this.stateManager.gameData) {
-                if (this.stateManager.gameData.balance < minDemo) {
-                    this.stateManager.gameData.balance = minDemo;
-                    if (window.WalletAPI) {
-                        window.WalletAPI.currentBalance = minDemo;
-                    }
-                    this.updateBalanceDisplay();
+                this.stateManager.gameData.balance = 10000;
+                
+                if (window.WalletAPI) {
+                    window.WalletAPI.currentBalance = 10000;
                 }
+                this.updateBalanceDisplay();
+                console.log('💰 [DEMO] Balance reset to $10,000');
             }
         } catch (e) {
             // Non-fatal
             if (window.DEBUG) console.warn('ensureDemoBalance failed:', e);
         }
+    }
+    
+    showDemoModeIndicator() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Demo banner at top center
+        const banner = this.add.text(width / 2, 40, 'FREE PLAY DEMO MODE', {
+            fontSize: '24px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 4
+        });
+        banner.setOrigin(0.5);
+        banner.setDepth(9998);
+        
+        // Login button at top-right
+        const loginBtn = this.add.text(width - 150, 40, 'Login for Real Money', {
+            fontSize: '14px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            backgroundColor: '#00aa00',
+            padding: { x: 15, y: 8 }
+        });
+        loginBtn.setOrigin(0.5);
+        loginBtn.setDepth(9998);
+        loginBtn.setInteractive({ useHandCursor: true });
+        
+        loginBtn.on('pointerover', () => loginBtn.setBackgroundColor('#00cc00'));
+        loginBtn.on('pointerout', () => loginBtn.setBackgroundColor('#00aa00'));
+        loginBtn.on('pointerup', () => this.showLoginModal());
+        
+        this.demoModeUI = { banner, loginBtn };
+    }
+    
+    showLoginModal() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Dark overlay
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        overlay.setDepth(9999);
+        overlay.setInteractive();
+        
+        // Modal box
+        const boxWidth = Math.min(500, width * 0.9);
+        const boxHeight = 350;
+        const box = this.add.rectangle(width / 2, height / 2, boxWidth, boxHeight, 0x1a1a1a, 1);
+        box.setDepth(10000);
+        box.setStrokeStyle(3, 0x00aa00);
+        
+        // Title
+        const title = this.add.text(width / 2, height / 2 - 120, 'Switch to Real Money Play', {
+            fontSize: '24px',
+            fontFamily: 'Arial Black',
+            color: '#FFD700'
+        });
+        title.setOrigin(0.5);
+        title.setDepth(10001);
+        
+        // Message
+        const message = this.add.text(width / 2, height / 2 - 50, 
+            'You are currently playing in FREE PLAY DEMO MODE.\n\n' +
+            'To play with real money and real winnings,\n' +
+            'please login through your casino platform.',
+            {
+                fontSize: '14px',
+                fontFamily: 'Arial',
+                color: '#ffffff',
+                align: 'center',
+                wordWrap: { width: boxWidth - 40 }
+            }
+        );
+        message.setOrigin(0.5);
+        message.setDepth(10001);
+        
+        // Login button
+        const loginBtn = this.add.text(width / 2, height / 2 + 70, 'Open Login Page', {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            backgroundColor: '#00aa00',
+            padding: { x: 25, y: 12 }
+        });
+        loginBtn.setOrigin(0.5);
+        loginBtn.setDepth(10001);
+        loginBtn.setInteractive({ useHandCursor: true });
+        
+        // Cancel button
+        const cancelBtn = this.add.text(width / 2, height / 2 + 120, 'Continue Demo Play', {
+            fontSize: '14px',
+            fontFamily: 'Arial',
+            color: '#cccccc',
+            backgroundColor: '#333333',
+            padding: { x: 20, y: 10 }
+        });
+        cancelBtn.setOrigin(0.5);
+        cancelBtn.setDepth(10001);
+        cancelBtn.setInteractive({ useHandCursor: true });
+        
+        // Button handlers
+        loginBtn.on('pointerover', () => loginBtn.setBackgroundColor('#00cc00'));
+        loginBtn.on('pointerout', () => loginBtn.setBackgroundColor('#00aa00'));
+        loginBtn.on('pointerup', () => {
+            // Open login portal in new tab
+            const portalUrl = 'http://localhost:3000/test-player-login.html';
+            window.open(portalUrl, '_blank');
+        });
+        
+        cancelBtn.on('pointerover', () => cancelBtn.setBackgroundColor('#444444'));
+        cancelBtn.on('pointerout', () => cancelBtn.setBackgroundColor('#333333'));
+        cancelBtn.on('pointerup', () => {
+            [overlay, box, title, message, loginBtn, cancelBtn].forEach(el => el.destroy());
+        });
     }
 
     update(time, delta) {

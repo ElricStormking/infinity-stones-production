@@ -21,6 +21,7 @@ const StateManager = require('../game/stateManager');
 const AntiCheat = require('../game/antiCheat');
 const AuditLogger = require('../game/auditLogger');
 const walletLedger = require('../services/walletLedger');
+const financialLogger = require('../services/financialTransactionLogger');
 const { Player, Transaction, SpinResult } = require('../models');
 const { pool } = require('../db/pool');
 const { logger } = require('../utils/logger.js');
@@ -255,6 +256,22 @@ class GameController {
               
               player.credits = newBalance;
               console.log('[GameController] Debited bet via Supabase, new balance:', newBalance);
+              
+              // Log financial transaction
+              try {
+                const logResult = await financialLogger.logBetDeduction(
+                  playerId,
+                  normalizedBetAmount,
+                  player.credits + normalizedBetAmount, // balance before
+                  newBalance, // balance after
+                  spinId
+                );
+                if (!logResult.success && !logResult.skipped) {
+                  console.error('[FinancialLog] Failed to log bet deduction:', logResult.error);
+                }
+              } catch (logError) {
+                console.error('[FinancialLog] Exception logging bet:', logError.message);
+              }
             } else {
               // Use wallet ledger in normal mode
               betTransaction = await walletLedger.processBet({
@@ -265,6 +282,22 @@ class GameController {
                 description: `Spin bet of ${normalizedBetAmount} credits`
               });
               player.credits = betTransaction.balance.current;
+              
+              // Log financial transaction
+              try {
+                const logResult = await financialLogger.logBetDeduction(
+                  playerId,
+                  normalizedBetAmount,
+                  betTransaction.balance.previous,
+                  betTransaction.balance.current,
+                  spinId
+                );
+                if (!logResult.success && !logResult.skipped) {
+                  console.error('[FinancialLog] Failed to log bet deduction:', logResult.error);
+                }
+              } catch (logError) {
+                console.error('[FinancialLog] Exception logging bet:', logError.message);
+              }
             }
           } catch (walletError) {
             if (!skipRedis) {
@@ -362,6 +395,22 @@ class GameController {
               
               player.credits = newBalance;
               console.log('[GameController] Credited win via Supabase, new balance:', newBalance);
+              
+              // Log financial transaction
+              try {
+                const logResult = await financialLogger.logWinPayout(
+                  playerId,
+                  spinResult.totalWin,
+                  newBalance - spinResult.totalWin, // balance before
+                  newBalance, // balance after
+                  spinId
+                );
+                if (!logResult.success && !logResult.skipped) {
+                  console.error('[FinancialLog] Failed to log win payout:', logResult.error);
+                }
+              } catch (logError) {
+                console.error('[FinancialLog] Exception logging win:', logError.message);
+              }
             } else {
               // Use wallet ledger in normal mode
               winTransaction = await walletLedger.processWin({
@@ -372,6 +421,22 @@ class GameController {
                 description: `Spin win of ${spinResult.totalWin} credits`
               });
               player.credits = winTransaction.balance.current;
+              
+              // Log financial transaction
+              try {
+                const logResult = await financialLogger.logWinPayout(
+                  playerId,
+                  spinResult.totalWin,
+                  winTransaction.balance.previous,
+                  winTransaction.balance.current,
+                  spinId
+                );
+                if (!logResult.success && !logResult.skipped) {
+                  console.error('[FinancialLog] Failed to log win payout:', logResult.error);
+                }
+              } catch (logError) {
+                console.error('[FinancialLog] Exception logging win:', logError.message);
+              }
             }
           } catch (walletError) {
             if (!skipRedis) {

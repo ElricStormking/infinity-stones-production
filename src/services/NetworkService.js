@@ -375,11 +375,13 @@ window.NetworkService = new (class NetworkService {
         return this.get('/api/game-state', forceDemo);
     }
     
-    async purchaseFreeSpins(featureType, cost) {
-        console.log('🛒 Purchasing free spins:', { featureType, cost });
+    async purchaseFreeSpins(featureType, cost, betAmount, currentBalance) {
+        console.log('🛒 Purchasing free spins:', { featureType, cost, betAmount, currentBalance });
         const response = await this.post('/api/buy-feature', {
             featureType,
-            cost
+            cost,
+            betAmount,
+            currentBalance  // For demo mode - use localStorage balance
         });
         console.log('✅ Purchase response:', response);
         return response;

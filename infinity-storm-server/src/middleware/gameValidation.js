@@ -211,20 +211,16 @@ class GameValidation {
         });
       }
 
-      // Check credit sufficiency
-      if (!req.user.is_demo && req.user.credits < cost) {
+      // Check credit sufficiency (applies to both demo and real accounts)
+      if (req.user.credits < cost) {
         return responseHelper.badRequest(res, 'Insufficient credits for feature purchase', {
           availableCredits: req.user.credits,
           requiredCredits: cost
         });
       }
 
-      // Demo mode restrictions
-      if (req.user.is_demo && cost > 100) {
-        return responseHelper.badRequest(res, 'Demo mode feature purchase limit exceeded', {
-          maxCost: 100
-        });
-      }
+      // Demo mode: No purchase limit - it's virtual currency with boosted RTP
+      // Players can spend as much as they have available
 
       next();
 

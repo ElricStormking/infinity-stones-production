@@ -552,7 +552,9 @@ window.FreeSpinsManager = class FreeSpinsManager {
                 
                 // Call server to process purchase
                 try {
-                    const response = await window.NetworkService.purchaseFreeSpins('free_spins', freeSpinsCost);
+                    const betAmount = this.scene.stateManager.gameData.currentBet;
+                    const currentBalance = this.scene.stateManager.gameData.balance;
+                    const response = await window.NetworkService.purchaseFreeSpins('free_spins', freeSpinsCost, betAmount, currentBalance);
                     
                     if (response && response.success) {
                         console.log('✅ Free spins purchased successfully:', response);

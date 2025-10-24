@@ -22,6 +22,7 @@
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const GameController = require('../controllers/game');
+const financialLogger = require('../services/financialTransactionLogger');
 const {
   authenticate,
   optionalAuth,
@@ -121,10 +122,10 @@ router.use((req, res, next) => {
  * Process a demo spin request (no auth required for testing)
  * Body: { betAmount, quickSpinMode?, freeSpinsActive?, accumulatedMultiplier?, bonusMode? }
  */
-// Reuse full game engine for demo spins so client sees real cascades
-const GameEngine = require('../game/gameEngine');
+// Use boosted demo engine for free play mode (300% RTP)
+const GameEngineDemo = require('../game/gameEngineDemo');
 const { saveSpinResult, ensureTestPlayer } = require('../db/supabaseClient');
-const demoEngine = new GameEngine();
+const demoEngine = new GameEngineDemo();
 
 const DEMO_IDENTIFIER = 'demo-player';
 const DEMO_SESSION_ID = 'demo-session';
@@ -191,7 +192,7 @@ router.post('/demo-spin',
       const testPlayerResult = await ensureTestPlayer(playerIdentifier, {
         allowCreate: true,
         markDemo: playerIdentifier === DEMO_IDENTIFIER,
-        initialCredits: playerIdentifier === DEMO_IDENTIFIER ? 5000 : 0,
+        initialCredits: playerIdentifier === DEMO_IDENTIFIER ? 10000 : 0,
         returnPassword: false
       });
 
@@ -216,22 +217,14 @@ router.post('/demo-spin',
         rngSeed: typeof rngSeed === 'string' ? rngSeed : undefined
       });
 
-      // Save demo spin result to Supabase (async, non-blocking)
-      saveSpinResult(playerRecord.id, {
-        sessionId: sessionIdentifier,
-        bet: parseFloat(betAmount),
-        initialGrid: spin.initialGrid,
-        cascades: spin.cascadeSteps,
-        totalWin: spin.totalWin,
-        multipliers: spin.multipliers,
-        rngSeed: spin.rngSeed,
-        freeSpinsActive: Boolean(freeSpinsActive)
-      }).catch(err => {
-        console.error('Failed to save demo spin result to Supabase:', err.message);
-      });
+      // FREE PLAY DEMO MODE: Do NOT save spins to database
+      // Demo spins are for entertainment only and not tracked
+      console.log('🎮 [DEMO SPIN] FREE PLAY mode - spin NOT saved to database');
 
       const responsePayload = {
         success: true,
+        isDemo: true,
+        rtpBoost: '300%',
         data: {
           spinId: spin.spinId,
           betAmount: spin.betAmount,
@@ -249,7 +242,9 @@ router.post('/demo-spin',
           accumulatedMultiplier: spin.newAccumulatedMultiplier || accumulatedMultiplier,
           rngSeed: spin.rngSeed,
           metadata: {
-            rngAuditId: spin.rngSeed
+            rngAuditId: spin.rngSeed,
+            demoMode: true,
+            rtpBoost: 3.0
           }
         }
       };
@@ -460,14 +455,14 @@ router.get('/game-status',
 /**
  * POST /api/buy-feature
  * Purchase bonus features (free spins, etc.)
- * Requires: Active player authentication, blocks demo mode
+ * Requires: Active player authentication (demo mode allowed with virtual currency)
  * Body: { featureType: string, cost: number }
  */
 router.post('/buy-feature',
   demoAuthBypass,
   authenticate,
   requireActivePlayer,
-  blockDemoMode,
+  // Allow demo mode - purchases use virtual currency
   gameValidation.validateFeaturePurchase,
   [
     body('featureType')
@@ -485,9 +480,10 @@ router.post('/buy-feature',
   validateAndProceed,
   async (req, res) => {
     try {
-      const { featureType, cost } = req.body;
+      const { featureType, cost, currentBalance } = req.body;
       const playerId = req.user.id;
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      const isDemo = req.user.is_demo || playerId === 'demo-player';
 
       // Only support free_spins for now
       if (featureType !== 'free_spins') {
@@ -503,125 +499,166 @@ router.post('/buy-feature',
       const FREE_SPINS_COUNT = GAME_CONFIG.FREE_SPINS.BUY_FEATURE_SPINS;
       const COST_MULTIPLIER = GAME_CONFIG.FREE_SPINS.BUY_FEATURE_COST;
 
-      // Get player's current balance
-      const { supabaseAdmin } = require('../db/supabaseClient');
-      const { data: player, error: playerError } = await supabaseAdmin
-        .from('players')
-        .select('credits')
-        .eq('id', playerId)
-        .single();
+      let playerBalance;
+      let newBalance;
 
-      if (playerError || !player) {
-        return res.status(500).json({
-          success: false,
-          error: 'PLAYER_NOT_FOUND',
-          message: 'Could not retrieve player balance'
-        });
-      }
+      if (isDemo) {
+        // DEMO MODE: Use client-provided balance (localStorage), skip database
+        console.log('🎮 [DEMO PURCHASE] Using client balance:', currentBalance);
+        playerBalance = currentBalance || 10000; // Default to $10k if not provided
+        
+        // Verify player has enough balance
+        if (playerBalance < cost) {
+          return res.status(400).json({
+            success: false,
+            error: 'INSUFFICIENT_BALANCE',
+            message: `Insufficient balance. Required: ${cost}, Available: ${playerBalance}`
+          });
+        }
+        
+        // Calculate new balance (don't update database for demo)
+        newBalance = playerBalance - cost;
+        console.log('🎮 [DEMO PURCHASE] New balance:', newBalance, '(not saved to database)');
+      } else {
+        // REAL MONEY MODE: Use database balance
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        const { data: player, error: playerError } = await supabaseAdmin
+          .from('players')
+          .select('credits')
+          .eq('id', playerId)
+          .single();
 
-      // Verify player has enough balance
-      if (player.credits < cost) {
-        return res.status(400).json({
-          success: false,
-          error: 'INSUFFICIENT_BALANCE',
-          message: `Insufficient balance. Required: ${cost}, Available: ${player.credits}`
-        });
-      }
+        if (playerError || !player) {
+          return res.status(500).json({
+            success: false,
+            error: 'PLAYER_NOT_FOUND',
+            message: 'Could not retrieve player balance'
+          });
+        }
 
-      // Deduct cost from balance
-      const newBalance = player.credits - cost;
-      const { error: updateError } = await supabaseAdmin
-        .from('players')
-        .update({ credits: newBalance })
-        .eq('id', playerId);
+        playerBalance = player.credits;
 
-      if (updateError) {
-        logger.error('Failed to deduct purchase cost', {
+        // Verify player has enough balance
+        if (playerBalance < cost) {
+          return res.status(400).json({
+            success: false,
+            error: 'INSUFFICIENT_BALANCE',
+            message: `Insufficient balance. Required: ${cost}, Available: ${playerBalance}`
+          });
+        }
+
+        // Deduct cost from balance in database
+        newBalance = playerBalance - cost;
+        const { error: updateError } = await supabaseAdmin
+          .from('players')
+          .update({ credits: newBalance })
+          .eq('id', playerId);
+
+        if (updateError) {
+          logger.error('Failed to deduct purchase cost', {
+            playerId,
+            cost,
+            error: updateError.message
+          });
+          return res.status(500).json({
+            success: false,
+            error: 'BALANCE_UPDATE_FAILED',
+            message: 'Failed to process purchase'
+          });
+        }
+        
+        // Log financial transaction for purchase
+        await financialLogger.logFreeSpinsPurchase(
           playerId,
           cost,
-          error: updateError.message
-        });
-        return res.status(500).json({
-          success: false,
-          error: 'BALANCE_UPDATE_FAILED',
-          message: 'Failed to process purchase'
-        });
+          playerBalance,
+          newBalance,
+          null // purchase ID (could generate one if needed)
+        );
       }
 
-      // Create transaction record
-      const { error: txError } = await supabaseAdmin
-        .from('transactions')
-        .insert({
-          player_id: playerId,
-          type: 'purchase',
-          amount: -cost,
-          balance_before: player.credits,
-          balance_after: newBalance,
-          reference_type: 'free_spins_purchase',
-          description: `Purchased ${FREE_SPINS_COUNT} free spins`
-        });
-
-      if (txError) {
-        logger.warn('Failed to record purchase transaction', {
-          playerId,
-          error: txError.message
-        });
-      }
-
-      // Update game state to free spins mode
-      const { data: existingState } = await supabaseAdmin
-        .from('game_states')
-        .select('*')
-        .eq('player_id', playerId)
-        .single();
-
-      const stateData = existingState?.state_data || {};
-      const gameStateUpdate = {
-        player_id: playerId,
-        game_mode: 'free_spins',
-        free_spins_remaining: FREE_SPINS_COUNT,
-        accumulated_multiplier: 1.00,
-        state_data: {
-          ...stateData,
-          purchase_timestamp: new Date().toISOString(),
-          purchase_cost: cost
-        },
-        updated_at: new Date().toISOString()
-      };
-
-      if (existingState) {
-        // Update existing state
-        const { error: stateUpdateError } = await supabaseAdmin
-          .from('game_states')
-          .update(gameStateUpdate)
-          .eq('player_id', playerId);
-
-        if (stateUpdateError) {
-          logger.error('Failed to update game state for purchase', {
-            playerId,
-            error: stateUpdateError.message
+      // Record transaction and game state (skip for demo mode - virtual currency only)
+      if (!isDemo) {
+        const { supabaseAdmin } = require('../db/supabaseClient');
+        
+        // Create transaction record
+        const { error: txError } = await supabaseAdmin
+          .from('transactions')
+          .insert({
+            player_id: playerId,
+            type: 'purchase',
+            amount: -cost,
+            balance_before: playerBalance,
+            balance_after: newBalance,
+            reference_type: 'free_spins_purchase',
+            description: `Purchased ${FREE_SPINS_COUNT} free spins`
           });
+
+        if (txError) {
+          logger.warn('Failed to record purchase transaction', {
+            playerId,
+            error: txError.message
+          });
+        }
+
+        // Update game state to free spins mode
+        const { data: existingState } = await supabaseAdmin
+          .from('game_states')
+          .select('*')
+          .eq('player_id', playerId)
+          .single();
+
+        const stateData = existingState?.state_data || {};
+        const gameStateUpdate = {
+          player_id: playerId,
+          game_mode: 'free_spins',
+          free_spins_remaining: FREE_SPINS_COUNT,
+          accumulated_multiplier: 1.00,
+          state_data: {
+            ...stateData,
+            purchase_timestamp: new Date().toISOString(),
+            purchase_cost: cost
+          },
+          updated_at: new Date().toISOString()
+        };
+
+        if (existingState) {
+          // Update existing state
+          const { error: stateUpdateError} = await supabaseAdmin
+            .from('game_states')
+            .update(gameStateUpdate)
+            .eq('player_id', playerId);
+
+          if (stateUpdateError) {
+            logger.error('Failed to update game state for purchase', {
+              playerId,
+              error: stateUpdateError.message
+            });
+          }
+        } else {
+          // Insert new state
+          const { error: stateInsertError } = await supabaseAdmin
+            .from('game_states')
+            .insert(gameStateUpdate);
+
+          if (stateInsertError) {
+            logger.error('Failed to insert game state for purchase', {
+              playerId,
+              error: stateInsertError.message
+            });
+          }
         }
       } else {
-        // Insert new state
-        const { error: stateInsertError } = await supabaseAdmin
-          .from('game_states')
-          .insert(gameStateUpdate);
-
-        if (stateInsertError) {
-          logger.error('Failed to insert game state for purchase', {
-            playerId,
-            error: stateInsertError.message
-          });
-        }
+        console.log('🎮 [DEMO PURCHASE] Skipping database transaction/state recording');
       }
 
       logger.info('Free spins purchased', {
         playerId,
         cost,
         spinsAwarded: FREE_SPINS_COUNT,
-        balanceBefore: player.credits,
-        balanceAfter: newBalance
+        balanceBefore: playerBalance,
+        balanceAfter: newBalance,
+        isDemo
       });
 
       res.json({

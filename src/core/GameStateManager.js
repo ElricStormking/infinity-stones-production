@@ -94,6 +94,7 @@ window.GameStateManager = class GameStateManager {
             this.updateBalance(-this.gameData.currentBet);
             this.sessionData.spinsCount++;
             this.sessionData.totalWagered += this.gameData.currentBet;
+            
             return true;
         }
         return false;

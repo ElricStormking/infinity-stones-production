@@ -7,6 +7,7 @@ const {
   createTransaction
 } = require('../db/supabaseClient');
 const { logger } = require('../utils/logger');
+const financialLogger = require('../services/financialTransactionLogger');
 
 const router = express.Router();
 
@@ -137,6 +138,15 @@ router.post(
       }
 
       const transaction = transactionResult.transaction;
+      
+      // Log financial transaction for portal deposit
+      await financialLogger.logPortalDeposit(
+        player.id,
+        creditAmount,
+        balanceBefore,
+        balanceAfter,
+        transaction?.id
+      );
 
       logger.info('Mock portal credit applied', {
         player_id: player.id,

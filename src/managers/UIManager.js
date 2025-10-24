@@ -134,8 +134,16 @@ window.UIManager = class UIManager {
             }
         };
         
-        // Initialize server balance after UI creation
-        this.initializeServerBalance();
+        // Initialize server balance after UI creation (skip for demo mode - they use localStorage)
+        const isDemo = this.scene.demoMode || !localStorage.getItem('infinity_storm_token');
+        if (!isDemo) {
+            this.initializeServerBalance();
+        } else {
+            console.log('💰 [DEMO] Skipping server balance initialization - using localStorage balance');
+            // Demo mode: Set affordability flag and update purchase button cost
+            this.purchaseAffordabilityReady = true;
+            this.updatePurchaseButtonCost();
+        }
         
         // Add hover effects to interactive elements
         this.addButtonHoverEffects();
@@ -855,7 +863,12 @@ window.UIManager = class UIManager {
     
     createTextOverlays(scaleX, scaleY) {
         // Text overlays for values - initialize with server balance if available
-        const initialBalance = window.WalletAPI ? window.WalletAPI.getCurrentBalance() : this.scene.stateManager.gameData.balance;
+        // In demo mode, ALWAYS use StateManager balance (WalletAPI might have cached/old values)
+        const walletBalance = window.WalletAPI ? window.WalletAPI.getCurrentBalance() : null;
+        const stateBalance = this.scene.stateManager.gameData.balance;
+        const isDemo = this.scene.demoMode || !localStorage.getItem('infinity_storm_token');
+        const initialBalance = isDemo ? stateBalance : (walletBalance !== null ? walletBalance : stateBalance);
+        console.log('💰 [UIMANAGER] createTextOverlays - WalletAPI:', walletBalance, 'StateManager:', stateBalance, 'IsDemo:', isDemo, 'Using:', initialBalance);
         {
             const fs = Math.floor(24 * Math.min(scaleX, scaleY));
             this.balanceText = this.scene.add.text(250 * scaleX, 675 * scaleY, `$${initialBalance.toFixed(2)}`, {
@@ -1145,6 +1158,13 @@ window.UIManager = class UIManager {
     
     // Update balance from server (server-authoritative)
     updateBalanceFromServer() {
+        // NEVER call this in demo mode - demo players use localStorage balance
+        const isDemo = this.scene.demoMode || !localStorage.getItem('infinity_storm_token');
+        if (isDemo) {
+            console.warn('⚠️ [DEMO] Blocked server balance update - demo mode uses localStorage');
+            return;
+        }
+        
         if (window.WalletAPI && this.balanceText) {
             const serverBalance = window.WalletAPI.getCurrentBalance();
             this.balanceText.setText(`$${serverBalance.toFixed(2)}`);
@@ -1687,11 +1707,18 @@ window.UIManager = class UIManager {
             // Check if player can afford the purchase using a safe, non-dimming default during init
             let canAfford = true;
             try {
-                if (window.WalletAPI && typeof window.WalletAPI.getCurrentBalance === 'function') {
-                    const balance = Number(window.WalletAPI.getCurrentBalance());
-                    if (!Number.isNaN(balance)) {
-                        canAfford = balance >= cost;
-                    }
+                let balance = null;
+                
+                // In demo mode, prioritize StateManager balance
+                const isDemo = this.scene.demoMode || !localStorage.getItem('infinity_storm_token');
+                if (isDemo && this.scene.stateManager && this.scene.stateManager.gameData) {
+                    balance = this.scene.stateManager.gameData.balance;
+                } else if (window.WalletAPI && typeof window.WalletAPI.getCurrentBalance === 'function') {
+                    balance = window.WalletAPI.getCurrentBalance();
+                }
+                
+                if (balance !== null && !Number.isNaN(Number(balance))) {
+                    canAfford = Number(balance) >= cost;
                 }
             } catch (_) {
                 // Default to true until wallet is ready to avoid half-transparent on load
@@ -1748,8 +1775,11 @@ window.UIManager = class UIManager {
         // Show transaction notification
         this.showTransactionNotification(data.transaction);
         
-        // Refresh balance display
-        this.updateBalanceFromServer();
+        // Refresh balance display (skip for demo mode)
+        const isDemo = this.scene.demoMode || !localStorage.getItem('infinity_storm_token');
+        if (!isDemo) {
+            this.updateBalanceFromServer();
+        }
     }
     
     handleWalletError(data) {

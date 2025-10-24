@@ -1,10 +1,13 @@
-﻿const express = require('express');
+﻿const dotenv = require('dotenv');
+// Load .env FIRST before any other modules that depend on environment variables
+dotenv.config();
+
+const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const dotenv = require('dotenv');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
@@ -50,9 +53,6 @@ const {
   addSecurityHeaders,
   securityAuditLogger
 } = require('./src/middleware/security');
-
-// Load environment variables
-dotenv.config();
 
 // Initialize game engine and cascade services
 const gridEngine = new GridEngine();
