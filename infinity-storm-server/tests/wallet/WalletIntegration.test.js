@@ -12,7 +12,8 @@
 
 const request = require('supertest');
 const { app } = require('../../server');
-const { sequelize } = require('../../src/config/database');
+// Use Sequelize instance exported by models index
+const { sequelize } = require('../../src/models');
 const { Player, Transaction } = require('../../src/models');
 const WalletService = require('../../src/services/walletService');
 

@@ -42,8 +42,11 @@ class StateManager {
     // Initialize Redis connection
     this.initializeRedis();
 
-    // Cleanup intervals
-    this.startCleanupTasks();
+    // Cleanup intervals (disabled in tests to avoid open handles)
+    const isTestEnv = (process.env.NODE_ENV || '').toLowerCase() === 'test' || process.env.JEST_WORKER_ID;
+    if (!isTestEnv) {
+      this.startCleanupTasks();
+    }
   }
 
   /**

@@ -1,7 +1,9 @@
 const Redis = require('ioredis');
 
-// Quick bypass for local playtest: skip Redis only when explicitly requested
-const shouldSkipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+// In tests, always skip Redis to avoid open handles and NOAUTH noise
+const isTestEnv = (process.env.NODE_ENV || '').toLowerCase() === 'test' || process.env.JEST_WORKER_ID;
+// Quick bypass for local playtest: skip Redis when explicitly requested OR in test env
+const shouldSkipRedis = isTestEnv || (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
 
 if (shouldSkipRedis) {
   const asyncNull = async () => null;
@@ -120,21 +122,24 @@ const initializeRedis = () => {
       redisClient = new Redis(redisConfig);
     }
 
-    redisClient.on('connect', () => {
-      console.log('Connected to Redis server');
-    });
+    // Avoid noisy logs and Jest "Cannot log after tests are done" by suppressing listeners in tests
+    if (!isTestEnv) {
+      redisClient.on('connect', () => {
+        console.log('Connected to Redis server');
+      });
 
-    redisClient.on('error', (error) => {
-      console.error('Redis connection error:', error.message);
-    });
+      redisClient.on('error', (error) => {
+        console.error('Redis connection error:', error.message);
+      });
 
-    redisClient.on('close', () => {
-      console.log('Redis connection closed');
-    });
+      redisClient.on('close', () => {
+        console.log('Redis connection closed');
+      });
 
-    redisClient.on('reconnecting', () => {
-      console.log('Reconnecting to Redis...');
-    });
+      redisClient.on('reconnecting', () => {
+        console.log('Reconnecting to Redis...');
+      });
+    }
   }
 
   return redisClient;

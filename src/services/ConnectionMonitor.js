@@ -58,8 +58,9 @@ class ConnectionMonitor {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), this.pingTimeout);
             
-            // Ping the server health endpoint
-            const response = await fetch(`${window.NetworkService?.baseURL || 'http://localhost:3000'}/health`, {
+            // Ping the server health endpoint (use API path, not admin /health)
+            const base = window.NetworkService?.baseURL || 'http://localhost:3000';
+            const response = await fetch(`${base.replace(/\/$/, '')}/api/health`, {
                 method: 'GET',
                 signal: controller.signal
             });

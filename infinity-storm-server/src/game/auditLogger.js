@@ -22,6 +22,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
+const isTestEnv = (process.env.NODE_ENV || '').toLowerCase() === 'test' || process.env.JEST_WORKER_ID;
+
 class AuditLogger {
   constructor(config = {}) {
     this.config = {
@@ -43,7 +45,7 @@ class AuditLogger {
       // Performance settings
       bufferSize: config.bufferSize || 100,
       flushInterval: config.flushInterval || 5000, // 5 seconds
-      asyncLogging: config.asyncLogging !== false
+      asyncLogging: isTestEnv ? false : (config.asyncLogging !== false)
     };
 
     // Log levels hierarchy
@@ -93,11 +95,11 @@ class AuditLogger {
       // Ensure log directory exists
       await this.ensureLogDirectory();
 
-      // Start log rotation timer
-      this.startRotationTimer();
-
-      // Start buffer flush timer
-      this.startFlushTimer();
+      if (!isTestEnv) {
+        // Start timers only outside of test to avoid open handles
+        this.startRotationTimer();
+        this.startFlushTimer();
+      }
 
       // Log system startup
       await this.logSystemEvent('audit_logger_initialized', {
@@ -106,7 +108,7 @@ class AuditLogger {
         timestamp: new Date().toISOString()
       });
 
-      console.log('AuditLogger: Initialized successfully');
+      if (!isTestEnv) console.log('AuditLogger: Initialized successfully');
 
     } catch (error) {
       console.error('AuditLogger: Initialization failed:', error);
@@ -615,7 +617,7 @@ class AuditLogger {
 
       await Promise.all(writePromises);
 
-      console.log(`AuditLogger: Flushed ${buffer.length} log entries in ${Date.now() - startTime}ms`);
+      if (!isTestEnv) console.log(`AuditLogger: Flushed ${buffer.length} log entries in ${Date.now() - startTime}ms`);
 
     } catch (error) {
       console.error('AuditLogger: Error flushing buffer:', error);
@@ -684,7 +686,7 @@ class AuditLogger {
 
     try {
       await fs.rename(logFile, rotatedFile);
-      console.log(`AuditLogger: Rotated log file: ${path.basename(logFile)}`);
+      if (!isTestEnv) console.log(`AuditLogger: Rotated log file: ${path.basename(logFile)}`);
 
       // Clean up old rotated files
       await this.cleanupOldLogs(logFile);
@@ -740,7 +742,7 @@ class AuditLogger {
 
         for (const file of filesToDelete) {
           await fs.unlink(file.path);
-          console.log(`AuditLogger: Cleaned up old log file: ${file.name}`);
+          if (!isTestEnv) console.log(`AuditLogger: Cleaned up old log file: ${file.name}`);
         }
       }
 
@@ -915,7 +917,7 @@ class AuditLogger {
      * Close audit logger
      */
   async close() {
-    console.log('AuditLogger: Shutting down...');
+    if (!isTestEnv) console.log('AuditLogger: Shutting down...');
 
     // Clear timers
     if (this.bufferTimer) {
@@ -933,7 +935,7 @@ class AuditLogger {
       shutdown_timestamp: new Date().toISOString()
     });
 
-    console.log('AuditLogger: Shutdown complete');
+    if (!isTestEnv) console.log('AuditLogger: Shutdown complete');
   }
 }
 

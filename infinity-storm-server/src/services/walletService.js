@@ -15,7 +15,8 @@
  */
 
 const { Transaction, Player, AdminLog } = require('../models');
-const { sequelize } = require('../config/database');
+// Use Sequelize instance from models index (source of truth)
+const { sequelize } = require('../models');
 const { auditLogger } = require('../utils/logger');
 
 class WalletService {
