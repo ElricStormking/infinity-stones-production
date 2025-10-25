@@ -14,8 +14,10 @@ class MetricsService {
       lastUpdated: new Date()
     };
 
-    // Start background metrics collection
-    this.startMetricsCollection();
+    // Start background metrics collection (skip during tests to avoid open handles)
+    if (process.env.NODE_ENV !== 'test') {
+      this.startMetricsCollection();
+    }
   }
 
   /**

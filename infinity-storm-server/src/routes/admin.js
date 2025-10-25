@@ -127,22 +127,25 @@ router.post('/login',
   adminController.processLogin
 );
 
-// Test Dashboard (no auth required)
-router.get('/test-dashboard', async (req, res) => {
-  try {
-    // Render dashboard directly without authentication
-    const metricsService = require('../services/metricsService');
-    const dashboardData = {
-      user: { username: 'demo-admin', is_admin: true },
-      metrics: await metricsService.getDashboardMetrics('24h'),
-      realtime: await metricsService.getRealtimeMetrics()
-    };
-    res.render('admin/dashboard', dashboardData);
-  } catch (error) {
-    console.error('Test dashboard error:', error);
-    res.status(500).json({ error: 'Dashboard error', message: error.message });
-  }
-});
+// Test Dashboard (no auth required) - dev/test only
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/test-dashboard', async (req, res) => {
+    try {
+      // Render dashboard directly without authentication
+      const metricsService = require('../services/metricsService');
+      const dashboardData = {
+        user: { username: 'demo-admin', is_admin: true },
+        metrics: await metricsService.getDashboardMetrics('24h'),
+        realtime: await metricsService.getRealtimeMetrics()
+      };
+      res.render('admin/dashboard', dashboardData);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Test dashboard error:', error);
+      res.status(500).json({ error: 'Dashboard error', message: error.message });
+    }
+  });
+}
 
 /**
  * Protected Routes (Admin Authentication Required)

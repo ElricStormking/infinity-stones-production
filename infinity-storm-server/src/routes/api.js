@@ -36,28 +36,30 @@ const responseHelper = require('../utils/responseHelper');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
-// Admin sync metrics endpoints (no auth in dev)
-router.get('/admin/sync-metrics', async (req, res) => {
-  try {
-    const metricsService = require('../services/metricsService');
-    const metrics = await metricsService.getDashboardMetrics(req.query.timeframe || '24h');
-    res.json({ success: true, metrics });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
+// Admin sync metrics endpoints (dev/test only)
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/admin/sync-metrics', async (req, res) => {
+    try {
+      const metricsService = require('../services/metricsService');
+      const metrics = await metricsService.getDashboardMetrics(req.query.timeframe || '24h');
+      res.json({ success: true, metrics });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
 
-router.get('/admin/sync-health', async (req, res) => {
-  try {
-    const metricsService = require('../services/metricsService');
-    const system = await metricsService.getSystemMetrics('24h');
-    const rtp = await metricsService.getRTPMetrics('24h');
-    const realtime = await metricsService.getRealtimeMetrics();
-    res.json({ success: true, system, rtp, realtime });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
+  router.get('/admin/sync-health', async (req, res) => {
+    try {
+      const metricsService = require('../services/metricsService');
+      const system = await metricsService.getSystemMetrics('24h');
+      const rtp = await metricsService.getRTPMetrics('24h');
+      const realtime = await metricsService.getRealtimeMetrics();
+      res.json({ success: true, system, rtp, realtime });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+}
 
 // Reset game state for testing (dev only)
 router.post('/reset-game-state', async (req, res) => {
@@ -267,8 +269,11 @@ router.post('/demo-spin',
 
 const demoAuthBypass = async (req, res, next) => {
   try {
-    if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true') {
-      req.demoBypass = true;
+    // Only allow demo bypass in non-production environments
+    if (process.env.NODE_ENV !== 'production') {
+      if (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true') {
+        req.demoBypass = true;
+      }
     }
 
     if (!req.demoBypass) {

@@ -2,6 +2,20 @@
 // Load .env FIRST before any other modules that depend on environment variables
 dotenv.config();
 
+// Production safety checks for critical secrets
+if (process.env.NODE_ENV === 'production') {
+  const access = process.env.JWT_ACCESS_SECRET;
+  const refresh = process.env.JWT_REFRESH_SECRET;
+  const badAccess = !access || access === 'default-access-secret';
+  const badRefresh = !refresh || refresh === 'default-refresh-secret';
+  if (badAccess || badRefresh) {
+    // Fail fast if secrets are missing or using insecure defaults
+    // eslint-disable-next-line no-console
+    console.error('[FATAL] Missing secure JWT secrets in production. Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET.');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -111,9 +125,6 @@ const io = socketIo(server, {
 });
 
 // Security and performance middleware
-app.use(helmet({
-  contentSecurityPolicy: false // Allow inline scripts for Phaser
-}));
 app.use(compression());
 app.use(morgan('combined'));
 
@@ -272,71 +283,60 @@ app.get('/api/history/spins', async (req, res) => {
 // This ensures a single, authoritative codepath (GameEngine) and
 // consistent payloads (free spins + multiplier events) for the client.
 
-// Test Supabase connection endpoint (no auth required)
-app.get('/api/test-supabase', async (req, res) => {
-  try {
-    const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
+// Test endpoints - only in non-production environments
+if (process.env.NODE_ENV !== 'production') {
+  // Test Supabase connection endpoint (no auth required)
+  app.get('/api/test-supabase', async (req, res) => {
+    try {
+      const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
 
-    // Test getting demo player
-    const demoPlayer = await getDemoPlayer();
-    console.log('Demo player:', demoPlayer);
+      const demoPlayer = await getDemoPlayer();
+      // eslint-disable-next-line no-console
+      console.log('Demo player:', demoPlayer);
 
-    // Test getting balance
-    const balanceResult = await getPlayerBalance(demoPlayer.id);
-    console.log('Balance result:', balanceResult);
+      const balanceResult = await getPlayerBalance(demoPlayer.id);
+      // eslint-disable-next-line no-console
+      console.log('Balance result:', balanceResult);
 
-    res.json({
-      success: true,
-      message: 'Supabase connection test successful',
-      data: {
-        demoPlayer,
-        balanceResult
-      }
-    });
-  } catch (error) {
-    console.error('Supabase test error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    });
-  }
-});
-
-// Test wallet balance endpoint (no auth required) - bypass authentication for testing
-app.get('/api/test-wallet-balance', async (req, res) => {
-  try {
-    const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
-
-    // Get demo player for testing
-    const demoPlayer = await getDemoPlayer();
-    const balanceResult = await getPlayerBalance(demoPlayer.id);
-
-    if (balanceResult.error) {
-      return res.status(400).json({
-        success: false,
-        error: balanceResult.error
+      res.json({
+        success: true,
+        message: 'Supabase connection test successful',
+        data: { demoPlayer, balanceResult }
       });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Supabase test error:', error);
+      res.status(500).json({ success: false, error: error.message, stack: error.stack });
     }
+  });
 
-    res.json({
-      success: true,
-      message: 'Balance retrieved successfully',
-      data: {
-        balance: balanceResult.balance,
-        playerId: balanceResult.playerId,
-        username: balanceResult.username
+  // Test wallet balance endpoint (no auth required) - bypass authentication for testing
+  app.get('/api/test-wallet-balance', async (req, res) => {
+    try {
+      const { getPlayerBalance, getDemoPlayer } = require('./src/db/supabaseClient');
+      const demoPlayer = await getDemoPlayer();
+      const balanceResult = await getPlayerBalance(demoPlayer.id);
+
+      if (balanceResult.error) {
+        return res.status(400).json({ success: false, error: balanceResult.error });
       }
-    });
-  } catch (error) {
-    console.error('Wallet balance test error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    });
-  }
-});
+
+      res.json({
+        success: true,
+        message: 'Balance retrieved successfully',
+        data: {
+          balance: balanceResult.balance,
+          playerId: balanceResult.playerId,
+          username: balanceResult.username
+        }
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Wallet balance test error:', error);
+      res.status(500).json({ success: false, error: error.message, stack: error.stack });
+    }
+  });
+}
 
 // Transaction History Endpoints for Regulatory Compliance (defined before API routes to avoid middleware conflicts)
 

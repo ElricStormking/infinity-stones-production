@@ -148,8 +148,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       logger.warn('CORS policy violation', {
-        origin,
-        ip: origin,
+        attemptedOrigin: origin,
         timestamp: new Date().toISOString()
       });
       callback(new Error('CORS policy: Origin not allowed'));

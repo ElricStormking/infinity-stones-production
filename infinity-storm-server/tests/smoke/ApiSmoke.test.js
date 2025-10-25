@@ -13,14 +13,16 @@ describe('Smoke: API health and spin', () => {
     expect(res.body).toHaveProperty('status', 'OK');
   });
 
-  it('POST /api/spin returns a spin result', async () => {
+  it('POST /api/demo-spin returns a demo spin result', async () => {
     const res = await request(app)
-      .post('/api/spin')
+      .post('/api/demo-spin')
+      .set('x-demo-bypass', 'true')
       .set('X-Player-Id', 'smoke_test_player')
-      .send({ bet: 1.0, quickSpinMode: true });
+      .send({ betAmount: 1.0, quickSpinMode: true });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('spinId');
-    expect(res.body).toHaveProperty('totalWin');
+    expect(res.body).toHaveProperty('success', true);
+    expect(res.body).toHaveProperty('data.spinId');
+    expect(res.body).toHaveProperty('data.totalWin');
   });
 });
 
