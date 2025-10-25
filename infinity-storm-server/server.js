@@ -1927,7 +1927,7 @@ app.get('/health', async (req, res) => {
     // Check Redis connectivity (if enabled)
     try {
       const { getRedisClient, shouldSkipRedis } = require('./src/config/redis');
-      if (!shouldSkipRedis()) {
+      if (!shouldSkipRedis) {
         const redis = getRedisClient();
         await redis.ping();
         healthStatus.checks.redis = { status: 'healthy', message: 'Redis connected' };
