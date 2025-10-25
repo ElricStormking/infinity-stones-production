@@ -1,9 +1,9 @@
 /**
  * Financial Transaction Logger
- * 
+ *
  * Logs all player balance changes to the financial_transactions table
  * for complete audit trail and accounting purposes.
- * 
+ *
  * Skips logging for demo players.
  */
 

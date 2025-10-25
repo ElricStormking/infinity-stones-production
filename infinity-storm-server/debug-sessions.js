@@ -16,7 +16,7 @@ const pool = new Pool({
 
 async function debugSessions() {
   console.log('🔍 Debugging sessions in database...\n');
-  
+
   try {
     // Get all sessions
     const sessionsResult = await pool.query(`
@@ -33,9 +33,9 @@ async function debugSessions() {
       ORDER BY s.created_at DESC
       LIMIT 5
     `);
-    
+
     console.log(`Found ${sessionsResult.rows.length} session(s):\n`);
-    
+
     for (const session of sessionsResult.rows) {
       console.log(`📝 Session ID: ${session.id}`);
       console.log(`   Player: ${session.username} (${session.player_id})`);
@@ -46,7 +46,7 @@ async function debugSessions() {
       console.log(`   Created: ${session.created_at}`);
       console.log('');
     }
-    
+
     // Try to login and check the token hash
     const axios = require('axios');
     console.log('🔐 Testing login...');
@@ -54,21 +54,21 @@ async function debugSessions() {
       username: 'testplayer',
       password: 'test123'
     });
-    
+
     const token = loginResponse.data.token;
     console.log(`✅ Login successful, got token: ${token.substring(0, 30)}...\n`);
-    
+
     // Calculate what the hash should be
     const expectedHash = crypto.createHash('sha256').update(token).digest('hex');
     console.log(`🔐 Expected SHA256 hash: ${expectedHash.substring(0, 40)}...`);
     console.log(`   Full length: ${expectedHash.length}`);
-    
+
     // Check if this hash exists in database
     const hashCheckResult = await pool.query(
       'SELECT * FROM sessions WHERE token_hash = $1',
       [expectedHash]
     );
-    
+
     if (hashCheckResult.rows.length > 0) {
       console.log('\n✅ Token hash FOUND in database!');
       console.log('   Session ID:', hashCheckResult.rows[0].id);
@@ -77,7 +77,7 @@ async function debugSessions() {
     } else {
       console.log('\n❌ Token hash NOT FOUND in database!');
       console.log('   This is the problem!');
-      
+
       // Show what hashes are actually in DB
       console.log('\n📋 Actual hashes in database:');
       for (const session of sessionsResult.rows) {
@@ -85,7 +85,7 @@ async function debugSessions() {
         console.log(`   ${session.token_hash.substring(0, 40)}... ${matches ? '✅ MATCH' : '❌ no match'}`);
       }
     }
-    
+
   } catch (error) {
     console.error('❌ Error:', error.message);
     if (error.response) {

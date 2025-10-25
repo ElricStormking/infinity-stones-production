@@ -95,7 +95,7 @@ async function getPlayer(identifier) {
       console.error('[getPlayer] Error fetching player:', error, 'identifier:', identifier);
       return null;
     }
-    
+
     console.log('[getPlayer] Found player:', data ? data.username : 'NULL');
 
     return data;
@@ -308,11 +308,11 @@ async function saveSpinResult(playerId, spinData) {
     if (actualSessionId === DEMO_SESSION_ID) {
       actualSessionId = null;
     }
-    
+
     // Save to spin_results table
     // Ensure cascades is always an array (not null/undefined) to satisfy NOT NULL constraint
     const cascadesArray = Array.isArray(spinData.cascades) ? spinData.cascades : [];
-    
+
     const { data: spinResult, error: spinError } = await supabaseAdmin
       .from('spin_results')
       .insert({
@@ -491,7 +491,7 @@ async function getSpinHistory(playerId, limit = 200, offset = 0, order = 'desc')
     const end = start + cappedLimit - 1;
 
     // Try spin_results first
-    let { data, error, count } = await supabaseAdmin
+    const { data, error, count } = await supabaseAdmin
       .from('spin_results')
       .select('*', { count: 'exact' })
       .eq('player_id', playerId)

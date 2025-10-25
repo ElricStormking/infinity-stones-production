@@ -1,6 +1,6 @@
 /**
  * Security Middleware - Comprehensive Security Controls
- * 
+ *
  * Implements casino-grade security measures including:
  * - HTTPS enforcement
  * - Security headers (Helmet.js)
@@ -9,7 +9,7 @@
  * - CSP (Content Security Policy)
  * - Rate limiting
  * - IP blocking
- * 
+ *
  * Production-ready security hardening for casino gaming platform.
  */
 
@@ -33,17 +33,17 @@ const enforceHttps = (req, res, next) => {
 
   // Check if request is secure
   const isSecure = req.secure || req.get('x-forwarded-proto') === 'https';
-  
+
   if (!isSecure && IS_PRODUCTION) {
     logger.warn('Insecure HTTP request redirected to HTTPS', {
       ip: req.ip,
       url: req.url,
       userAgent: req.get('user-agent')
     });
-    
+
     return res.redirect(301, `https://${req.get('host')}${req.url}`);
   }
-  
+
   next();
 };
 
@@ -53,70 +53,70 @@ const enforceHttps = (req, res, next) => {
  */
 const securityHeaders = IS_DEVELOPMENT
   ? helmet({
-      // In development, disable CSP to avoid blocking Phaser/dev assets
-      contentSecurityPolicy: false,
-      hsts: false
-    })
+    // In development, disable CSP to avoid blocking Phaser/dev assets
+    contentSecurityPolicy: false,
+    hsts: false
+  })
   : helmet({
-      // HSTS (HTTP Strict Transport Security)
-      hsts: {
-        maxAge: 31536000, // 1 year
-        includeSubDomains: true,
-        preload: true
-      },
-      
-      // Content Security Policy (production)
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'", "blob:", "data:"],
-          scriptSrc: [
-            "'self'",
-            "'unsafe-inline'", // Required for Phaser game engine
-            "'unsafe-eval'",
-            "https://cdn.jsdelivr.net",
-            "blob:"
-          ],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "https:", "blob:"],
-          connectSrc: [
-            "'self'",
-            process.env.SUPABASE_URL || '',
-            "https://api.infinitystorm.com",
-            "https://cdn.jsdelivr.net",
-            "wss:",
-            "ws:"
-          ].filter(Boolean),
-          fontSrc: ["'self'", "https:", "data:"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'", "data:", "blob:"],
-          frameSrc: ["'self'"],
-          workerSrc: ["'self'", "blob:"],
-          childSrc: ["'self'", "blob:"],
-          upgradeInsecureRequests: []
-        }
-      },
-      
-      // X-Frame-Options (Clickjacking protection)
-      frameguard: {
-        action: 'deny'
-      },
-      
-      // X-Content-Type-Options
-      noSniff: true,
-      
-      // X-XSS-Protection
-      xssFilter: true,
-      
-      // Referrer-Policy
-      referrerPolicy: {
-        policy: 'strict-origin-when-cross-origin'
-      },
-      
-      // Permissions-Policy (formerly Feature-Policy)
-      permittedCrossDomainPolicies: {
-        permittedPolicies: 'none'
+    // HSTS (HTTP Strict Transport Security)
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true
+    },
+
+    // Content Security Policy (production)
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ['\'self\'', 'blob:', 'data:'],
+        scriptSrc: [
+          '\'self\'',
+          '\'unsafe-inline\'', // Required for Phaser game engine
+          '\'unsafe-eval\'',
+          'https://cdn.jsdelivr.net',
+          'blob:'
+        ],
+        styleSrc: ['\'self\'', '\'unsafe-inline\''],
+        imgSrc: ['\'self\'', 'data:', 'https:', 'blob:'],
+        connectSrc: [
+          '\'self\'',
+          process.env.SUPABASE_URL || '',
+          'https://api.infinitystorm.com',
+          'https://cdn.jsdelivr.net',
+          'wss:',
+          'ws:'
+        ].filter(Boolean),
+        fontSrc: ['\'self\'', 'https:', 'data:'],
+        objectSrc: ['\'none\''],
+        mediaSrc: ['\'self\'', 'data:', 'blob:'],
+        frameSrc: ['\'self\''],
+        workerSrc: ['\'self\'', 'blob:'],
+        childSrc: ['\'self\'', 'blob:'],
+        upgradeInsecureRequests: []
       }
-    });
+    },
+
+    // X-Frame-Options (Clickjacking protection)
+    frameguard: {
+      action: 'deny'
+    },
+
+    // X-Content-Type-Options
+    noSniff: true,
+
+    // X-XSS-Protection
+    xssFilter: true,
+
+    // Referrer-Policy
+    referrerPolicy: {
+      policy: 'strict-origin-when-cross-origin'
+    },
+
+    // Permissions-Policy (formerly Feature-Policy)
+    permittedCrossDomainPolicies: {
+      permittedPolicies: 'none'
+    }
+  });
 
 /**
  * CORS Configuration with Whitelist
@@ -143,7 +143,7 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    
+
     if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
@@ -189,7 +189,7 @@ const globalRateLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => {
     // Skip rate limiting for health checks and in development mode
-    if (IS_DEVELOPMENT) return true;
+    if (IS_DEVELOPMENT) {return true;}
     return req.path === '/health' || req.path === '/api/health';
   },
   handler: (req, res) => {
@@ -198,7 +198,7 @@ const globalRateLimiter = rateLimit({
       path: req.path,
       userAgent: req.get('user-agent')
     });
-    
+
     res.status(429).json({
       success: false,
       error: 'RATE_LIMIT_EXCEEDED',
@@ -246,7 +246,7 @@ const spinRateLimiter = rateLimit({
   },
   skip: (req) => {
     // Skip in development mode or for demo spins
-    if (IS_DEVELOPMENT) return true;
+    if (IS_DEVELOPMENT) {return true;}
     return req.path.includes('/demo-spin');
   }
 });
@@ -286,7 +286,7 @@ const authRateLimiter = rateLimit({
       username: req.body?.username,
       timestamp: new Date().toISOString()
     });
-    
+
     res.status(429).json({
       success: false,
       error: 'AUTH_RATE_LIMIT_EXCEEDED',
@@ -303,7 +303,7 @@ const authRateLimiter = rateLimit({
 const validateRequestSize = (req, res, next) => {
   const contentLength = parseInt(req.get('content-length') || '0', 10);
   const MAX_SIZE = 10 * 1024; // 10KB
-  
+
   if (contentLength > MAX_SIZE) {
     logger.warn('Request size exceeded limit', {
       ip: req.ip,
@@ -311,14 +311,14 @@ const validateRequestSize = (req, res, next) => {
       maxSize: MAX_SIZE,
       path: req.path
     });
-    
+
     return res.status(413).json({
       success: false,
       error: 'PAYLOAD_TOO_LARGE',
       message: 'Request payload exceeds maximum size limit.'
     });
   }
-  
+
   next();
 };
 
@@ -333,21 +333,21 @@ const ipBlacklist = new Set([
 
 const checkIpBlacklist = (req, res, next) => {
   const clientIp = req.ip || req.connection.remoteAddress;
-  
+
   if (ipBlacklist.has(clientIp)) {
     logger.error('Blocked request from blacklisted IP', {
       ip: clientIp,
       path: req.path,
       timestamp: new Date().toISOString()
     });
-    
+
     return res.status(403).json({
       success: false,
       error: 'ACCESS_DENIED',
       message: 'Access denied.'
     });
   }
-  
+
   next();
 };
 
@@ -369,20 +369,20 @@ const secureCookieConfig = {
 const addSecurityHeaders = (req, res, next) => {
   // Remove server fingerprinting
   res.removeHeader('X-Powered-By');
-  
+
   // Add custom security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   // Add cache control for sensitive endpoints
   if (req.path.includes('/api/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
-  
+
   next();
 };
 
@@ -393,7 +393,7 @@ const securityAuditLogger = (req, res, next) => {
   // Log sensitive operations
   const sensitiveEndpoints = ['/api/spin', '/api/withdraw', '/api/admin'];
   const isSensitive = sensitiveEndpoints.some(endpoint => req.path.includes(endpoint));
-  
+
   if (isSensitive) {
     logger.info('Sensitive operation requested', {
       ip: req.ip,
@@ -404,7 +404,7 @@ const securityAuditLogger = (req, res, next) => {
       timestamp: new Date().toISOString()
     });
   }
-  
+
   next();
 };
 

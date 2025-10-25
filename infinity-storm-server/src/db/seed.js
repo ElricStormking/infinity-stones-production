@@ -16,9 +16,9 @@ async function main() {
   await client.connect();
   try {
     await client.query('BEGIN');
-    const demo = await client.query("select id from players where username='demo_player'");
+    const demo = await client.query('select id from players where username=\'demo_player\'');
     if (demo.rowCount === 0) {
-      await client.query("insert into players (username,email,password_hash,credits,is_demo) values ('demo_player','demo@example.com','$2b$10$demo',10000,true)");
+      await client.query('insert into players (username,email,password_hash,credits,is_demo) values (\'demo_player\',\'demo@example.com\',\'$2b$10$demo\',10000,true)');
     }
     await client.query('COMMIT');
     console.log('[seed] ok');

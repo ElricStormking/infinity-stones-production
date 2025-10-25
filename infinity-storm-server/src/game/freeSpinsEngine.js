@@ -65,9 +65,9 @@ class FreeSpinsEngine {
 
     const triggered = !freeSpinsActive && scatterCount >= 4;
     this.logAuditEvent('FREE_SPINS_TRIGGER_CHECK', {
-        scatterCount,
-        freeSpinsActive,
-        triggered
+      scatterCount,
+      freeSpinsActive,
+      triggered
     });
     if (triggered) {
       const spinsAwarded = this.gameConfig.FREE_SPINS.SCATTER_4_PLUS;
@@ -86,24 +86,24 @@ class FreeSpinsEngine {
   }
 
   checkFreeSpinsRetrigger(scatterCount) {
-      const retriggered = scatterCount >= 4;
-      this.logAuditEvent('FREE_SPINS_RETRIGGER_CHECK', {
-          scatterCount,
-          retriggered
-      });
-      if (retriggered) {
-          this.statistics.freeSpinsRetriggered++;
-          return {
-              triggered: true,
-              spinsAwarded: this.gameConfig.FREE_SPINS.RETRIGGER_SPINS,
-              scatterCount
-          };
-      }
+    const retriggered = scatterCount >= 4;
+    this.logAuditEvent('FREE_SPINS_RETRIGGER_CHECK', {
+      scatterCount,
+      retriggered
+    });
+    if (retriggered) {
+      this.statistics.freeSpinsRetriggered++;
       return {
-          triggered: false,
-          spinsAwarded: 0,
-          scatterCount
+        triggered: true,
+        spinsAwarded: this.gameConfig.FREE_SPINS.RETRIGGER_SPINS,
+        scatterCount
       };
+    }
+    return {
+      triggered: false,
+      spinsAwarded: 0,
+      scatterCount
+    };
   }
 
   /**

@@ -109,7 +109,7 @@ class GameEngine {
   constructor(options = {}) {
     // Store game configuration
     this.gameConfig = GAME_CONFIG;
-    
+
     // Initialize crypto RNG system
     this.rng = getRNG({ auditLogging: true });
     // Production: disable any forced cluster injection; audit logging stays on
@@ -279,25 +279,25 @@ class GameEngine {
         // Keep dropPatterns for backward compatibility
         const droppingSymbols = Array.isArray(cascadeResult.dropPatterns)
           ? cascadeResult.dropPatterns.reduce((acc, pattern) => {
-              const column = pattern.column;
-              const drops = Array.isArray(pattern.drops) ? pattern.drops : [];
-              drops.forEach((drop) => {
-                const fromRow = (typeof drop.from === 'number')
-                  ? drop.from
-                  : ((drop.from && typeof drop.from.row === 'number') ? drop.from.row : drop.fromRow);
-                const toRow = (typeof drop.to === 'number')
-                  ? drop.to
-                  : ((drop.to && typeof drop.to.row === 'number') ? drop.to.row : drop.toRow);
-                acc.push({
-                  from: drop.from || { col: column, row: fromRow },
-                  to: drop.to || { col: column, row: toRow },
-                  symbolType: drop.symbolType || drop.type || drop.symbol || null,
-                  dropDistance: drop.dropDistance,
-                  dropTime: drop.dropTime
-                });
+            const column = pattern.column;
+            const drops = Array.isArray(pattern.drops) ? pattern.drops : [];
+            drops.forEach((drop) => {
+              const fromRow = (typeof drop.from === 'number')
+                ? drop.from
+                : ((drop.from && typeof drop.from.row === 'number') ? drop.from.row : drop.fromRow);
+              const toRow = (typeof drop.to === 'number')
+                ? drop.to
+                : ((drop.to && typeof drop.to.row === 'number') ? drop.to.row : drop.toRow);
+              acc.push({
+                from: drop.from || { col: column, row: fromRow },
+                to: drop.to || { col: column, row: toRow },
+                symbolType: drop.symbolType || drop.type || drop.symbol || null,
+                dropDistance: drop.dropDistance,
+                dropTime: drop.dropTime
               });
-              return acc;
-            }, [])
+            });
+            return acc;
+          }, [])
           : [];
 
         const cascadeStep = {
@@ -376,11 +376,11 @@ class GameEngine {
       // Check for scatter-triggered free spins on initial grid
       const scatterCount = this.countScatters(initialGridSnapshot);
       console.log(`🎰 FREE SPINS CHECK (initial): Found ${scatterCount} scatters on initial grid (need 4+)`);
-      console.log(`  Initial grid:`, this.gridToString(initialGridSnapshot));
+      console.log('  Initial grid:', this.gridToString(initialGridSnapshot));
       if (scatterCount >= 4 && !freeSpinsActive) {
         console.log(`✨ ${scatterCount} scatters found on INITIAL grid! Triggering free spins...`);
         const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(scatterCount, freeSpinsActive);
-        console.log(`  Free spins result:`, freeSpinsResult);
+        console.log('  Free spins result:', freeSpinsResult);
         if (freeSpinsResult.triggered && freeSpinsResult.spinsAwarded > 0) {
           spinResult.bonusFeatures.freeSpinsTriggered = true;
           spinResult.bonusFeatures.freeSpinsAwarded = freeSpinsResult.spinsAwarded;
@@ -400,17 +400,17 @@ class GameEngine {
           totalWin += scatterPayout;
         }
       }
-      
+
       // NEW: Also check for scatters AFTER cascades complete (post-cascade scatters)
       // This allows scatters that appear during cascades to trigger free spins
       if (!freeSpinsActive && !pendingFreeSpinsCount) {
         const postCascadeScatterCount = this.countScatters(currentGrid);
         console.log(`🎰 FREE SPINS CHECK (post-cascade): Found ${postCascadeScatterCount} scatters on final grid (need 4+)`);
-        console.log(`  Final grid:`, this.gridToString(currentGrid));
+        console.log('  Final grid:', this.gridToString(currentGrid));
         if (postCascadeScatterCount >= 4) {
           console.log(`✨ ${postCascadeScatterCount} scatters found on FINAL grid! Triggering free spins...`);
           const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(postCascadeScatterCount, false);
-          console.log(`  Free spins result:`, freeSpinsResult);
+          console.log('  Free spins result:', freeSpinsResult);
           if (freeSpinsResult.triggered && freeSpinsResult.spinsAwarded > 0) {
             spinResult.bonusFeatures.freeSpinsTriggered = true;
             spinResult.bonusFeatures.freeSpinsAwarded = freeSpinsResult.spinsAwarded;
@@ -452,8 +452,8 @@ class GameEngine {
               previousRemaining,
               retrigger: true
             };
-            
-            console.log(`🎰 FREE SPINS RETRIGGER:`, {
+
+            console.log('🎰 FREE SPINS RETRIGGER:', {
               scatterCount: postCascadeScatterCount,
               retriggeredSpinsAwarded: retriggerResult.spinsAwarded,
               previousFreeSpinsAwarded: previousAwardedValue,
@@ -481,7 +481,7 @@ class GameEngine {
         );
 
         if (cascadingMultiplierResult.triggered) {
-          console.log(`  ✅ Cascade multipliers triggered:`, {
+          console.log('  ✅ Cascade multipliers triggered:', {
             count: cascadingMultiplierResult.multipliers.length,
             values: cascadingMultiplierResult.multipliers.map(m => m.multiplier),
             totalMultiplier: cascadingMultiplierResult.totalMultiplier,
@@ -498,7 +498,7 @@ class GameEngine {
             finalWin: null // Will be set after all multipliers are accumulated
           });
         } else {
-          console.log(`  ❌ Cascade multipliers NOT triggered:`, cascadingMultiplierResult.reason || 'unknown');
+          console.log('  ❌ Cascade multipliers NOT triggered:', cascadingMultiplierResult.reason || 'unknown');
         }
       }
 
@@ -518,11 +518,11 @@ class GameEngine {
           });
         }
       }
-      
+
       // CRITICAL: Apply random multipliers from current spin
       // For FREE SPINS: New multipliers + existing accumulated multiplier are BOTH applied to current win
       if (accumulatedRandomMultiplier > 0) {
-        console.log(`  🔍 Random multipliers generated in current spin:`, {
+        console.log('  🔍 Random multipliers generated in current spin:', {
           baseWinBeforeMultipliers: baseWinBeforeMultipliers.toFixed(2),
           newRandomMultipliersFromCurrentSpin: accumulatedRandomMultiplier,
           currentTotalWin: totalWin.toFixed(2),
@@ -530,7 +530,7 @@ class GameEngine {
           existingAccumulatedMultiplier: freeSpinsActive ? accumulatedMultiplier : 'N/A',
           multiplierEvents: multiplierEvents.map(e => ({ type: e.type, total: e.totalMultiplier }))
         });
-        
+
         if (freeSpinsActive) {
           // FREE SPINS MODE: Apply NEW multipliers to current spin (in addition to already-applied accumulated multiplier)
           // IMPORTANT: The existing accumulated multiplier was already applied at cascade level (line 224-226)
@@ -538,10 +538,10 @@ class GameEngine {
           const totalMultiplierForThisSpin = accumulatedMultiplier + accumulatedRandomMultiplier;
           const baseWinBeforeAnyMultipliers = totalWin / accumulatedMultiplier; // Reverse the accumulated multiplier to get base
           totalWin = baseWinBeforeAnyMultipliers * totalMultiplierForThisSpin;
-          
+
           console.log(`  🎰 FREE SPINS MODE: Applying NEW x${accumulatedRandomMultiplier} multipliers to current spin`);
           console.log(`  🎰 Calculation: Base $${baseWinBeforeAnyMultipliers.toFixed(2)} × (accumulated ${accumulatedMultiplier} + new ${accumulatedRandomMultiplier}) = $${baseWinBeforeAnyMultipliers.toFixed(2)} × ${totalMultiplierForThisSpin} = $${totalWin.toFixed(2)}`);
-          
+
           multiplierEvents.forEach(evt => {
             evt.finalWin = totalWin;
             evt.appliedToCurrentSpin = true;
@@ -551,7 +551,7 @@ class GameEngine {
           // REGULAR MODE: Apply immediately to current spin (no accumulated multiplier)
           totalWin = baseWinBeforeMultipliers * accumulatedRandomMultiplier;
           console.log(`  ✅ REGULAR MODE: Random multiplier x${accumulatedRandomMultiplier} applied to base $${baseWinBeforeMultipliers.toFixed(2)} = $${totalWin.toFixed(2)}`);
-          
+
           multiplierEvents.forEach(evt => {
             evt.finalWin = totalWin;
             evt.appliedToCurrentSpin = true;
@@ -627,8 +627,8 @@ class GameEngine {
         if (spinResult.bonusFeatures.randomMultipliers.length > 0) {
           const newMultipliersSum = spinResult.bonusFeatures.randomMultipliers
             .reduce((sum, m) => sum + m.multiplier, 0);
-          
-          console.log(`🎰 FREE SPINS: Processing multiplier accumulation:`, {
+
+          console.log('🎰 FREE SPINS: Processing multiplier accumulation:', {
             previousAccumulated: accumulatedMultiplier,
             newMultipliersFromThisSpin: newMultipliersSum,
             randomMultipliersCount: spinResult.bonusFeatures.randomMultipliers.length,
@@ -637,13 +637,13 @@ class GameEngine {
               type: m.type
             }))
           });
-          
+
           // New accumulated = existing accumulated + new multipliers from this spin
           // This was ALREADY applied to the current spin's win (see line 490-492)
           const newAccumulatedMultiplier = accumulatedMultiplier + newMultipliersSum;
 
           spinResult.newAccumulatedMultiplier = newAccumulatedMultiplier;
-          console.log(`🎰 GAME ENGINE: New accumulated multiplier for NEXT spin:`, {
+          console.log('🎰 GAME ENGINE: New accumulated multiplier for NEXT spin:', {
             previousAccumulated: accumulatedMultiplier,
             newMultipliersFromCurrentSpin: spinResult.bonusFeatures.randomMultipliers.map(m => m.multiplier),
             newAccumulated: newAccumulatedMultiplier,
@@ -652,7 +652,7 @@ class GameEngine {
         } else {
           // No new multipliers this spin, but MUST maintain the accumulated value
           spinResult.newAccumulatedMultiplier = accumulatedMultiplier;
-          console.log(`🎰 GAME ENGINE: No new multipliers, maintaining accumulated:`, {
+          console.log('🎰 GAME ENGINE: No new multipliers, maintaining accumulated:', {
             accumulatedMultiplier: accumulatedMultiplier,
             note: 'Accumulated multiplier preserved for next spin'
           });
@@ -710,7 +710,7 @@ class GameEngine {
     spinResult.freeSpinsComplete = spinResult.freeSpinsRemaining === 0;
 
     // Handle multiplier accumulation during free spins
-    console.log(`🎰 FREE SPINS: Processing multiplier accumulation:`, {
+    console.log('🎰 FREE SPINS: Processing multiplier accumulation:', {
       previousAccumulated: accumulatedMultiplier,
       randomMultipliersCount: spinResult.bonusFeatures.randomMultipliers.length,
       randomMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => ({
@@ -720,14 +720,14 @@ class GameEngine {
         position: m.position
       }))
     });
-    
+
     const newAccumulatedMultiplier = this.multiplierEngine.updateAccumulatedMultiplier(
       accumulatedMultiplier,
       spinResult.bonusFeatures.randomMultipliers
     );
 
     spinResult.newAccumulatedMultiplier = newAccumulatedMultiplier;
-    console.log(`🎰 GAME ENGINE: Calculated new accumulated multiplier for free spins:`, {
+    console.log('🎰 GAME ENGINE: Calculated new accumulated multiplier for free spins:', {
       previousAccumulated: accumulatedMultiplier,
       newMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => m.multiplier),
       newAccumulated: newAccumulatedMultiplier
@@ -843,7 +843,7 @@ class GameEngine {
     }
     return count;
   }
-  
+
   gridToString(grid) {
     // Convert grid to readable string for logging
     const symbolShort = {

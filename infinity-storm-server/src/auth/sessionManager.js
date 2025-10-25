@@ -141,12 +141,12 @@ class SessionManager {
 
       // Check if Redis is disabled - use JWT-only validation
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
-      
+
       if (skipRedis) {
         // JWT-only validation mode - skip database session checks
         // Use supabaseAdmin to bypass Row Level Security (RLS) policies
         const { supabaseAdmin } = require('../db/supabaseClient');
-        
+
         // Get player data from Supabase
         console.log('[SessionManager] Querying player from Supabase, player_id:', validation.player_id);
         const { data: player, error: playerError } = await supabaseAdmin

@@ -3,7 +3,7 @@
  *
  * Provides regulatory-compliant transaction logging for all financial operations
  * Ensures complete audit trail for casino operations
- * 
+ *
  * NOTE: This service is deprecated - use financialTransactionLogger instead
  */
 
@@ -37,13 +37,13 @@ class TransactionLogger {
         player_id: transaction.player_id,
         type: transaction.type
       });
-      
+
       // Return fake result for compatibility
       return {
         transaction_id: transactionId,
         created_at: new Date()
       };
-      
+
       /* OLD CODE - DISABLED DUE TO SCHEMA CONFLICT
       const query = `
                 INSERT INTO financial_transactions (
@@ -78,7 +78,7 @@ class TransactionLogger {
         transaction.ip_address || null,
         transaction.user_agent || null
       ];
-      
+
       const result = await client.query(query, values);
 
       // Log the transaction creation

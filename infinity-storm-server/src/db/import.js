@@ -34,7 +34,7 @@ async function main() {
   try {
     await client.query('BEGIN');
     for (const [table, rows] of Object.entries(data)) {
-      if (!Array.isArray(rows) || rows.length === 0) continue;
+      if (!Array.isArray(rows) || rows.length === 0) {continue;}
       const cols = Object.keys(rows[0]);
       for (const r of rows) {
         const values = cols.map(c => r[c]);

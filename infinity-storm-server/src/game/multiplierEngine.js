@@ -420,12 +420,12 @@ class MultiplierEngine {
   selectRandomMultiplier() {
     // Use new efficient WEIGHTED_TABLE if available, otherwise fall back to legacy TABLE
     const weightedTable = this.config.randomMultiplier.weightedTable;
-    
+
     if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
       // NEW METHOD: Weighted random selection (efficient!)
       const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
       const randomValue = this.rng.random() * totalWeight;
-      
+
       let currentWeight = 0;
       for (const entry of weightedTable) {
         currentWeight += entry.weight;
@@ -433,7 +433,7 @@ class MultiplierEngine {
           return entry.multiplier;
         }
       }
-      
+
       // Fallback to most common (should never reach here)
       return weightedTable[0].multiplier;
     } else {
@@ -516,7 +516,7 @@ class MultiplierEngine {
      */
   calculateExpectedMultiplier() {
     const weightedTable = this.config.randomMultiplier.weightedTable;
-    
+
     if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
       // NEW METHOD: Weighted average
       const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
@@ -525,7 +525,7 @@ class MultiplierEngine {
     } else {
       // LEGACY METHOD: Array average
       const table = this.config.randomMultiplier.table;
-      if (!table || table.length === 0) return 2; // Default
+      if (!table || table.length === 0) {return 2;} // Default
       const total = table.reduce((sum, multiplier) => sum + multiplier, 0);
       return total / table.length;
     }
@@ -537,19 +537,19 @@ class MultiplierEngine {
      */
   getMultiplierDistribution() {
     const weightedTable = this.config.randomMultiplier.weightedTable;
-    
+
     if (weightedTable && Array.isArray(weightedTable) && weightedTable.length > 0) {
       // NEW METHOD: Use weights directly
       const totalWeight = weightedTable.reduce((sum, entry) => sum + entry.weight, 0);
       const percentageDistribution = {};
       const rawCounts = {};
-      
+
       for (const entry of weightedTable) {
         const percentage = (entry.weight / totalWeight) * 100;
         percentageDistribution[entry.multiplier] = percentage.toFixed(4) + '%';
         rawCounts[entry.multiplier] = entry.weight;
       }
-      
+
       return {
         rawCounts,
         percentages: percentageDistribution,
@@ -572,7 +572,7 @@ class MultiplierEngine {
           error: 'No multiplier table configured'
         };
       }
-      
+
       const distribution = {};
       for (const multiplier of table) {
         distribution[multiplier] = (distribution[multiplier] || 0) + 1;

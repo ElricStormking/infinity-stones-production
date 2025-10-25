@@ -544,7 +544,7 @@ class AuthController {
         id: crypto.randomUUID(),
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       };
-      
+
       logger.info('Using JWT-only session (database session skipped due to trigger issues)');
 
       logger.info('New player registered', {
@@ -662,7 +662,7 @@ class AuthController {
         id: crypto.randomUUID(),
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       };
-      
+
       logger.info('Using JWT-only session (database session skipped due to trigger issues)');
 
       // Update last login using Supabase

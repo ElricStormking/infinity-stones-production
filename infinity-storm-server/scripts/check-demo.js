@@ -5,7 +5,7 @@ const { getDemoPlayer, supabaseAdmin } = require('../src/db/supabaseClient');
   try {
     const demo = await getDemoPlayer();
     console.log('Demo player:', demo);
-    if (!demo || !demo.id) process.exit(2);
+    if (!demo || !demo.id) {process.exit(2);}
 
     const { data, error } = await supabaseAdmin
       .from('spin_results')
@@ -13,7 +13,7 @@ const { getDemoPlayer, supabaseAdmin } = require('../src/db/supabaseClient');
       .eq('player_id', demo.id)
       .order('created_at', { ascending: false })
       .limit(5);
-    if (error) throw error;
+    if (error) {throw error;}
     console.log('Recent spin_results rows for demo:', data);
   } catch (e) {
     console.error('Error:', e.message);

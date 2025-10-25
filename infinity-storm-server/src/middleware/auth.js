@@ -107,7 +107,7 @@ const authenticate = async (req, res, next) => {
     } catch (error) {
       // If Redis is disabled, use JWT-only validation with Supabase
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
-      
+
       if (skipRedis) {
         logger.info('Redis disabled, using JWT-only validation with Supabase', {
           ip: req.ip,
@@ -119,10 +119,10 @@ const authenticate = async (req, res, next) => {
         const JWTAuth = require('../auth/jwt');
         // Use supabaseAdmin to bypass Row Level Security (RLS) policies
         const { supabaseAdmin } = require('../db/supabaseClient');
-        
+
         try {
           const decoded = JWTAuth.verifyAccessToken(token);
-          
+
           // Query player from Supabase instead of Sequelize
           const { data: player, error: playerError } = await supabaseAdmin
             .from('players')
@@ -146,7 +146,7 @@ const authenticate = async (req, res, next) => {
                 is_admin: player.is_admin,
                 status: player.status
               },
-              session: { 
+              session: {
                 id: null, // Use NULL for session_id in fallback mode (Supabase expects UUID or NULL)
                 player_id: decoded.player_id,
                 created_at: decoded.iat,

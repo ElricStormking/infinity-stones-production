@@ -66,11 +66,11 @@ router.post('/reset-game-state', async (req, res) => {
   try {
     const { supabaseAdmin } = require('../db/supabaseClient');
     const playerId = req.body.playerId || req.query.playerId;
-    
+
     if (!playerId) {
       return res.status(400).json({ success: false, error: 'playerId required' });
     }
-    
+
     // Reset to base mode with default values
     const { data, error } = await supabaseAdmin
       .from('game_states')
@@ -83,13 +83,13 @@ router.post('/reset-game-state', async (req, res) => {
       })
       .eq('player_id', playerId)
       .select();
-    
+
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Game state reset to base mode',
       state: data[0] || null
     });
@@ -221,7 +221,7 @@ router.post('/demo-spin',
 
       // FREE PLAY DEMO MODE: Do NOT save spins to database
       // Demo spins are for entertainment only and not tracked
-      console.log('🎮 [DEMO SPIN] FREE PLAY mode - spin NOT saved to database');
+      logger.info('🎮 [DEMO SPIN] FREE PLAY mode - spin NOT saved to database');
 
       const responsePayload = {
         success: true,
@@ -261,7 +261,7 @@ router.post('/demo-spin',
 
       return res.json(responsePayload);
     } catch (e) {
-      console.error('Demo spin engine error:', e.message);
+      logger.error('Demo spin engine error:', { error: e.message });
       return res.status(500).json({ success: false, error: 'DEMO_SPIN_FAILED', message: e.message });
     }
   }
@@ -308,7 +308,7 @@ const demoAuthBypass = async (req, res, next) => {
 
     return next();
   } catch (error) {
-    console.error('Demo auth bypass failed:', error);
+    logger.error('Demo auth bypass failed:', { details: error });
     return res.status(500).json({
       success: false,
       error: 'TEST_PLAYER_LOOKUP_FAILED',
@@ -360,7 +360,7 @@ router.post('/spin',
       .toBoolean()
   ],
   validateAndProceed,
-    GameController.processSpin.bind(GameController)
+  GameController.processSpin.bind(GameController)
 );
 
 /**
@@ -511,7 +511,7 @@ router.post('/buy-feature',
         // DEMO MODE: Use client-provided balance (localStorage), skip database
         console.log('🎮 [DEMO PURCHASE] Using client balance:', currentBalance);
         playerBalance = currentBalance || 10000; // Default to $10k if not provided
-        
+
         // Verify player has enough balance
         if (playerBalance < cost) {
           return res.status(400).json({
@@ -520,7 +520,7 @@ router.post('/buy-feature',
             message: `Insufficient balance. Required: ${cost}, Available: ${playerBalance}`
           });
         }
-        
+
         // Calculate new balance (don't update database for demo)
         newBalance = playerBalance - cost;
         console.log('🎮 [DEMO PURCHASE] New balance:', newBalance, '(not saved to database)');
@@ -571,7 +571,7 @@ router.post('/buy-feature',
             message: 'Failed to process purchase'
           });
         }
-        
+
         // Log financial transaction for purchase
         await financialLogger.logFreeSpinsPurchase(
           playerId,
@@ -585,7 +585,7 @@ router.post('/buy-feature',
       // Record transaction and game state (skip for demo mode - virtual currency only)
       if (!isDemo) {
         const { supabaseAdmin } = require('../db/supabaseClient');
-        
+
         // Create transaction record
         const { error: txError } = await supabaseAdmin
           .from('transactions')
@@ -629,7 +629,7 @@ router.post('/buy-feature',
 
         if (existingState) {
           // Update existing state
-          const { error: stateUpdateError} = await supabaseAdmin
+          const { error: stateUpdateError } = await supabaseAdmin
             .from('game_states')
             .update(gameStateUpdate)
             .eq('player_id', playerId);
@@ -654,7 +654,7 @@ router.post('/buy-feature',
           }
         }
       } else {
-        console.log('🎮 [DEMO PURCHASE] Skipping database transaction/state recording');
+        logger.info('🎮 [DEMO PURCHASE] Skipping database transaction/state recording');
       }
 
       logger.info('Free spins purchased', {
@@ -727,26 +727,26 @@ router.get('/spin-history',
   async (req, res) => {
     try {
       const { getSpinHistory } = require('../db/supabaseClient');
-      
+
       // Get authenticated player ID from middleware
       const playerId = req.user.id;
-      
+
       // Parse query parameters
       const limit = Math.min(parseInt(req.query.limit) || 200, 200);
       const offset = parseInt(req.query.offset) || 0;
       const order = 'desc'; // Always descending (newest first)
-      
+
       // Fetch spin history for the authenticated player
       const result = await getSpinHistory(playerId, limit, offset, order);
-      
+
       if (result.error) {
-        return res.status(500).json({ 
-          success: false, 
-          error: 'HISTORY_ERROR', 
-          message: result.error 
+        return res.status(500).json({
+          success: false,
+          error: 'HISTORY_ERROR',
+          message: result.error
         });
       }
-      
+
       // Map to required fields
       const rows = (result.rows || []).map(r => ({
         bet_time: r.created_at || r.createdAt || r.timestamp || null,
@@ -756,27 +756,27 @@ router.get('/spin-history',
         total_win: Number(r.total_win || r.win || 0),
         game_mode: r.game_mode || (r.freeSpinsActive ? 'free_spins' : 'base')
       }));
-      
+
       const total = Number(result.total || 0);
       const totalPages = Math.max(1, Math.ceil(total / limit));
-      
+
       // Calculate page number from offset
       const page = Math.floor(offset / limit) + 1;
-      
-      res.json({ 
-        success: true, 
-        page, 
-        limit, 
-        total, 
-        totalPages, 
-        data: rows 
+
+      res.json({
+        success: true,
+        page,
+        limit,
+        total,
+        totalPages,
+        data: rows
       });
     } catch (error) {
-      console.error('Spin history endpoint error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'HISTORY_ENDPOINT_ERROR', 
-        message: error.message 
+      logger.error('Spin history endpoint error:', { details: error });
+      res.status(500).json({
+        success: false,
+        error: 'HISTORY_ENDPOINT_ERROR',
+        message: error.message
       });
     }
   }

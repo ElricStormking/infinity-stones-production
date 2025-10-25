@@ -326,11 +326,11 @@ class GridGenerator {
     // If grid has wins AND 4+ scatters, reduce scatters to 3
     if (hasWins && scatterPositions.length >= 4) {
       const scattersToRemove = scatterPositions.length - 3;
-      
+
       // Randomly select which scatters to replace with regular symbols
       // Shuffle scatter positions to pick randomly
       const shuffledPositions = scatterPositions.sort(() => rng() - 0.5);
-      
+
       // Replace excess scatters with weighted regular symbols
       for (let i = 0; i < scattersToRemove; i++) {
         const pos = shuffledPositions[i];

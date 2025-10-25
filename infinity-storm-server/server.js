@@ -213,8 +213,8 @@ app.use('/portal/mock', portalRoutes);
 // Demo balance endpoint (no auth required)
 app.get('/api/wallet/balance', async (req, res) => {
   try {
-  const origin = req.headers.origin || '';
-  const isDemoRequest =
+    const origin = req.headers.origin || '';
+    const isDemoRequest =
       origin.includes('localhost:3000') ||
       origin.includes('127.0.0.1:3000') ||
       String(req.query.demo || '').toLowerCase() === 'true';
@@ -270,9 +270,9 @@ app.get('/api/wallet/balance', async (req, res) => {
 // DEPRECATED: Spin history endpoint (use /api/spin-history with auth instead)
 // Kept for backward compatibility but returns error
 app.get('/api/history/spins', async (req, res) => {
-  res.status(410).json({ 
-    success: false, 
-    error: 'ENDPOINT_DEPRECATED', 
+  res.status(410).json({
+    success: false,
+    error: 'ENDPOINT_DEPRECATED',
     message: 'This endpoint is deprecated. Please use /api/spin-history with authentication.',
     redirectTo: '/api/spin-history'
   });
@@ -1485,7 +1485,7 @@ app.put('/api/cascade/session/:sessionId/state', async (req, res) => {
 
     await session.save();
 
-        res.json({ success: true, sessionId: session.sessionId, updated: true, newState: session.getCascadeState(), session_metrics: session.getPerformanceMetrics() });
+    res.json({ success: true, sessionId: session.sessionId, updated: true, newState: session.getCascadeState(), session_metrics: session.getPerformanceMetrics() });
   } catch (error) {
     console.error('Session update error:', error);
     res.status(500).json({
@@ -1958,8 +1958,8 @@ app.get('/health', async (req, res) => {
     }
 
     // Return appropriate status code
-    const statusCode = healthStatus.status === 'healthy' ? 200 : 
-                       healthStatus.status === 'degraded' ? 200 : 503;
+    const statusCode = healthStatus.status === 'healthy' ? 200 :
+      healthStatus.status === 'degraded' ? 200 : 503;
 
     res.status(statusCode).json(healthStatus);
 

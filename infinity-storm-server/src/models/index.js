@@ -15,6 +15,7 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
+const { logger } = require('../utils/logger');
 
 // Import database configuration
 const dbConfig = require('../config/database');
@@ -87,9 +88,9 @@ modelFiles.forEach(file => {
     // Store model in models object
     models[model.name] = model;
 
-    console.log(`✓ Initialized model: ${model.name}`);
+    logger.info(`Initialized model: ${model.name}`);
   } catch (error) {
-    console.error(`✗ Failed to initialize model ${file}:`, error.message);
+    logger.error(`Failed to initialize model ${file}`, { error: error.message });
     throw error;
   }
 });
@@ -101,9 +102,9 @@ Object.keys(models).forEach(modelName => {
   if (typeof model.associate === 'function') {
     try {
       model.associate(models);
-      console.log(`✓ Associated model: ${modelName}`);
+      logger.info(`Associated model: ${modelName}`);
     } catch (error) {
-      console.error(`✗ Failed to associate model ${modelName}:`, error.message);
+      logger.error(`Failed to associate model ${modelName}`, { error: error.message });
       throw error;
     }
   }
@@ -113,18 +114,18 @@ Object.keys(models).forEach(modelName => {
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log('✓ Database connection established successfully');
+    logger.info('Database connection established successfully');
 
     // Test a simple query
     const result = await sequelize.query('SELECT NOW() as current_time', {
       type: Sequelize.QueryTypes.SELECT
     });
 
-    console.log(`✓ Database query test successful. Current time: ${result[0].current_time}`);
+    logger.info(`Database query test successful. Current time: ${result[0].current_time}`);
 
     return true;
   } catch (error) {
-    console.error('✗ Database connection failed:', error.message);
+    logger.error('Database connection failed', { error: error.message });
     return false;
   }
 }
@@ -136,19 +137,19 @@ async function syncModels(force = false) {
   }
 
   try {
-    console.log('Starting database sync...');
+    logger.info('Starting database sync...');
 
     // Sync all models
     await sequelize.sync({
       force,
       alter: !force, // Use alter if not forcing
-      logging: console.log
+      logging: (msg) => logger.debug(msg)
     });
 
-    console.log('✓ All models synchronized with database');
+    logger.info('All models synchronized with database');
     return true;
   } catch (error) {
-    console.error('✗ Database sync failed:', error.message);
+    logger.error('Database sync failed', { error: error.message });
     throw error;
   }
 }
@@ -280,9 +281,9 @@ function getTestData(modelName) {
 async function cleanup() {
   try {
     await sequelize.close();
-    console.log('✓ Database connection closed successfully');
+    logger.info('Database connection closed successfully');
   } catch (error) {
-    console.error('✗ Error closing database connection:', error.message);
+    logger.error('Error closing database connection', { error: error.message });
   }
 }
 
@@ -313,4 +314,4 @@ module.exports = {
 };
 
 // Log successful initialization
-console.log(`✓ All ${Object.keys(models).length} models initialized and associated successfully`);
+logger.info(`All ${Object.keys(models).length} models initialized and associated successfully`);

@@ -1,13 +1,13 @@
 /**
  * Demo Game Engine - Boosted 300% RTP for Free Play Mode
- * 
+ *
  * This engine provides a fun, player-friendly experience with:
  * - 3x higher RTP (300% vs 96.5%)
  * - More frequent random multipliers
  * - Higher scatter symbol rates
  * - Boosted high-paying symbols
  * - Better multiplier values
- * 
+ *
  * Used exclusively for non-authenticated free play demo mode.
  */
 
@@ -20,10 +20,10 @@ const { getRNG } = require('./rng');
 // Boosted configuration for demo mode (300% RTP)
 const DEMO_CONFIG = {
   ...GAME_CONFIG,
-  
+
   // 300% RTP (players win 3x more on average)
   RTP: 3.0,
-  
+
   // Boost symbol weights to favor high-paying symbols
   SYMBOL_WEIGHTS: {
     time_gem: 18,        // Reduced from 26
@@ -36,10 +36,10 @@ const DEMO_CONFIG = {
     scarlet_witch: 25,   // Increased from 12
     thanos: 30           // Increased from 11
   },
-  
+
   // Much higher scatter chance (0.15 vs 0.07)
   SCATTER_CHANCE: 0.15,
-  
+
   // Free spins configuration - more spins awarded
   FREE_SPINS: {
     ...GAME_CONFIG.FREE_SPINS,
@@ -48,12 +48,12 @@ const DEMO_CONFIG = {
     BUY_FEATURE_SPINS: 20,  // Up from 15
     ACCUM_TRIGGER_CHANCE_PER_CASCADE: 0.50  // Up from 0.35
   },
-  
+
   // Random multiplier - very high trigger chance
   RANDOM_MULTIPLIER: {
     ...GAME_CONFIG.RANDOM_MULTIPLIER,
     TRIGGER_CHANCE: 0.95,  // Up from 0.8 (95% chance!)
-    
+
     // Boosted multiplier distribution - higher values more common
     WEIGHTED_TABLE: [
       { multiplier: 2,   weight: 30.0 },   // 30%
@@ -66,7 +66,7 @@ const DEMO_CONFIG = {
       { multiplier: 500, weight: 1.0 }     // 1% (up from 0.0001%)
     ]
   },
-  
+
   // Cascade random multiplier - also boosted
   CASCADE_RANDOM_MULTIPLIER: {
     ...GAME_CONFIG.CASCADE_RANDOM_MULTIPLIER,
@@ -82,26 +82,26 @@ const DEMO_CONFIG = {
 class GameEngineDemo extends GameEngine {
   constructor(options = {}) {
     super(options);
-    
+
     // Override config with boosted values
     this.gameConfig = DEMO_CONFIG;
-    
+
     // Re-initialize components with boosted config
     this.rng = getRNG({ auditLogging: false }); // Disable audit for demo
-    this.gridGenerator = new GridGenerator({ 
-      auditLogging: false, 
-      clusterInjection: false, 
-      minClustersPerGrid: 0 
+    this.gridGenerator = new GridGenerator({
+      auditLogging: false,
+      clusterInjection: false,
+      minClustersPerGrid: 0
     });
-    
+
     // Re-initialize engines with boosted config
     this.multiplierEngine = new MultiplierEngine(DEMO_CONFIG, this.rng);
-    
+
     console.log('🎮 [DEMO ENGINE] Initialized with 300% RTP boost');
     console.log('🎮 [DEMO ENGINE] Random multiplier chance:', DEMO_CONFIG.RANDOM_MULTIPLIER.TRIGGER_CHANCE);
     console.log('🎮 [DEMO ENGINE] Scatter chance:', DEMO_CONFIG.SCATTER_CHANCE);
   }
-  
+
   /**
    * Override to log demo spin processing
    */
@@ -109,7 +109,7 @@ class GameEngineDemo extends GameEngine {
     if (spinRequest.playerId === 'demo-player' || spinRequest.sessionId === 'demo-session') {
       console.log('🎮 [DEMO ENGINE] Processing FREE PLAY demo spin with 300% RTP boost');
     }
-    
+
     // Call parent implementation with boosted config
     return super.processCompleteSpin(spinRequest);
   }

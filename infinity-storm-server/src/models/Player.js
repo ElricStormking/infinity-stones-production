@@ -15,6 +15,7 @@
 
 const { DataTypes, Model } = require('sequelize');
 const bcrypt = require('bcrypt');
+const { logger } = require('../utils/logger');
 
 class Player extends Model {
   /**
@@ -410,7 +411,7 @@ class Player extends Model {
     await this.save({ fields: ['status', 'updated_at'] });
 
     // Log the suspension
-    console.log(`Player ${this.username} suspended: ${reason}`);
+    logger.warn(`Player suspended`, { username: this.username, reason });
   }
 
   /**
@@ -422,7 +423,7 @@ class Player extends Model {
     await this.save({ fields: ['status', 'updated_at'] });
 
     // Log the ban
-    console.log(`Player ${this.username} banned: ${reason}`);
+    logger.warn(`Player banned`, { username: this.username, reason });
   }
 
   /**

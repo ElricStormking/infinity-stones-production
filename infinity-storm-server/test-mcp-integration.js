@@ -421,7 +421,7 @@ async function testTransactionSafety(results) {
         'tx_test_seed',
         'base'
       ]);
-      
+
       const insertedId = insertResult.rows[0].id;
 
       // Verify data exists in transaction

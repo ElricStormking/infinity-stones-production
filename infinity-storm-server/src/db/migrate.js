@@ -13,7 +13,7 @@ const { Client } = require('pg');
 function resolveDsn() {
   const raw = process.env.DATABASE_URL || '';
   const trimmed = raw.trim().replace(/^"|"$/g, '');
-  if (trimmed) return trimmed;
+  if (trimmed) {return trimmed;}
   return 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 }
 

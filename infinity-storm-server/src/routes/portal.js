@@ -138,7 +138,7 @@ router.post(
       }
 
       const transaction = transactionResult.transaction;
-      
+
       // Log financial transaction for portal deposit
       await financialLogger.logPortalDeposit(
         player.id,

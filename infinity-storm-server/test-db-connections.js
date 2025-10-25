@@ -35,13 +35,13 @@ async function testDatabases() {
       const pool = new Pool(cfg);
       const sessionResult = await pool.query('SELECT COUNT(*) FROM sessions WHERE is_active = true');
       const playerResult = await pool.query('SELECT COUNT(*) FROM players WHERE username = \'testplayer\'');
-      
+
       console.log(`✅ ${cfg.name}`);
       console.log(`   Host: ${cfg.host}:${cfg.port}`);
       console.log(`   Active sessions: ${sessionResult.rows[0].count}`);
       console.log(`   Testplayer exists: ${playerResult.rows[0].count > 0 ? 'Yes' : 'No'}`);
       console.log('');
-      
+
       await pool.end();
     } catch (e) {
       console.log(`❌ ${cfg.name}`);

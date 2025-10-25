@@ -1,6 +1,6 @@
 /**
  * Clear Old Sessions - Fix Token Hash Mismatch
- * 
+ *
  * This script clears all sessions from the database to fix the
  * bcrypt -> SHA256 hash mismatch issue.
  */
@@ -18,27 +18,27 @@ const pool = new Pool({
 
 async function clearSessions() {
   console.log('🗑️  Clearing all sessions from database...\n');
-  
+
   try {
     // First, check how many sessions exist
     const countResult = await pool.query('SELECT COUNT(*) FROM sessions');
     const sessionCount = parseInt(countResult.rows[0].count);
-    
+
     console.log(`Found ${sessionCount} sessions in database`);
-    
+
     if (sessionCount === 0) {
       console.log('✅ No sessions to clear!');
       return;
     }
-    
+
     // Delete all sessions
     const deleteResult = await pool.query('DELETE FROM sessions');
     console.log(`✅ Deleted ${deleteResult.rowCount} sessions`);
-    
+
     // Verify they're gone
     const verifyResult = await pool.query('SELECT COUNT(*) FROM sessions');
     const remaining = parseInt(verifyResult.rows[0].count);
-    
+
     if (remaining === 0) {
       console.log('\n✅ ✅ ✅ ALL SESSIONS CLEARED! ✅ ✅ ✅');
       console.log('\n📋 Next Steps:');
@@ -49,7 +49,7 @@ async function clearSessions() {
     } else {
       console.log(`⚠️  Warning: ${remaining} sessions remain`);
     }
-    
+
   } catch (error) {
     console.error('❌ Error clearing sessions:', error.message);
     console.error(error);

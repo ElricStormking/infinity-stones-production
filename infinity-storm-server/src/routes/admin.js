@@ -141,7 +141,7 @@ if (process.env.NODE_ENV !== 'production') {
       res.render('admin/dashboard', dashboardData);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Test dashboard error:', error);
+      logger.error('Test dashboard error:', { details: error });
       res.status(500).json({ error: 'Dashboard error', message: error.message });
     }
   });
@@ -539,7 +539,7 @@ router.get('/api/feature-flags',
     try {
       const flags = featureFlags.getAllFlags();
       const history = featureFlags.getHistory();
-      
+
       res.json({
         success: true,
         data: {
@@ -593,20 +593,20 @@ router.post('/api/feature-flags/:flagName',
       const { flagName } = req.params;
       const { enabled, reason } = req.body;
       const adminUsername = req.admin?.username || 'unknown';
-      
+
       featureFlags.setFlag(
         flagName,
         enabled,
         `${reason || 'Manual toggle'} by ${adminUsername}`
       );
-      
+
       logger.info('Feature flag toggled', {
         admin: adminUsername,
         flag: flagName,
         enabled,
         reason
       });
-      
+
       res.json({
         success: true,
         data: {
@@ -661,16 +661,16 @@ router.post('/api/feature-flags/category/:category',
       const { category } = req.params;
       const { enabled, reason } = req.body;
       const adminUsername = req.admin?.username || 'unknown';
-      
+
       featureFlags.setCategoryFlags(category, enabled);
-      
+
       logger.info('Feature flag category toggled', {
         admin: adminUsername,
         category,
         enabled,
         reason
       });
-      
+
       res.json({
         success: true,
         data: {

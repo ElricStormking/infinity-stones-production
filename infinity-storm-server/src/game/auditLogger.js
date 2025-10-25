@@ -108,7 +108,7 @@ class AuditLogger {
         timestamp: new Date().toISOString()
       });
 
-      if (!isTestEnv) console.log('AuditLogger: Initialized successfully');
+      if (!isTestEnv) {console.log('AuditLogger: Initialized successfully');}
 
     } catch (error) {
       console.error('AuditLogger: Initialization failed:', error);
@@ -258,11 +258,11 @@ class AuditLogger {
      */
   async logAntiCheatViolation(playerId, violationType, violations, context = {}) {
     // Handle when violations is an anti-cheat result object
-    const violationsList = Array.isArray(violations) ? violations : 
+    const violationsList = Array.isArray(violations) ? violations :
       (violations && violations.violations ? violations.violations : []);
-    const riskScore = violations && violations.confidenceScore ? violations.confidenceScore : 
+    const riskScore = violations && violations.confidenceScore ? violations.confidenceScore :
       (context.riskScore || 0);
-    
+
     const auditEntry = {
       id: uuidv4(),
       timestamp: new Date().toISOString(),
@@ -617,7 +617,7 @@ class AuditLogger {
 
       await Promise.all(writePromises);
 
-      if (!isTestEnv) console.log(`AuditLogger: Flushed ${buffer.length} log entries in ${Date.now() - startTime}ms`);
+      if (!isTestEnv) {console.log(`AuditLogger: Flushed ${buffer.length} log entries in ${Date.now() - startTime}ms`);}
 
     } catch (error) {
       console.error('AuditLogger: Error flushing buffer:', error);
@@ -686,7 +686,7 @@ class AuditLogger {
 
     try {
       await fs.rename(logFile, rotatedFile);
-      if (!isTestEnv) console.log(`AuditLogger: Rotated log file: ${path.basename(logFile)}`);
+      if (!isTestEnv) {console.log(`AuditLogger: Rotated log file: ${path.basename(logFile)}`);}
 
       // Clean up old rotated files
       await this.cleanupOldLogs(logFile);
@@ -742,7 +742,7 @@ class AuditLogger {
 
         for (const file of filesToDelete) {
           await fs.unlink(file.path);
-          if (!isTestEnv) console.log(`AuditLogger: Cleaned up old log file: ${file.name}`);
+          if (!isTestEnv) {console.log(`AuditLogger: Cleaned up old log file: ${file.name}`);}
         }
       }
 
@@ -917,7 +917,7 @@ class AuditLogger {
      * Close audit logger
      */
   async close() {
-    if (!isTestEnv) console.log('AuditLogger: Shutting down...');
+    if (!isTestEnv) {console.log('AuditLogger: Shutting down...');}
 
     // Clear timers
     if (this.bufferTimer) {
@@ -935,7 +935,7 @@ class AuditLogger {
       shutdown_timestamp: new Date().toISOString()
     });
 
-    if (!isTestEnv) console.log('AuditLogger: Shutdown complete');
+    if (!isTestEnv) {console.log('AuditLogger: Shutdown complete');}
   }
 }
 

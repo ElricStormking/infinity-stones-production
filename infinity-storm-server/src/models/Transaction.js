@@ -15,6 +15,7 @@
  */
 
 const { DataTypes, Model } = require('sequelize');
+const { logger } = require('../utils/logger');
 
 class Transaction extends Model {
   /**
@@ -274,7 +275,11 @@ class Transaction extends Model {
           // Log significant transactions
           const amount = parseFloat(transaction.amount);
           if (Math.abs(amount) >= 1000) { // Large transactions
-            console.log(`Large transaction: ${transaction.type} of ${amount} for player ${transaction.player_id}`);
+            logger.info('Large transaction detected', {
+              type: transaction.type,
+              amount,
+              playerId: transaction.player_id
+            });
           }
         }
       },

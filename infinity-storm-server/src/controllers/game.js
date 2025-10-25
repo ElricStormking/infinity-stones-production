@@ -83,7 +83,7 @@ class GameController {
       // Anti-cheat validation (skip in fallback mode to avoid Redis timeouts)
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
       let antiCheatResult;
-      
+
       if (!skipRedis) {
         antiCheatResult = await this.antiCheat.validateSpinRequest(
           playerId,
@@ -123,7 +123,7 @@ class GameController {
         }
 
         let player;
-        
+
         if (skipRedis) {
           // Use Supabase for player data in fallback mode
           const { supabaseAdmin } = require('../db/supabaseClient');
@@ -174,7 +174,7 @@ class GameController {
         console.log('[GameController] Step 1: Player loaded, credits:', player.credits);
         const statePlayerId = player.is_demo ? 'demo-player' : playerId;
         console.log('[GameController] Step 2: Getting game state for:', statePlayerId);
-        
+
         // Get game state - from Supabase in fallback mode, otherwise from StateManager
         let gameState;
         if (skipRedis && !player.is_demo) {
@@ -185,11 +185,11 @@ class GameController {
             .select('*')
             .eq('player_id', playerId)
             .single();
-          
+
           if (stateError && stateError.code !== 'PGRST116') { // PGRST116 = no rows found
             console.warn('[GameController] Error reading game state from Supabase:', stateError);
           }
-          
+
           gameState = supabaseState || {
             game_mode: 'base',
             free_spins_remaining: 0,
@@ -199,7 +199,7 @@ class GameController {
         } else {
           gameState = await this.stateManager.getPlayerState(statePlayerId);
         }
-        
+
         const rawFreeSpinsRemaining = gameState ? gameState.free_spins_remaining : 0;
         const serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
           ? rawFreeSpinsRemaining
@@ -210,13 +210,13 @@ class GameController {
           : parseFloat(rawAccumulatedMultiplier) || 1;
         let serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
-        
+
         // SAVE ORIGINAL VALUE before modification (critical for state update logic)
         const originalServerFreeSpinsActive = serverFreeSpinsActive;
 
         console.log('[GameController] Step 3: Game state loaded, mode:', gameState?.game_mode, 'free spins:', serverFreeSpinsRemaining, 'multiplier:', serverAccumulatedMultiplier);
         console.log('[GameController] Client claims: freeSpinsActive:', clientFreeSpinsActive, 'freeSpinsRemaining:', clientFreeSpinsRemaining, 'accumulatedMultiplier:', clientAccumulatedMultiplier);
-        
+
         // CRITICAL FIX: Handle free spins purchase case and ending spins
         // If client says it's in free spins mode but server doesn't know, trust the client
         // This happens when: 1) free spins are purchased, or 2) client is on ending spin (remaining=0)
@@ -235,7 +235,7 @@ class GameController {
               // Direct Supabase debit in fallback mode
               const { supabaseAdmin } = require('../db/supabaseClient');
               const newBalance = player.credits - normalizedBetAmount;
-              
+
               if (newBalance < 0) {
                 return res.status(400).json({
                   success: false,
@@ -244,19 +244,19 @@ class GameController {
                   availableCredits: player.credits
                 });
               }
-              
+
               const { error: updateError } = await supabaseAdmin
                 .from('players')
                 .update({ credits: newBalance })
                 .eq('id', playerId);
-              
+
               if (updateError) {
                 throw new Error(`Failed to debit bet: ${updateError.message}`);
               }
-              
+
               player.credits = newBalance;
               console.log('[GameController] Debited bet via Supabase, new balance:', newBalance);
-              
+
               // Log financial transaction
               try {
                 const logResult = await financialLogger.logBetDeduction(
@@ -282,7 +282,7 @@ class GameController {
                 description: `Spin bet of ${normalizedBetAmount} credits`
               });
               player.credits = betTransaction.balance.current;
-              
+
               // Log financial transaction
               try {
                 const logResult = await financialLogger.logBetDeduction(
@@ -322,13 +322,13 @@ class GameController {
         // If server says we're in free spins, use server values.
         // If client says we're in free spins but server doesn't know, trust client (including when remaining=0, which is the ending spin).
         const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && !serverFreeSpinsActive);
-        const effectiveFreeSpinsRemaining = serverFreeSpinsActive 
+        const effectiveFreeSpinsRemaining = serverFreeSpinsActive
           ? serverFreeSpinsRemaining  // Trust server when it knows we're in free spins
           : (clientFreeSpinsActive ? Math.max(0, clientFreeSpinsRemaining) : 0);  // Trust client even if remaining=0 (ending spin)
         const effectiveAccumulatedMultiplier = serverFreeSpinsActive
           ? serverAccumulatedMultiplier  // Trust server when it knows we're in free spins
           : (clientFreeSpinsActive && clientAccumulatedMultiplier >= 1 ? clientAccumulatedMultiplier : 1);  // Trust client's accumulated multiplier
-        
+
         const spinRequest = {
           betAmount: normalizedBetAmount,
           playerId,
@@ -340,7 +340,7 @@ class GameController {
           bonusMode: Boolean(bonusMode),
           spinId
         };
-        
+
         console.log('[GameController] Spin request to engine - freeSpinsActive:', effectiveFreeSpinsActive, 'remaining:', effectiveFreeSpinsRemaining, 'multiplier:', effectiveAccumulatedMultiplier);
 
         console.log('[GameController] Step 6: About to call gameEngine.processCompleteSpin');
@@ -383,19 +383,19 @@ class GameController {
               // Direct Supabase credit in fallback mode
               const { supabaseAdmin } = require('../db/supabaseClient');
               const newBalance = player.credits + spinResult.totalWin;
-              
+
               const { error: updateError } = await supabaseAdmin
                 .from('players')
                 .update({ credits: newBalance })
                 .eq('id', playerId);
-              
+
               if (updateError) {
                 throw new Error(`Failed to credit win: ${updateError.message}`);
               }
-              
+
               player.credits = newBalance;
               console.log('[GameController] Credited win via Supabase, new balance:', newBalance);
-              
+
               // Log financial transaction
               try {
                 const logResult = await financialLogger.logWinPayout(
@@ -421,7 +421,7 @@ class GameController {
                 description: `Spin win of ${spinResult.totalWin} credits`
               });
               player.credits = winTransaction.balance.current;
-              
+
               // Log financial transaction
               try {
                 const logResult = await financialLogger.logWinPayout(
@@ -447,12 +447,12 @@ class GameController {
         }
 
         console.log('[GameController] Step 7.3: Win crediting complete, moving to state update');
-        
+
         // Prepare session ID for Supabase (validate UUID or use null)
-        const validSessionId = sessionId && sessionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) 
-          ? sessionId 
+        const validSessionId = sessionId && sessionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+          ? sessionId
           : null;
-        
+
         // Update game state based on spin result
         let stateResult;
         if (!skipRedis) {
@@ -462,13 +462,13 @@ class GameController {
           console.log('[GameController] Step 7a: Skipping StateManager, updating Supabase directly (fallback mode)');
           // In fallback mode, skip state manager and update Supabase game_states directly
           const { supabaseAdmin } = require('../db/supabaseClient');
-          
+
           // CRITICAL: Calculate game mode and free spins like stateManager does
           // Mimic stateManager.calculateStateUpdates() logic exactly
           let newGameMode = gameState.game_mode || 'base';
           let newFreeSpinsRemaining = gameState.free_spins_remaining || 0;
           let newAccumulatedMultiplier = gameState.accumulated_multiplier || 1;
-          
+
           // Step 1: Handle currently in free spins (decrement)
           // Use effectiveFreeSpinsActive to handle purchase case where client is in FS but server doesn't know
           if (effectiveFreeSpinsActive) {
@@ -480,36 +480,36 @@ class GameController {
             newFreeSpinsRemaining = Math.max(0, currentCount - 1);
             newGameMode = 'free_spins'; // Ensure mode is set
           }
-          
+
           // Step 2: Handle free spins trigger (overrides decrement)
           if (spinResult.features?.free_spins) {
             newGameMode = 'free_spins';
             newFreeSpinsRemaining = spinResult.features.free_spins.count;
             newAccumulatedMultiplier = spinResult.features.free_spins.multiplier || 1.00;
           }
-          
+
           // Step 2.5: Handle free spins RETRIGGER (add to remaining count)
           // CRITICAL: This must happen BEFORE checking if free spins ended!
           if (spinResult.bonusFeatures?.freeSpinsRetriggered && spinResult.bonusFeatures?.freeSpinsAwarded) {
             newFreeSpinsRemaining += spinResult.bonusFeatures.freeSpinsAwarded;
             console.log('[GameController] 🎰 FREE SPINS RETRIGGERED! Added', spinResult.bonusFeatures.freeSpinsAwarded, 'spins, new total:', newFreeSpinsRemaining);
           }
-          
+
           // Step 3: Update accumulated multiplier if in free spins and new multipliers were awarded
           // CRITICAL: Do this BEFORE checking if free spins ended, so the last spin's multipliers are saved
           if (newGameMode === 'free_spins' && typeof spinResult.newAccumulatedMultiplier === 'number') {
             newAccumulatedMultiplier = spinResult.newAccumulatedMultiplier;
           }
-          
+
           // Step 4: Check if free spins ended (after updating multiplier AND after checking retrigger)
           // MOVED FROM STEP 1: Check AFTER accumulating multipliers from current spin AND after retrigger
           if (newGameMode === 'free_spins' && newFreeSpinsRemaining === 0) {
             newGameMode = 'base';
             newAccumulatedMultiplier = 1.00;
           }
-          
+
           console.log('[GameController] Updating game state - mode:', newGameMode, 'freeSpins:', newFreeSpinsRemaining, 'multiplier:', newAccumulatedMultiplier, 'triggeredThisSpin:', !!spinResult.features?.free_spins, 'retriggered:', !!spinResult.bonusFeatures?.freeSpinsRetriggered);
-          
+
           // Update or insert game state (manual upsert because player_id is not UNIQUE)
           const gameStateUpdate = {
             player_id: playerId,
@@ -523,20 +523,20 @@ class GameController {
             },
             updated_at: new Date().toISOString()
           };
-          
+
           // Try update first
           const { data: updateResult, error: updateError } = await supabaseAdmin
             .from('game_states')
             .update(gameStateUpdate)
             .eq('player_id', playerId)
             .select();
-          
+
           // If no rows updated, insert
           if (updateError || !updateResult || updateResult.length === 0) {
             const { error: insertError } = await supabaseAdmin
               .from('game_states')
               .insert(gameStateUpdate);
-            
+
             if (insertError) {
               console.error('[GameController] ❌ Failed to insert game state:', insertError);
             } else {
@@ -545,7 +545,7 @@ class GameController {
           } else {
             console.log('[GameController] ✅ Game state updated, mode:', updateResult[0]?.game_mode, 'freeSpins:', updateResult[0]?.free_spins_remaining);
           }
-          
+
           stateResult = {
             gameState: {
               game_mode: newGameMode,
@@ -599,18 +599,18 @@ class GameController {
         const actualGameMode = stateResult.gameState.game_mode;
         const isFreeSpinMode = actualGameMode === 'free_spins';
         console.log('[GameController] Game mode for Supabase:', actualGameMode, 'isFreeSpins:', isFreeSpinMode);
-        
+
         let savedSpinUuid = null;
         try {
           const saveRes = await saveSpinResult(playerId, {
-          sessionId: validSessionId,
-          bet: normalizedBetAmount,
-          initialGrid: spinResult.initialGrid,
-          cascades: spinResult.cascadeSteps || spinResult.cascades || [], // Use cascadeSteps if available, fallback to cascades or empty array
-          totalWin: spinResult.totalWin,
-          multipliers: spinResult.multipliers || [],
-          rngSeed: spinResult.rngSeed,
-          freeSpinsActive: isFreeSpinMode // Use the updated state, not the initial state
+            sessionId: validSessionId,
+            bet: normalizedBetAmount,
+            initialGrid: spinResult.initialGrid,
+            cascades: spinResult.cascadeSteps || spinResult.cascades || [], // Use cascadeSteps if available, fallback to cascades or empty array
+            totalWin: spinResult.totalWin,
+            multipliers: spinResult.multipliers || [],
+            rngSeed: spinResult.rngSeed,
+            freeSpinsActive: isFreeSpinMode // Use the updated state, not the initial state
           });
           if (saveRes && saveRes.success) {
             savedSpinUuid = saveRes.spinResultId || null;
@@ -664,17 +664,17 @@ class GameController {
         const nextGameMode = stateResult.gameState.game_mode;
         const freeSpinsActiveNext = nextGameMode === 'free_spins';
         const freeSpinsEnded = effectiveFreeSpinsActive && !freeSpinsActiveNext;
-        
+
         // CRITICAL: The accumulated multiplier to display is the one USED for this spin,
         // not the one saved for the next spin! If free spins just ended, the saved state
         // will show multiplier=1, but we need to show what was actually applied.
-        const displayedAccumulatedMultiplier = spinResult.newAccumulatedMultiplier 
+        const displayedAccumulatedMultiplier = spinResult.newAccumulatedMultiplier
           || effectiveAccumulatedMultiplier
           || stateResult.gameState.accumulated_multiplier;
 
         // DEBUG: Log accumulated multiplier and free spins retrigger
         if (freeSpinsActiveNext || freeSpinsEnded) {
-          console.log(`🎰 [GAME CONTROLLER] FREE SPINS RESPONSE DEBUG:`, {
+          console.log('🎰 [GAME CONTROLLER] FREE SPINS RESPONSE DEBUG:', {
             freeSpinsAwarded,
             freeSpinsRetriggered,
             freeSpinsEnded,
@@ -762,7 +762,7 @@ class GameController {
           return res.json({ success: true, data: responseData });
         }
 
-            } catch (transactionError) {
+      } catch (transactionError) {
         // Rollback transaction on any error (skip in fallback mode)
         console.error('[GameController] ???? TRANSACTION ERROR:', transactionError.message);
         if (client && !skipRedis) {
@@ -785,7 +785,7 @@ class GameController {
 
       console.error('[GameController] ??SPIN ERROR:', error.message);
       console.error('[GameController] Stack:', error.stack);
-      
+
       logger.error('Spin processing error', {
         playerId: req.user?.id || 'unknown',
         spinId,
@@ -854,7 +854,7 @@ class GameController {
       // Get game state from state manager or Supabase
       let gameState;
       let sessionInfo = null;
-      
+
       if (skipRedis && !req.user?.is_demo) {
         // Direct Supabase query in fallback mode
         const { supabaseAdmin } = require('../db/supabaseClient');
@@ -863,7 +863,7 @@ class GameController {
           .select('*')
           .eq('player_id', playerId)
           .single();
-        
+
         if (supabaseState) {
           gameState = supabaseState;
         } else if (stateError && stateError.code === 'PGRST116') {
@@ -879,13 +879,13 @@ class GameController {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          
+
           const { data: createdState, error: createError } = await supabaseAdmin
             .from('game_states')
             .insert(initialState)
             .select()
             .single();
-          
+
           if (createError) {
             console.error('[GET GAME STATE] Failed to create initial state:', createError);
             gameState = initialState; // Use in-memory state
@@ -955,7 +955,7 @@ class GameController {
           updated_at: gameState.updated_at
         };
       }
-      
+
       // Get player balance
       let playerBalance = null;
       if (skipRedis && !req.user?.is_demo) {
@@ -972,7 +972,7 @@ class GameController {
       } else if (req.user?.is_demo) {
         playerBalance = 5000; // Demo balance
       }
-      
+
       // Generate initial grid if none exists
       const stateData = safeData.state_data || {};
       if (!stateData.current_grid) {
@@ -984,7 +984,7 @@ class GameController {
         });
         stateData.current_grid = gridResult.grid;
         safeData.state_data = stateData;
-        
+
         // Save the generated grid back to state if in fallback mode
         if (skipRedis && !req.user?.is_demo) {
           const { supabaseAdmin } = require('../db/supabaseClient');

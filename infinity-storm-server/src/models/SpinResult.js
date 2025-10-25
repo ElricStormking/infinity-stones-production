@@ -16,6 +16,7 @@
 
 const { DataTypes, Model } = require('sequelize');
 const crypto = require('crypto');
+const { logger } = require('../utils/logger');
 
 class SpinResult extends Model {
   /**
@@ -248,7 +249,12 @@ class SpinResult extends Model {
           // Log significant wins
           const netWin = spinResult.total_win - spinResult.bet_amount;
           if (netWin >= spinResult.bet_amount * 10) { // 10x bet or more
-            console.log(`Big win: Player ${spinResult.player_id} won ${spinResult.total_win} on ${spinResult.bet_amount} bet (${(netWin / spinResult.bet_amount).toFixed(2)}x)`);
+            logger.info('Big win detected', {
+              playerId: spinResult.player_id,
+              totalWin: spinResult.total_win,
+              betAmount: spinResult.bet_amount,
+              multiplier: (netWin / spinResult.bet_amount).toFixed(2)
+            });
           }
         }
       },

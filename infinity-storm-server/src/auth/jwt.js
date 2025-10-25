@@ -265,7 +265,7 @@ class JWTAuth {
 
       // Check if Redis is disabled - use JWT-only validation
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
-      
+
       if (skipRedis) {
         // JWT-only mode - skip Redis checks, just validate the JWT itself
         return {
