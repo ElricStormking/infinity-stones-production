@@ -211,7 +211,7 @@ The server still generates runtime spin IDs for:
 
 **1. Check Debug Overlay:**
 ```
-1. Open game with ?debug=true
+1. Open the game normally at http://localhost:3000/
 2. Spin
 3. Check debug overlay (right side)
 4. Verify: No "spinId" field shown

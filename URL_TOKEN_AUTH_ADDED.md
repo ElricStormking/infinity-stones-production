@@ -14,7 +14,7 @@ Added URL parameter authentication as a fallback.
 3. Copy the token: `localStorage.getItem('infinity_storm_token')`
 4. Open game with token in URL:
    ```
-   http://localhost:3000/?debug=true&token=YOUR_TOKEN_HERE
+   http://localhost:3000/?token=YOUR_TOKEN_HERE
    ```
 
 ### Method 2: Use Diagnostic Tool
@@ -35,7 +35,7 @@ fetch('http://localhost:3000/api/auth/login', {
 .then(d => {
     console.log('Token:', d.token);
     console.log('Open game with this URL:');
-    console.log('http://localhost:3000/?debug=true&token=' + d.token);
+    console.log('http://localhost:3000/?token=' + d.token);
 });
 ```
 

@@ -282,7 +282,7 @@ npm test -- tests/validation/
 ```bash
 cd infinity-storm-server
 npm start
-# Game available at http://localhost:3000?debug=true
+# Game available at http://localhost:3000/
 ```
 
 ### Check Current Status

@@ -81,7 +81,7 @@ async function testServerConnection() {
     console.log('\n💾 Credentials saved to: test-player-credentials.json');
     
     console.log('\n📋 To use this account:');
-    console.log('   1. Open: http://localhost:3000?debug=true');
+    console.log('   1. Open: http://localhost:3000/');
     console.log('   2. Open browser console (F12)');
     console.log('   3. Run: ' + credentials_file.loginCommand);
     console.log('   4. Refresh the page');

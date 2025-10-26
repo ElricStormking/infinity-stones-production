@@ -116,7 +116,7 @@
             <p><strong>After successful login:</strong></p>
             <ol>
                 <li>Your session token will be saved to localStorage</li>
-                <li>Open <a href="http://localhost:3000?debug=true" target="_blank" style="color: #3282b8;">the game</a></li>
+                <li>Open <a href="http://localhost:3000/" target="_blank" style="color: #3282b8;">the game</a></li>
                 <li>The game will use your test player account (real balance tracking)</li>
             </ol>
         </div>
@@ -216,11 +216,17 @@
                         <p><strong>Token saved to localStorage</strong></p>
                         <hr>
                         <p>Now open the game - it will use this test account!</p>
-                        <a href="http://localhost:3000?debug=true" target="_blank" style="color: #3282b8;">
+                        <a href="http://localhost:3000/" target="_blank" style="color: #3282b8;">
                             <strong>→ Open Game</strong>
                         </a>
                     </div>
                 `;
+                
+                // Mark explicit real-mode intent for the game bootstrap (expires in 30 minutes)
+                try {
+                    localStorage.setItem('explicit_real', '1');
+                    localStorage.setItem('explicit_real_expires', String(Date.now() + 30 * 60 * 1000));
+                } catch (_) {}
                 
             } catch (error) {
                 resultDiv.innerHTML = `<div class="error">Error: ${error.message}<br><br>Make sure the server is running!</div>`;

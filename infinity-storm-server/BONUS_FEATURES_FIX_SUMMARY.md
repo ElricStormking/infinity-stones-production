@@ -85,7 +85,7 @@ With server restart, the client should now:
    npm start  # or pm2 restart if using pm2
    ```
 
-2. **Test Demo Mode**: Open `http://localhost:3000?debug=true`
+2. **Test Demo Mode**: Open `http://localhost:3000/`
    - Run ~500 spins to trigger free spins (0.20% probability)
    - Debug overlay should show bonusFeatures data
    - Free spins UI should appear on 4+ scatters

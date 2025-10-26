@@ -214,7 +214,7 @@ cd infinity-storm-server
 npm start
 
 # In browser, navigate to:
-http://localhost:3000?debug=true
+http://localhost:3000/
 
 # Test scenarios:
 # 1. Normal spin (should work)

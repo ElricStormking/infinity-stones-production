@@ -35,6 +35,15 @@ window.BonusManager = class BonusManager {
             return;
         }
 
+        // Block Random Multiplier if 4+ scatter symbols are present in NORMAL mode (visual conflict prevention)
+        const scatterCount = this.scene.gridManager.countScatters();
+        const isInFreeSpins = this.scene.stateManager.freeSpinsData.active;
+        
+        if (scatterCount >= 4 && !isInFreeSpins) {
+            console.log('🚫 Random Multiplier BLOCKED (client): 4+ scatters detected in NORMAL mode (visual conflict prevention)');
+            return;
+        }
+
         // SECURITY: Use controlled RNG for Random Multiplier trigger
         if (!window.RNG) {
             throw new Error('SECURITY: BonusManager requires window.RNG to be initialized.');
@@ -360,6 +369,15 @@ window.BonusManager = class BonusManager {
         
         // Server-authoritative mode: do not trigger client RNG events
         if (window.NetworkService && typeof window.NetworkService.isDemoMode === 'function' && !window.NetworkService.isDemoMode()) {
+            return;
+        }
+
+        // Block Cascading Random Multipliers if 4+ scatter symbols are present in NORMAL mode (visual conflict prevention)
+        const scatterCount = this.scene.gridManager.countScatters();
+        const isInFreeSpins = this.scene.stateManager.freeSpinsData.active;
+        
+        if (scatterCount >= 4 && !isInFreeSpins) {
+            console.log('🚫 Cascading Random Multipliers BLOCKED (client): 4+ scatters detected in NORMAL mode (visual conflict prevention)');
             return;
         }
 

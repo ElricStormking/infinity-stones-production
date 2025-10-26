@@ -1002,6 +1002,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     
     adjustBet(direction) {
+        // Prevent bet adjustment during Free Spins Mode
+        if (this.stateManager.freeSpinsData.active) {
+            this.showMessage('Cannot change bet during Free Spins Mode!');
+            return;
+        }
+        
         const currentIndex = window.GameConfig.BET_LEVELS.indexOf(this.stateManager.gameData.currentBet);
         let newIndex = currentIndex + direction;
         
@@ -1017,10 +1023,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
             // Update auto spin counter display
             if (this.uiManager) {
                 this.uiManager.updateAutoSpinCounterDisplay();
+                // Refresh mode switch controls after stopping
+                this.uiManager.updateModeSwitchButtonsState?.();
             }
             // No need to update button text as ui_small_stop is an image button
         } else {
             this.showAutoplayMenu();
+            // If autoplay started from the menu, state will change soon; schedule a refresh
+            setTimeout(() => this.uiManager?.updateModeSwitchButtonsState?.(), 0);
         }
     }
     
@@ -2907,17 +2917,21 @@ window.GameScene = class GameScene extends Phaser.Scene {
             // DISABLED CLIENT FALLBACKS - Server is authoritative!
             // Only process free spins if server explicitly triggers them
             if (normalized.freeSpinsAwarded) {
+                // Immediately lock mode switches as soon as server says FS will trigger
+                try { this.lockModeSwitches = true; this.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
                 console.log(`✅ Free spins triggered via normalized.freeSpinsAwarded: ${normalized.freeSpinsAwarded}`);
                 this.triggerFreeSpinsWithScatterCelebration(normalized.freeSpinsAwarded);
             } else if (normalized.freeSpinsTriggered) {
                 // Server says free spins triggered but no award count came through
                 const award = normalized.bonusFeatures?.freeSpinsAwarded || window.GameConfig?.FREE_SPINS?.SCATTER_4_PLUS || 15;
+                try { this.lockModeSwitches = true; this.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
                 console.log(`✅ Free spins triggered via normalized.freeSpinsTriggered: ${award}`);
                 this.triggerFreeSpinsWithScatterCelebration(award);
             } else {
                 // Check bonusFeatures as fallback
                 const bfAward = normalized?.bonusFeatures?.freeSpinsAwarded;
                 if (typeof bfAward === 'number' && bfAward > 0) {
+                    try { this.lockModeSwitches = true; this.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
                     console.log(`✅ Free spins triggered via bonusFeatures.freeSpinsAwarded: ${bfAward}`);
                     this.triggerFreeSpinsWithScatterCelebration(bfAward);
                 } else {
@@ -3106,6 +3120,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // Only play celebration if 4+ scatters (which should always be the case when free spins trigger)
         if (scatterCount >= 4 && this.scatterCelebration) {
             console.log(`✨ Playing scatter celebration animation at positions:`, scatterPositions);
+            // Ensure mode switches remain locked during celebration visuals
+            try { this.lockModeSwitches = true; this.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
             
             // Play the scatter celebration animation
             await this.scatterCelebration.playAtPositions(scatterPositions);
@@ -3916,10 +3932,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
                     }
                 
                 // Handle bonus notifications
-        if (spinResult.bonusTriggered) {
+                if (spinResult.bonusTriggered) {
             // Burst mode demo: show simple banner without counts
             this.showMessage(`Free Spins Mode Triggered!`);
-        }
+                }
                 
                 if (spinResult.freeSpinsEnded) {
                     this.showMessage(`Free Spins Complete! Total: $${this.stateManager.freeSpinsData.totalWin.toFixed(2)}`);

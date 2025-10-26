@@ -23,7 +23,7 @@ Get back to **real** server mode with persistent balance:
 
 1. **Go to login page**: http://localhost:3000/test-player-login.html
 2. **Click**: "Login as Test Player"  
-3. **Open game**: http://localhost:3000?debug=true
+3. **Open game**: http://localhost:3000/
 4. **Play**: Balance will update correctly in server mode ✅
 
 ### Option B: Test Demo Mode (Just to verify fix)

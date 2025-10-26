@@ -111,7 +111,36 @@ class GameEngineDemo extends GameEngine {
     }
 
     // Call parent implementation with boosted config
-    return super.processCompleteSpin(spinRequest);
+    const spin = await super.processCompleteSpin(spinRequest);
+
+    try {
+      // Demo-mode rule: If 4+ scatters triggered Free Spins in BASE game, do not apply random multipliers
+      // (Free Spins mode remains unchanged)
+      const fsTriggered = !!(spin?.bonusFeatures?.freeSpinsTriggered || spin?.bonusFeatures?.freeSpinsAwarded);
+      const freeSpinsActive = !!spin?.freeSpinsActive; // base spins should have false/undefined
+      if (fsTriggered && !freeSpinsActive) {
+        // Remove random multiplier artifacts from the result
+        if (Array.isArray(spin?.bonusFeatures?.randomMultipliers)) {
+          spin.bonusFeatures.randomMultipliers = [];
+        }
+        if (Array.isArray(spin?.multiplierEvents)) {
+          spin.multiplierEvents = spin.multiplierEvents.filter(e => e && e.type !== 'random_multiplier' && e.type !== 'cascade_random_multiplier');
+        }
+        // Reset totalWin back to pre-random-multiplier value if available
+        if (typeof spin.baseWin === 'number') {
+          spin.totalWin = spin.baseWin;
+        } else if (Array.isArray(spin.multiplierEvents) && spin.multiplierEvents.length > 0) {
+          // Fallback: try originalWin from the first event if present
+          const firstEv = spin.multiplierEvents.find(e => typeof e.originalWin === 'number');
+          if (firstEv) spin.totalWin = firstEv.originalWin;
+        }
+        console.log('🎮 [DEMO ENGINE] Random multipliers suppressed due to 4+ scatters (base game)');
+      }
+    } catch (_) {
+      // Non-fatal; fall through with unmodified spin result
+    }
+
+    return spin;
   }
 }
 

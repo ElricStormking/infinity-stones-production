@@ -94,7 +94,7 @@ file:///D:/infinity-gauntlet/test-player-login.html
 - Click "Register & Login (First Time)"
 
 ### Step 4: Play Game
-After login, open: `http://localhost:3000?debug=true`
+After login, open: `http://localhost:3000/`
 
 ## Why Not Just Allow file:// Origin?
 

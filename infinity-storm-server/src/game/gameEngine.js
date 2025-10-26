@@ -222,6 +222,9 @@ class GameEngine {
       let matches = this.winCalculator.findConnectedMatches(currentGrid);
       let pendingFreeSpinsCount = null;
       let freeSpinsTriggerDetails = null;
+      
+      // Track if 4+ scatters triggered free spins in NORMAL mode (to block random multipliers)
+      let hasScatterTrigger = false;
 
       while (matches.length > 0) {
         cascadeCount++;
@@ -398,6 +401,10 @@ class GameEngine {
           // Add scatter payout
           const scatterPayout = this.winCalculator.calculateScatterPayout(scatterCount, betAmount);
           totalWin += scatterPayout;
+          
+          // Set flag to block random multipliers (visual conflict prevention)
+          hasScatterTrigger = true;
+          console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
         }
       }
 
@@ -428,6 +435,10 @@ class GameEngine {
             // Add scatter payout
             const scatterPayout = this.winCalculator.calculateScatterPayout(postCascadeScatterCount, betAmount);
             totalWin += scatterPayout;
+            
+            // Set flag to block random multipliers (visual conflict prevention)
+            hasScatterTrigger = true;
+            console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
           }
         }
       }
@@ -472,7 +483,8 @@ class GameEngine {
       let accumulatedRandomMultiplier = 0; // Sum of all RANDOM multipliers (additive, not multiplicative)
       // NOTE: DO NOT confuse with `accumulatedMultiplier` parameter which is the FREE SPINS multiplier!
 
-      if (cascadeSteps.length > 0) {
+      // Skip cascading multipliers if 4+ scatters triggered free spins in NORMAL mode
+      if (cascadeSteps.length > 0 && !hasScatterTrigger) {
         console.log(`🎲 Checking cascade multipliers: ${cascadeSteps.length} cascades completed, totalWin=$${totalWin.toFixed(2)}`);
         const cascadingMultiplierResult = await this.multiplierEngine.processCascadingRandomMultipliers(
           totalWin,
@@ -500,9 +512,12 @@ class GameEngine {
         } else {
           console.log('  ❌ Cascade multipliers NOT triggered:', cascadingMultiplierResult.reason || 'unknown');
         }
+      } else if (cascadeSteps.length > 0 && hasScatterTrigger) {
+        console.log('  🚫 Cascade multipliers BLOCKED: 4+ scatters detected in NORMAL mode (visual conflict prevention)');
       }
 
-      if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED) {
+      // Skip random multipliers if 4+ scatters triggered free spins in NORMAL mode
+      if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED && !hasScatterTrigger) {
         const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount, { freeSpinsActive });
 
         if (randomMultiplierResult.triggered) {
@@ -517,6 +532,8 @@ class GameEngine {
             finalWin: null // Will be set after all multipliers are accumulated
           });
         }
+      } else if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED && hasScatterTrigger) {
+        console.log('  🚫 Random multiplier BLOCKED: 4+ scatters detected in NORMAL mode (visual conflict prevention)');
       }
 
       // CRITICAL: Apply random multipliers from current spin

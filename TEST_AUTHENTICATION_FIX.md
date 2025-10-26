@@ -24,7 +24,7 @@ location.reload();
 
 ### Step 3: Test Game
 1. Click the **"→ Open Game"** link
-2. Or manually open: **http://localhost:3000?debug=true**
+2. Or manually open: **http://localhost:3000/**
 
 ### Step 4: Check Console Logs
 You should see:
@@ -119,7 +119,7 @@ Balance: 10000
 
 1. Clear localStorage (important!)
 2. Login at: http://localhost:3000/test-player-login.html
-3. Play game at: http://localhost:3000?debug=true
+3. Play game at: http://localhost:3000/
 4. Report results!
 
 **Expected Result:** Everything should work perfectly now! 🎉

@@ -485,7 +485,7 @@ npm run test -- --grep "deterministic cascade"
        constructor() {
            this.visible = false;
            this.container = null;
-           this.enabled = window.location.search.includes('debug=true');
+           this.enabled = false; // enable via dev flag, not URL
        }
 
        show(serverResult) {
@@ -600,7 +600,7 @@ npm run test -- --grep "deterministic cascade"
 - [x] Grid state validation checkpoints available (server CascadeValidator + client validation hook active)
 - [x] Input locked during animation sequence (GameScene disables input during spin)
 - [~] Error recovery handles network issues gracefully (basic fallbacks)
-- [x] **NEW**: Debug window component available (`?debug=true`) and loaded
+- [x] **NEW**: Debug window component available (dev flag) and loaded
 - [x] **NEW**: Debug window displays grids and cascade counts; per-step grids shown
 
 Milestone (Playtest Readiness):

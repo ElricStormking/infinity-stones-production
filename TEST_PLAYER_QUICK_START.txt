@@ -20,7 +20,7 @@
    (Should show "Is Demo: false")
 
 5. After successful login, open the game:
-   http://localhost:3000?debug=true
+   http://localhost:3000/
 
 6. Check console for:
    🔐 Loading auth token from localStorage

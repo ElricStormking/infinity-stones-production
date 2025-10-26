@@ -35,6 +35,18 @@ window.BurstModeManager = class BurstModeManager {
             return;
         }
         
+        // Prevent switching to Burst Mode during Free Spins
+        if (this.scene.stateManager.freeSpinsData.active) {
+            this.scene.showMessage('Cannot switch to Burst Mode during Free Spins!');
+            return;
+        }
+
+        // Prevent switching modes while auto-spins are active (base or burst)
+        if (this.scene.stateManager?.gameData?.autoplayActive || this.burstAutoSpinning || this.scene.lockModeSwitches) {
+            this.scene.showMessage('Stop auto-spins before switching modes.');
+            return;
+        }
+        
         // Prevent rapid toggling with cooldown
         if (this.toggleCooldown) {
             console.log('Burst mode toggle on cooldown');
@@ -371,6 +383,9 @@ window.BurstModeManager = class BurstModeManager {
         exitBtn.setScale(uiScale * scaleX, uiScale * scaleY);
         exitBtn.setInteractive({ useHandCursor: true });
         this.burstModeUI.add(exitBtn);
+        // Expose for UIManager control
+        this.exitButton = exitBtn;
+        this.scene.burstExitButton = exitBtn;
         
         exitBtn.on('pointerup', () => {
             window.SafeSound.play(this.scene, 'click');
@@ -675,6 +690,9 @@ window.BurstModeManager = class BurstModeManager {
                 this.autoToggleBtn.clearTint();
             }
         }
+
+        // Update mode switch buttons state
+        try { this.scene.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
     }
     
     async startAutoSpin() {

@@ -198,7 +198,7 @@ DATABASE_URL=...54322... ✅
 
 ### For Testing (Demo Mode)
 1. Clear localStorage: `localStorage.clear()`
-2. Go to: `http://localhost:3000?debug=true`
+2. Go to: `http://localhost:3000/`
 3. Play with local balance (starts at $10,000)
 
 ### Database Setup

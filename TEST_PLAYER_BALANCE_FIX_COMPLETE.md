@@ -135,7 +135,7 @@ localStorage.clear();
    - Token saved to localStorage
 
 ### 4. Open Game
-1. Open: `http://localhost:3000?debug=true`
+1. Open: `http://localhost:3000/`
 2. Check console for:
    ```
    🔐 Loading auth token from localStorage

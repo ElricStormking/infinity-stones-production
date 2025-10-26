@@ -86,7 +86,7 @@ Or use the Supabase dashboard to delete all rows from the `sessions` table.
 
 ### Step 4: Test Game
 1. Click the **"→ Open Game"** link
-2. Or navigate to: http://localhost:3000?debug=true
+2. Or navigate to: http://localhost:3000/
 3. Open browser console (F12)
 
 #### Expected Console Logs (Success):

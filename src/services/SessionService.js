@@ -83,6 +83,8 @@ window.SessionService = new (class SessionService {
         url.searchParams.delete('session_token');
         url.searchParams.delete('refresh_token');
         url.searchParams.delete('expires_at');
+        // Also remove legacy debug flag from URL when present
+        url.searchParams.delete('debug');
         
         // Update URL without reloading page
         window.history.replaceState({}, '', url.toString());

@@ -170,6 +170,7 @@ window.SafeSound = {
     }
 };
 
+
 // Phaser game configuration
 const config = {
     type: Phaser.AUTO,

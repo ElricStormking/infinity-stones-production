@@ -24,7 +24,7 @@ Token is saved on login page but NOT found when game loads, even though they're 
 
 ### Step 2: Check Token Persistence After Navigation
 7. **Do NOT close/refresh the tab**
-8. In the **same tab**, manually navigate to: `http://localhost:3000/?debug=true`
+8. In the **same tab**, manually navigate to: `http://localhost:3000/`
 9. As soon as page loads, check console for my debug message
 10. **Immediately** run in console:
    ```javascript
@@ -51,9 +51,9 @@ If localStorage isn't working:
    ```
 
 ### Step 5: Alternative - Use URL Parameter
-If localStorage is completely broken, I can modify the code to accept token via URL:
+If localStorage is completely broken, you can temporarily pass token via URL:
 ```
-http://localhost:3000/?token=YOUR_TOKEN_HERE&debug=true
+http://localhost:3000/?token=YOUR_TOKEN_HERE
 ```
 
 ## Please run Steps 1-3 and tell me what you see!

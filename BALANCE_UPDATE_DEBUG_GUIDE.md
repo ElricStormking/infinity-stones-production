@@ -74,7 +74,7 @@ npm run dev
 3. **Verify:** "Is Demo: false" and "Login Successful!"
 
 ### Step 4: Test Game
-1. Open: `http://localhost:3000?debug=true`
+1. Open: `http://localhost:3000/`
 2. **Check console for:**
    ```
    🔐 Loading auth token from localStorage

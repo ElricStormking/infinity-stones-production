@@ -524,6 +524,15 @@ window.UIManager = class UIManager {
                     );
                     this.ui_small_burst.clearTint();
                 }
+                // Guard: block switching while auto-spins or free spins are active
+                const isAuto = !!this.scene.stateManager?.gameData?.autoplayActive;
+                const isFS = !!this.scene.stateManager?.freeSpinsData?.active;
+                const isBurstAuto = !!this.scene.burstModeManager?.burstAutoSpinning;
+                const lockSwitch = !!this.scene.lockModeSwitches;
+                if (isAuto || isFS || isBurstAuto || lockSwitch) {
+                    this.scene.showMessage('Stop auto-spins before switching modes.');
+                    return;
+                }
                 // Add cooldown to prevent double-triggering
                 if (!this.burstButtonCooldown) {
                     this.burstButtonCooldown = true;
@@ -1074,6 +1083,30 @@ window.UIManager = class UIManager {
                 }
             });
         }
+    }
+
+    // Update enable/disable state of mode switch buttons based on auto/free-spins
+    updateModeSwitchButtonsState() {
+        try {
+            const isAuto = !!this.scene.stateManager?.gameData?.autoplayActive;
+            const isFS = !!this.scene.stateManager?.freeSpinsData?.active;
+            const isBurstAuto = !!this.scene.burstModeManager?.burstAutoSpinning;
+            const disable = isAuto || isFS || isBurstAuto || !!this.scene.lockModeSwitches;
+
+            const setState = (btn) => {
+                if (!btn) return;
+                btn.setInteractive(!disable);
+                btn.setAlpha(disable ? 0.5 : 1);
+            };
+
+            // Base: enter burst button
+            setState(this.ui_small_burst);
+            // Burst: exit button (exposed by BurstModeManager)
+            const exitBtn = this.scene?.burstModeManager?.exitButton || this.scene?.burstExitButton;
+            setState(exitBtn);
+            // Fallback button if present
+            setState(this.scene.fallbackBurstButton);
+        } catch (_) {}
     }
     
     createFallbackButtons() {
@@ -1658,6 +1691,78 @@ window.UIManager = class UIManager {
             if (button) {
                 button.setInteractive(enabled);
                 button.setAlpha(enabled ? 1 : 0.5);
+            }
+        });
+    }
+
+    /**
+     * Disable controls that should not be available during Free Spins Mode
+     * - Bet adjustment (+ and - buttons)
+     * - Burst mode switching
+     * - Autospin setup (stop button)
+     * - Manual single spins (spin button should only work for free spins continuation)
+     */
+    disableFreeSpinsModeControls() {
+        const restrictedButtons = [
+            this.ui_number_bet_minus,
+            this.ui_number_bet_plus,
+            this.ui_small_burst,
+            this.ui_small_stop
+        ];
+        
+        restrictedButtons.forEach(button => {
+            if (button) {
+                button.disableInteractive();
+                button.setAlpha(0.3);
+                button.setTint(0x666666);
+            }
+        });
+
+        // Also disable fallback buttons
+        const fallbackRestricted = [
+            this.scene.fallbackMinusButton,
+            this.scene.fallbackPlusButton,
+            this.scene.fallbackBurstButton
+        ];
+        
+        fallbackRestricted.forEach(button => {
+            if (button) {
+                button.disableInteractive();
+                button.setAlpha(0.3);
+            }
+        });
+    }
+
+    /**
+     * Re-enable controls after Free Spins Mode ends
+     */
+    enableFreeSpinsModeControls() {
+        const restrictedButtons = [
+            this.ui_number_bet_minus,
+            this.ui_number_bet_plus,
+            this.ui_small_burst,
+            this.ui_small_stop
+        ];
+        
+        restrictedButtons.forEach(button => {
+            if (button) {
+                button.setInteractive();
+                button.setAlpha(1);
+                button.clearTint();
+            }
+        });
+
+        // Also re-enable fallback buttons
+        const fallbackRestricted = [
+            this.scene.fallbackMinusButton,
+            this.scene.fallbackPlusButton,
+            this.scene.fallbackBurstButton
+        ];
+        
+        fallbackRestricted.forEach(button => {
+            if (button) {
+                button.setInteractive();
+                button.setAlpha(1);
             }
         });
     }

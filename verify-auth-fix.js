@@ -112,7 +112,7 @@ verifyAuthFix()
       console.log('\n📋 Next Steps:');
       console.log('1. Clear browser localStorage');
       console.log('2. Login at: http://localhost:3000/test-player-login.html');
-      console.log('3. Play game at: http://localhost:3000?debug=true');
+      console.log('3. Play game at: http://localhost:3000/');
       process.exit(0);
     } else {
       console.log('\n═══════════════════════════════════════════════════════');

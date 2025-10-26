@@ -43,7 +43,7 @@ location.reload();
 
 ### Step 3: Play Game
 1. Click: **"→ Open Game"**
-2. Or go to: **http://localhost:3000?debug=true**
+2. Or go to: **http://localhost:3000/**
 3. **Play a spin**
 4. **Check balance updates!**
 

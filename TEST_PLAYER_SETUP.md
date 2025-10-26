@@ -31,7 +31,7 @@ npm run dev
 
 ### Step 3: Open the Game
 1. After successful login, click the **"→ Open Game"** link
-2. Or manually open: `http://localhost:3000?debug=true`
+2. Or manually open: `http://localhost:3000/`
 3. The game will automatically use the test player account
 
 ## Test Credentials

@@ -23,7 +23,10 @@ window.NetworkService = new (class NetworkService {
     
     // Authentication Methods
     initializeAuth() {
-        // FALLBACK 1: Check URL parameter first (for debugging localStorage issues)
+        // Single source of truth: DEMO mode is strictly "no token present"
+        // Do not consider any URL flag for mode selection.
+
+        // FALLBACK 1: Check URL token for portal handoff
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = urlParams.get('token');
         
@@ -155,7 +158,7 @@ window.NetworkService = new (class NetworkService {
         
         console.log('[AUTH] Validating token...');
         try {
-            const result = await this.post('/api/validate-session');
+            const result = await this.post('/api/validate-session', {});
             if (!result.success) {
                 console.warn('[AUTH] Token validation failed - KEEPING token anyway (fallback mode)');
                 // DON'T clear token in fallback mode - just log the failure
@@ -370,8 +373,10 @@ window.NetworkService = new (class NetworkService {
     
     // Game API Methods
     async getGameState() {
-        // Force demo bypass for game-state if no auth token to avoid 401 during portal-less play
-        const forceDemo = !this.authToken;
+        // Force demo bypass for game-state if URL indicates demo OR no auth token
+        const params = new URLSearchParams(window.location.search);
+        const urlDemo = params.get('demo') === 'true';
+        const forceDemo = urlDemo || !this.authToken;
         return this.get('/api/game-state', forceDemo);
     }
     
@@ -833,7 +838,23 @@ window.NetworkService = new (class NetworkService {
     }
 
     isDemoMode() {
-        return !this.authToken;
+        // Prefer URL param first for explicit demo routing
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const urlDemo = params.get('demo') === 'true';
+            if (this.isAuthenticated && typeof this.isAuthenticated === 'function') {
+                if (this.isAuthenticated()) {
+                    return false;
+                }
+            } else if (this.authToken) {
+                return false;
+            }
+            // Default to demo when not authenticated
+            return urlDemo || true;
+        } catch (_) {
+            // Fallback to previous behavior
+            return !this.authToken;
+        }
     }
 
     buildRequestHeaders(forceDemo = false) {

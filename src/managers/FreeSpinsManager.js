@@ -194,6 +194,14 @@ window.FreeSpinsManager = class FreeSpinsManager {
 
             await this.scene.winPresentationManager.showFreeSpinsCompleteScreen(totalFreeSpinsWin);
             this.scene.uiManager.updateFreeSpinsDisplay();
+            
+            // Re-enable restricted controls after free spins complete
+            if (this.scene.uiManager && this.scene.uiManager.enableFreeSpinsModeControls) {
+                this.scene.uiManager.enableFreeSpinsModeControls();
+            }
+            // Unlock mode switches now that FS is ended
+            try { this.scene.lockModeSwitches = false; this.scene.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
+            
             return true;
         }
         return false;
@@ -780,6 +788,13 @@ window.FreeSpinsManager = class FreeSpinsManager {
             // Reset spinning flag
             this.scene.isSpinning = false;
             
+            // Proactively lock mode switches during fire effect window
+            try {
+                this.scene.lockModeSwitches = true;
+                this.scene.uiManager?.setButtonsEnabled(false);
+                this.scene.uiManager?.updateModeSwitchButtonsState?.();
+            } catch (_) {}
+            
             // Always trigger fire effect AFTER OK click, then start free spins
             if (!this.scene.fireEffect.isPlaying()) {
                 console.log('🔥 Triggering fire effect for Free Spins (post-OK)');
@@ -787,11 +802,13 @@ window.FreeSpinsManager = class FreeSpinsManager {
                     console.log('🔥 Fire effect complete - starting Free Spins');
                     this.startFreeSpinsConfirmed(freeSpins, triggerType);
                     this.isProcessingFreeSpinsUI = false;
+                    try { this.scene.lockModeSwitches = false; this.scene.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
                 }, { headline: 'FREE SPINS AWARDED!', subline: `${freeSpins} FREE SPINS` });
             } else {
                 console.warn('🔥 Fire effect already playing - skipping to Free Spins');
                 this.startFreeSpinsConfirmed(freeSpins, triggerType);
                 this.isProcessingFreeSpinsUI = false;
+                try { this.scene.lockModeSwitches = false; this.scene.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
             }
         };
 
@@ -902,6 +919,13 @@ window.FreeSpinsManager = class FreeSpinsManager {
 
         // Start free spins mode
         this.scene.stateManager.startFreeSpins(freeSpins);
+        
+        // Disable restricted controls (bet adjustment, burst mode, autospin setup)
+        if (this.scene.uiManager && this.scene.uiManager.disableFreeSpinsModeControls) {
+            this.scene.uiManager.disableFreeSpinsModeControls();
+        }
+        // Ensure mode switches remain locked during FS lifecycle
+        try { this.scene.lockModeSwitches = true; this.scene.uiManager?.updateModeSwitchButtonsState?.(); } catch (_) {}
         
         // Switch to Free Spins BGM immediately and mark as initialized
         console.log('🎵 === FREE SPINS CONFIRMED - SWITCHING TO FREE SPINS BGM ===');

@@ -120,7 +120,7 @@ localStorage.clear();
 3. **Verify:** "Login Successful!" with token saved
 
 ### 5. Test Game
-1. Open: `http://localhost:3000?debug=true`
+1. Open: `http://localhost:3000/`
 2. **Watch console - should see:**
    ```
    🔐 Loading auth token from localStorage

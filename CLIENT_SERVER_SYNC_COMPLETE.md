@@ -221,7 +221,7 @@ Tests:       4 passed, 4 total
 ### Already Wired (from previous sessions):
 - ✅ `CascadeAnimator` - Sequential cascade animations
 - ✅ `FrameMonitor` - Performance tracking
-- ✅ `ServerDebugWindow` - Debug overlay with `?debug=true`
+- ✅ `ServerDebugWindow` - Debug overlay via dev build flag
 - ✅ `FeatureFlags` (client) - Client-side feature toggles
 
 ### Client Code Ready:
