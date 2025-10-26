@@ -72,6 +72,21 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || '', {
 
 // Helper functions for common database operations
 
+// Build an ephemeral in-memory demo player when Supabase is unavailable
+function buildEphemeralDemoPlayer(username, initialCredits, markDemo) {
+  const normalized = normalizeUsername(username) || DEMO_IDENTIFIER;
+  return {
+    id: DEMO_IDENTIFIER, // stable id for demo-mode
+    username: normalized,
+    email: `${normalized}@${DEFAULT_TEST_EMAIL_DOMAIN}`,
+    credits: normalizeInitialCredits(initialCredits, 10000),
+    is_demo: Boolean(markDemo),
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+
 /**
  * Get player by ID or username
  */
@@ -448,6 +463,22 @@ async function ensureTestPlayer(identifier, options = {}) {
         }
       }
 
+      // Offline fallback for demo: if Supabase is unreachable, synthesize a demo player
+      if (markDemo || normalizedUsername === normalizeUsername(DEMO_IDENTIFIER)) {
+        const offline =
+          !supabaseServiceKey ||
+          !supabaseAnonKey ||
+          /fetch failed|ECONNREFUSED|ENOTFOUND|ECONNRESET/i.test(String(error.message || ''));
+        if (offline) {
+          console.warn('[ensureTestPlayer] Supabase unavailable, using ephemeral demo player');
+          return {
+            player: buildEphemeralDemoPlayer(username, initialCredits, true),
+            created: false,
+            password: returnPassword ? DEFAULT_TEST_PASSWORD : undefined
+          };
+        }
+      }
+
       return { error: error.message };
     }
 
@@ -458,6 +489,16 @@ async function ensureTestPlayer(identifier, options = {}) {
     };
   } catch (err) {
     console.error('ensureTestPlayer failed:', err);
+    // Last-resort fallback for demo mode
+    const idNorm = normalizeUsername(identifier);
+    if (idNorm === normalizeUsername(DEMO_IDENTIFIER)) {
+      console.warn('[ensureTestPlayer] Falling back to ephemeral demo player due to error');
+      return {
+        player: buildEphemeralDemoPlayer(identifier, options?.initialCredits || 10000, true),
+        created: false,
+        password: options?.returnPassword ? DEFAULT_TEST_PASSWORD : undefined
+      };
+    }
     return { error: err.message };
   }
 }
