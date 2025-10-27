@@ -70,7 +70,8 @@ const modelFiles = [
   'Jackpot.js',
   'JackpotContribution.js',
   'AdminLog.js',
-  'RTPMetrics.js'
+  'RTPMetrics.js',
+  'Admin.js'
 ];
 
 // Initialize models
@@ -215,6 +216,10 @@ async function validateModels() {
 // Get minimal test data for model validation
 function getTestData(modelName) {
   const testDataMap = {
+    Admin: {
+      account_id: 'testadmin',
+      password_hash: '$2b$12$abcdefghijklmnopqrstuvwxyz012345678901234567890123456789'
+    },
     Player: {
       username: 'testuser',
       email: 'test@example.com',

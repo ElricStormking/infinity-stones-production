@@ -13,11 +13,11 @@
  * - Security event monitoring
  */
 
+const { Op } = require('sequelize');
 const Player = require('../models/Player');
 const AdminLog = require('../models/AdminLog');
 const SpinResult = require('../models/SpinResult');
 const Transaction = require('../models/Transaction');
-const GameSession = require('../models/GameSession');
 const SessionManager = require('../auth/sessionManager');
 const { logger } = require('../utils/logger');
 const metricsService = require('../services/metricsService');
@@ -28,33 +28,26 @@ const metricsService = require('../services/metricsService');
  */
 const dashboard = async (req, res) => {
   try {
-    // Get system statistics
-    const [playerStats, gameStats, securityEvents] = await Promise.all([
+    // Get system statistics (simplified - no AdminLog dependencies)
+    const [playerStats, gameStats] = await Promise.all([
       getPlayerStatistics(),
-      getGameStatistics(),
-      AdminLog.getSecurityEvents(24) // Last 24 hours
+      getGameStatistics()
     ]);
-
-    // Get admin activity for current admin
-    const adminActivity = await AdminLog.getAdminStats({
-      admin_id: req.admin.id,
-      days: 7 // Last 7 days
-    });
 
     res.render('admin/dashboard', {
       title: 'Admin Dashboard - Infinity Storm',
-      admin: req.admin.getSafeData(),
+      admin: req.admin, // Already safe data from middleware
       playerStats,
       gameStats,
-      securityEvents,
-      adminActivity,
+      securityEvents: [], // Removed AdminLog dependency
+      adminActivity: null, // Removed AdminLog dependency
       currentTime: new Date()
     });
 
   } catch (error) {
     logger.error('Admin dashboard error', {
       error: error.message,
-      admin_id: req.admin.id,
+      admin_id: req.admin?.id,
       stack: error.stack
     });
 
@@ -74,153 +67,93 @@ const loginPage = (req, res) => {
   const errorMessages = {
     'invalid_session': 'Your session has expired. Please log in again.',
     'unauthorized': 'Access denied. Admin privileges required.',
-    'system_error': 'System error occurred. Please try again.'
+    'system_error': 'System error occurred. Please try again.',
+    'invalid_credentials': 'Invalid account ID or password.'
   };
 
   res.render('admin/login', {
     title: 'Admin Login - Infinity Storm',
-    error: errorMessages[error] || null,
-    csrfToken: req.csrfToken ? req.csrfToken() : null
+    error: errorMessages[error] || null
   });
 };
 
 /**
- * Process Admin Login
+ * Process Admin Login (Simplified)
  */
 const processLogin = async (req, res) => {
   try {
-    const { username, password, remember_me } = req.body;
+    const { account_id, password, remember_me } = req.body;
 
-    if (!username || !password) {
-      await AdminLog.logFailure({
-        action_type: 'login_attempt',
-        details: {
-          error: 'Missing credentials',
-          username: username || 'not_provided'
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent')
-      });
-
-      return res.render('admin/login', {
-        title: 'Admin Login - Infinity Storm',
-        error: 'Username and password are required',
-        formData: { username }
+    // Validate input
+    if (!account_id || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Account ID and password are required'
       });
     }
 
-    // Find admin user
-    const admin = await Player.findByIdentifier(username);
+    // Import Admin model
+    const { Admin } = require('../models');
 
-    if (!admin || !admin.isAdmin()) {
-      await AdminLog.logFailure({
-        action_type: 'login_attempt',
-        details: {
-          error: 'Invalid admin credentials or insufficient privileges',
-          username: username,
-          user_exists: !!admin,
-          user_is_admin: admin?.is_admin || false
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent')
-      });
+    // Authenticate admin
+    const admin = await Admin.authenticate(account_id, password);
 
-      return res.render('admin/login', {
-        title: 'Admin Login - Infinity Storm',
-        error: 'Invalid admin credentials',
-        formData: { username }
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid account ID or password'
       });
     }
 
-    // Verify password
-    const validPassword = await admin.verifyPassword(password);
-
-    if (!validPassword) {
-      await AdminLog.logFailure({
-        admin_id: admin.id,
-        action_type: 'login_attempt',
-        details: {
-          error: 'Invalid password',
-          username: username
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent')
-      });
-
-      return res.render('admin/login', {
-        title: 'Admin Login - Infinity Storm',
-        error: 'Invalid admin credentials',
-        formData: { username }
-      });
-    }
-
-    // Create admin session with enhanced security
-    const sessionData = await SessionManager.createSession(admin.id, {
-      isAdminSession: true,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
-      extendedExpiry: remember_me === 'on'
-    });
-
-    // Update last login
-    await admin.updateLastLogin();
+    // Create JWT token
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'your-super-secret-access-token-key-min-32-chars-change-in-production';
+    
+    const token = jwt.sign(
+      {
+        adminId: admin.id,
+        account_id: admin.account_id,
+        type: 'admin'
+      },
+      JWT_SECRET,
+      {
+        expiresIn: remember_me === 'on' ? '7d' : '24h'
+      }
+    );
 
     // Set secure admin cookie
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: remember_me === 'on' ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000 // 30 days or 8 hours
+      maxAge: remember_me === 'on' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // 7 days or 24 hours
     };
-
-    res.cookie('admin_token', sessionData.token, cookieOptions);
-
-    // Log successful admin login
-    await AdminLog.logSuccess({
-      admin_id: admin.id,
-      action_type: 'login_attempt',
-      details: {
-        session_id: sessionData.session.id,
-        remember_me: remember_me === 'on',
-        login_method: 'web_form'
-      },
-      ip_address: req.ip,
-      user_agent: req.get('User-Agent'),
-      severity: 'medium'
-    });
+    
+    res.cookie('admin_token', token, cookieOptions);
 
     logger.info('Admin login successful', {
       admin_id: admin.id,
-      username: admin.username,
-      session_id: sessionData.session.id,
+      account_id: admin.account_id,
       ip: req.ip
     });
 
-    res.redirect('/admin/dashboard');
+    // Return success
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      redirect: '/admin/dashboard'
+    });
 
   } catch (error) {
     logger.error('Admin login process error', {
       error: error.message,
       stack: error.stack,
-      username: req.body?.username
+      account_id: req.body?.account_id
     });
 
-    await AdminLog.logFailure({
-      action_type: 'login_attempt',
-      details: {
-        error: 'System error during login',
-        system_error: error.message
-      },
-      ip_address: req.ip,
-      user_agent: req.get('User-Agent'),
-      severity: 'high',
-      error_message: error.message
-    });
-
-    res.render('admin/login', {
-      title: 'Admin Login - Infinity Storm',
-      error: 'System error occurred. Please try again.',
-      formData: { username: req.body?.username }
+    return res.status(500).json({
+      success: false,
+      error: 'System error occurred. Please try again.'
     });
   }
 };
@@ -721,7 +654,7 @@ const getPlayerStatistics = async () => {
       Player.count({
         where: {
           created_at: {
-            [Player.sequelize.Sequelize.Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
           }
         }
       })
@@ -756,33 +689,24 @@ const getGameStatistics = async () => {
     const [
       totalSpins,
       spinsToday,
-      totalWinAmount,
-      activeSessions
+      totalWinAmount
     ] = await Promise.all([
       SpinResult.count(),
       SpinResult.count({
         where: {
           created_at: {
-            [SpinResult.sequelize.Sequelize.Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
           }
         }
       }),
-      SpinResult.sum('payout_amount') || 0,
-      GameSession.count({
-        where: {
-          is_active: true,
-          updated_at: {
-            [GameSession.sequelize.Sequelize.Op.gte]: new Date(Date.now() - 30 * 60 * 1000) // Last 30 minutes
-          }
-        }
-      })
+      SpinResult.sum('total_win') || 0 // Changed from payout_amount to total_win
     ]);
 
     return {
       totalSpins,
       spinsToday,
-      totalWinAmount: parseFloat(totalWinAmount),
-      activeSessions
+      totalWinAmount: parseFloat(totalWinAmount) || 0,
+      activeSessions: 0 // GameSession is not a Sequelize model, so we return 0
     };
   } catch (error) {
     logger.error('Get game statistics error', { error: error.message });

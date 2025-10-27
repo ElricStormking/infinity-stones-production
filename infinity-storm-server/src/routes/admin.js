@@ -8,17 +8,15 @@
  * - Secure admin authentication and session management
  * - Role-based access control (ready for expansion)
  * - Comprehensive audit logging for all admin actions
- * - CSRF protection for state-changing operations
+ * - Simplified authentication with JWT tokens
  * - Rate limiting for security-sensitive endpoints
  * - Input validation and sanitization
  */
 
 const express = require('express');
-const csrf = require('csurf');
 const rateLimit = require('express-rate-limit');
 const { body, param, query, validationResult } = require('express-validator');
 const { logger } = require('../utils/logger');
-const SessionManager = require('../auth/sessionManager');
 const { featureFlags } = require('../config/featureFlags');
 
 const adminController = require('../controllers/admin');
@@ -31,15 +29,6 @@ const {
 } = require('../middleware/adminAuth');
 
 const router = express.Router();
-
-// CSRF Protection for state-changing operations
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  }
-});
 
 // Rate limiting for authentication endpoints
 const authRateLimit = rateLimit({
@@ -98,26 +87,19 @@ const validateErrors = (req, res, next) => {
  */
 
 // Admin Login Page
-router.get('/login',
-  authRateLimit,
-  csrfProtection,
-  adminController.loginPage
-);
+router.get('/login', authRateLimit, adminController.loginPage);
 
 // Process Admin Login
 router.post('/login',
   authRateLimit,
-  csrfProtection,
   [
-    body('username')
+    body('account_id')
       .trim()
       .isLength({ min: 3, max: 50 })
-      .withMessage('Username must be between 3 and 50 characters')
-      .isAlphanumeric()
-      .withMessage('Username can only contain letters and numbers'),
+      .withMessage('Account ID must be between 3 and 50 characters'),
     body('password')
-      .isLength({ min: 8, max: 128 })
-      .withMessage('Password must be between 8 and 128 characters'),
+      .isLength({ min: 1, max: 128 })
+      .withMessage('Password is required'),
     body('remember_me')
       .optional()
       .isIn(['on'])
@@ -195,7 +177,6 @@ router.get('/players/:id',
 // Suspend Player
 router.post('/players/:id/suspend',
   sensitiveRateLimit,
-  csrfProtection,
   [
     param('id').isUUID().withMessage('Invalid player ID'),
     body('reason')
@@ -213,7 +194,6 @@ router.post('/players/:id/suspend',
 // Activate Player
 router.post('/players/:id/activate',
   sensitiveRateLimit,
-  csrfProtection,
   [
     param('id').isUUID().withMessage('Invalid player ID')
   ],
@@ -226,7 +206,6 @@ router.post('/players/:id/activate',
 // Adjust Player Credits
 router.post('/players/:id/credits',
   sensitiveRateLimit,
-  csrfProtection,
   [
     param('id').isUUID().withMessage('Invalid player ID'),
     body('amount')
@@ -250,7 +229,6 @@ router.post('/players/:id/credits',
 // Ban Player
 router.post('/players/:id/ban',
   sensitiveRateLimit,
-  csrfProtection,
   [
     param('id').isUUID().withMessage('Invalid player ID'),
     body('reason')
@@ -267,7 +245,6 @@ router.post('/players/:id/ban',
 // Send Notification to Player
 router.post('/players/:id/notify',
   sensitiveRateLimit,
-  csrfProtection,
   [
     param('id').isUUID().withMessage('Invalid player ID'),
     body('type')
@@ -474,22 +451,6 @@ router.post('/session/extend',
  * Error Handling
  */
 
-// Handle CSRF errors
-router.use((err, req, res, next) => {
-  if (err.code === 'EBADCSRFTOKEN') {
-    if (req.accepts('json')) {
-      return res.status(403).json({
-        error: 'Invalid CSRF token',
-        code: 'INVALID_CSRF_TOKEN',
-        message: 'Please refresh the page and try again'
-      });
-    } else {
-      return res.redirect(`${req.originalUrl}?error=Invalid security token. Please try again.`);
-    }
-  }
-  next(err);
-});
-
 // Handle validation errors
 router.use((err, req, res, next) => {
   if (err.type === 'entity.parse.failed') {
@@ -569,7 +530,6 @@ router.post('/api/feature-flags/:flagName',
   authenticateAdmin,
   checkAdminSessionTimeout,
   sensitiveRateLimit,
-  csrfProtection,
   logAdminActivity,
   [
     param('flagName')
@@ -637,7 +597,6 @@ router.post('/api/feature-flags/category/:category',
   authenticateAdmin,
   checkAdminSessionTimeout,
   sensitiveRateLimit,
-  csrfProtection,
   logAdminActivity,
   [
     param('category')

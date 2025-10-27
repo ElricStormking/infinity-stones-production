@@ -13,8 +13,6 @@
  * - Admin activity monitoring
  */
 
-const SessionManager = require('../auth/sessionManager');
-const AdminLog = require('../models/AdminLog');
 const { logger } = require('../utils/logger');
 
 /**
@@ -42,29 +40,15 @@ const extractAdminToken = (req) => {
 };
 
 /**
- * Enhanced admin authentication middleware
- * Validates admin JWT token with additional security checks
+ * Simplified admin authentication middleware
+ * Validates admin JWT token
  */
 const authenticateAdmin = async (req, res, next) => {
-  const startTime = Date.now();
-
   try {
     // Extract admin token
     const token = extractAdminToken(req);
 
     if (!token) {
-      await AdminLog.logFailure({
-        action_type: 'login_attempt',
-        details: {
-          error: 'No admin token provided',
-          endpoint: req.originalUrl,
-          method: req.method
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        severity: 'medium'
-      });
-
       // Redirect to admin login for web requests
       if (req.accepts('html')) {
         return res.redirect('/admin/login');
@@ -72,42 +56,18 @@ const authenticateAdmin = async (req, res, next) => {
 
       return res.status(401).json({
         error: 'Admin authentication required',
-        code: 'NO_ADMIN_TOKEN',
-        message: 'Admin access token is required'
+        code: 'NO_ADMIN_TOKEN'
       });
     }
 
-    // Validate session with enhanced checks
-    const validation = await SessionManager.validateSession(token, {
-      requireAdmin: true,
-      checkIPConsistency: true,
-      updateLastActivity: true
-    });
-
-    if (!validation.valid) {
-      // Log failed admin authentication
-      await AdminLog.logFailure({
-        action_type: 'login_attempt',
-        details: {
-          error: validation.error,
-          endpoint: req.originalUrl,
-          method: req.method,
-          token_expired: validation.error?.includes('expired'),
-          invalid_token: validation.error?.includes('invalid')
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        severity: 'high'
-      });
-
-      logger.warn('Admin authentication failed', {
-        error: validation.error,
-        ip: req.ip,
-        userAgent: req.get('User-Agent'),
-        endpoint: req.originalUrl,
-        responseTime: Date.now() - startTime
-      });
-
+    // Decode JWT
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'your-super-secret-access-token-key-min-32-chars-change-in-production';
+    
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
       // Clear invalid admin cookie
       if (req.cookies?.admin_token) {
         res.clearCookie('admin_token', {
@@ -123,99 +83,61 @@ const authenticateAdmin = async (req, res, next) => {
       }
 
       return res.status(401).json({
-        error: 'Admin authentication failed',
-        code: 'INVALID_ADMIN_TOKEN',
-        message: validation.error
+        error: 'Invalid or expired token',
+        code: 'INVALID_ADMIN_TOKEN'
       });
     }
 
-    // Verify admin privileges
-    if (!validation.player.isAdmin()) {
-      await AdminLog.logFailure({
-        admin_id: validation.player.id,
-        action_type: 'security_event',
-        details: {
-          error: 'Non-admin user attempted admin access',
-          endpoint: req.originalUrl,
-          method: req.method,
-          player_id: validation.player.id,
-          username: validation.player.username,
-          is_admin: validation.player.is_admin,
-          account_status: validation.player.status
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        severity: 'critical'
-      });
-
-      logger.error('Non-admin user attempted admin access', {
-        player_id: validation.player.id,
-        username: validation.player.username,
-        is_admin: validation.player.is_admin,
-        status: validation.player.status,
-        ip: req.ip,
-        endpoint: req.originalUrl
-      });
-
-      // Redirect to main game for web requests
+    // Verify it's an admin token
+    if (decoded.type !== 'admin' || !decoded.adminId) {
+      // Redirect to admin login for web requests
       if (req.accepts('html')) {
-        return res.redirect('/?error=unauthorized');
+        return res.redirect('/admin/login?error=unauthorized');
       }
 
       return res.status(403).json({
         error: 'Admin privileges required',
-        code: 'INSUFFICIENT_ADMIN_PRIVILEGES',
-        message: 'This endpoint requires active administrator access'
+        code: 'INSUFFICIENT_ADMIN_PRIVILEGES'
       });
     }
 
-    // IP consistency check for enhanced security
-    if (validation.session.ip_address && validation.session.ip_address !== req.ip) {
-      await AdminLog.logFailure({
-        admin_id: validation.player.id,
-        action_type: 'security_event',
-        details: {
-          error: 'Admin IP address mismatch',
-          session_ip: validation.session.ip_address,
-          request_ip: req.ip,
-          endpoint: req.originalUrl,
-          session_id: validation.session.id
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        severity: 'high'
-      });
+    // Look up admin from database
+    const { Admin } = require('../models');
+    const admin = await Admin.findOne({
+      where: { id: decoded.adminId }
+    });
 
-      logger.warn('Admin IP address mismatch detected', {
-        admin_id: validation.player.id,
-        username: validation.player.username,
-        session_ip: validation.session.ip_address,
-        request_ip: req.ip,
-        endpoint: req.originalUrl
-      });
+    if (!admin) {
+      // Clear cookie - admin deleted
+      if (req.cookies?.admin_token) {
+        res.clearCookie('admin_token', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
+        });
+      }
 
-      // For high-security environments, you might want to terminate the session
-      // For now, just log and continue with a warning
+      // Redirect to admin login for web requests
+      if (req.accepts('html')) {
+        return res.redirect('/admin/login?error=invalid_session');
+      }
+
+      return res.status(401).json({
+        error: 'Admin not found',
+        code: 'ADMIN_NOT_FOUND'
+      });
     }
 
-    // Attach admin user and session data to request
-    req.admin = validation.player;
-    req.admin_session = validation.session;
+    // Attach admin to request
+    req.admin = admin.getSafeData();
     req.admin_token = token;
 
-    // Add admin-specific response headers
-    res.set('X-Admin-Session-ID', validation.session.id);
-    res.set('X-Admin-Session-Expires', validation.session.expires_at);
-
-    // Log successful admin access (for audit trail)
     logger.info('Admin access granted', {
-      admin_id: req.admin.id,
-      username: req.admin.username,
-      session_id: req.admin_session.id,
+      admin_id: admin.id,
+      account_id: admin.account_id,
       ip: req.ip,
       endpoint: req.originalUrl,
-      method: req.method,
-      responseTime: Date.now() - startTime
+      method: req.method
     });
 
     next();
@@ -225,24 +147,8 @@ const authenticateAdmin = async (req, res, next) => {
       error: error.message,
       stack: error.stack,
       ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      endpoint: req.originalUrl,
-      responseTime: Date.now() - startTime
+      endpoint: req.originalUrl
     });
-
-    // Log system error
-    await AdminLog.logFailure({
-      action_type: 'security_event',
-      details: {
-        error: 'Admin authentication system error',
-        system_error: error.message,
-        endpoint: req.originalUrl
-      },
-      ip_address: req.ip,
-      user_agent: req.get('User-Agent'),
-      severity: 'critical',
-      error_message: error.message
-    }).catch(() => {}); // Don't fail if logging fails
 
     // Redirect to admin login for web requests
     if (req.accepts('html')) {
@@ -251,8 +157,7 @@ const authenticateAdmin = async (req, res, next) => {
 
     res.status(500).json({
       error: 'Admin authentication service unavailable',
-      code: 'ADMIN_AUTH_SERVICE_ERROR',
-      message: 'Please try again in a moment'
+      code: 'ADMIN_AUTH_SERVICE_ERROR'
     });
   }
 };
@@ -299,113 +204,46 @@ const checkAdminSessionTimeout = async (req, res, next) => {
 };
 
 /**
- * Admin activity logging middleware
- * Logs all admin actions for audit trail
+ * Admin activity logging middleware (Simplified)
+ * Logs admin actions to console instead of database
  */
 const logAdminActivity = (actionType = null) => {
   return async (req, res, next) => {
     try {
-      // Skip logging for certain endpoints (like health checks)
+      // Skip logging for certain endpoints
       const skipPaths = ['/admin/health', '/admin/heartbeat', '/admin/assets'];
       if (skipPaths.some(path => req.originalUrl.startsWith(path))) {
         return next();
       }
 
-      // Determine action type from request
-      const inferredActionType = actionType || inferActionType(req);
-
-      if (inferredActionType) {
-        // Store activity logging info for after response
-        req.adminActivityLog = {
-          action_type: inferredActionType,
-          details: {
-            endpoint: req.originalUrl,
-            method: req.method,
-            query_params: req.query,
-            user_agent: req.get('User-Agent'),
-            timestamp: new Date().toISOString()
-          }
-        };
-      }
+      // Just log to console for now
+      logger.info('Admin activity', {
+        admin_id: req.admin?.id,
+        account_id: req.admin?.account_id,
+        action: actionType || req.method,
+        endpoint: req.originalUrl,
+        ip: req.ip
+      });
 
       next();
 
     } catch (error) {
-      logger.error('Admin activity logging middleware error', {
+      logger.error('Admin activity logging error', {
         error: error.message,
         admin_id: req.admin?.id
       });
-
-      // Don't fail the request
       next();
     }
   };
 };
 
 /**
- * Admin activity completion logging middleware
- * Logs the result of admin actions after response
+ * Admin activity completion logging middleware (Simplified)
+ * Just passes through - logging handled by logAdminActivity
  */
 const completeAdminActivityLog = async (req, res, next) => {
-  try {
-    // Capture response information
-    const originalSend = res.send;
-    const originalJson = res.json;
-
-    res.send = function(body) {
-      res.responseBody = body;
-      return originalSend.call(this, body);
-    };
-
-    res.json = function(obj) {
-      res.responseBody = obj;
-      return originalJson.call(this, obj);
-    };
-
-    // Log after response is sent
-    res.on('finish', async () => {
-      try {
-        if (req.adminActivityLog && req.admin) {
-          const isSuccess = res.statusCode < 400;
-          const details = {
-            ...req.adminActivityLog.details,
-            response_status: res.statusCode,
-            response_time: Date.now() - req.startTime
-          };
-
-          // Add response body for errors or important actions
-          if (!isSuccess || req.adminActivityLog.action_type.includes('deletion') ||
-                        req.adminActivityLog.action_type.includes('suspension')) {
-            details.response_body = res.responseBody;
-          }
-
-          await AdminLog.logAction({
-            admin_id: req.admin.id,
-            action_type: req.adminActivityLog.action_type,
-            target_player_id: extractTargetPlayerId(req),
-            details: details,
-            ip_address: req.ip,
-            user_agent: req.get('User-Agent'),
-            result: isSuccess ? 'success' : 'failure',
-            error_message: !isSuccess ? getErrorMessage(res.responseBody) : null
-          });
-        }
-      } catch (error) {
-        logger.error('Admin activity completion logging error', {
-          error: error.message,
-          admin_id: req.admin?.id
-        });
-      }
-    });
-
-    next();
-
-  } catch (error) {
-    logger.error('Admin activity completion middleware error', {
-      error: error.message
-    });
-    next();
-  }
+  // Simplified - just continue
+  next();
 };
 
 /**

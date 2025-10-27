@@ -16,7 +16,7 @@ const environment = process.env.NODE_ENV || 'development';
 const baseConfig = {
   environment,
   port: parseInt(process.env.PORT) || 3000,
-  host: process.env.HOST || 'localhost',
+  host: process.env.HOST || '127.0.0.1',
 
   // Application
   app: {
@@ -31,7 +31,7 @@ const baseConfig = {
     refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
     sessionSecret: process.env.SESSION_SECRET || 'default_session_secret_change_in_production',
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS) || 12,
-    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+    corsOrigin: process.env.CORS_ORIGIN || 'http://127.0.0.1:3000'
   },
 
   // Rate Limiting

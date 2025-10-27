@@ -33,36 +33,28 @@
                         </div>
 
                         <!-- Error Messages -->
-                        <% if (typeof error !== 'undefined' && error) { %>
-                        <div class="alert alert-danger" role="alert">
+                        <div class="alert alert-danger" role="alert" style="<%= typeof error !== 'undefined' && error ? '' : 'display: none;' %>">
                             <i class="bi bi-exclamation-triangle-fill"></i>
-                            <%= error %>
+                            <span id="errorMessage"><%= typeof error !== 'undefined' && error ? error : '' %></span>
                         </div>
-                        <% } %>
 
                         <!-- Login Form -->
                         <form action="/admin/login" method="POST" class="login-form" id="loginForm">
-                            <!-- CSRF Token -->
-                            <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
-                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                            <% } %>
-
-                            <!-- Username Field -->
+                            <!-- Account ID Field -->
                             <div class="mb-3">
-                                <label for="username" class="form-label">
-                                    <i class="bi bi-person"></i> Username or Email
+                                <label for="account_id" class="form-label">
+                                    <i class="bi bi-person"></i> Account ID
                                 </label>
                                 <input 
                                     type="text" 
                                     class="form-control form-control-lg" 
-                                    id="username" 
-                                    name="username" 
-                                    value="<%= typeof formData !== 'undefined' && formData.username ? formData.username : '' %>"
+                                    id="account_id" 
+                                    name="account_id" 
                                     required 
                                     autocomplete="username"
                                     autocapitalize="none"
                                     spellcheck="false"
-                                    placeholder="Enter your admin username"
+                                    placeholder="Enter your account ID"
                                 >
                             </div>
 
@@ -178,8 +170,10 @@
                 this.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
             });
 
-            // Form submission loading state
-            loginForm.addEventListener('submit', function(e) {
+            // Form submission with AJAX
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
                 const buttonText = loginButton.querySelector('.login-button-text');
                 const spinner = loginButton.querySelector('.spinner-border');
                 
@@ -187,16 +181,53 @@
                 spinner.classList.remove('d-none');
                 loginButton.disabled = true;
                 
-                // Re-enable button after timeout in case of network issues
-                setTimeout(function() {
+                try {
+                    const formData = new FormData(loginForm);
+                    const response = await fetch('/admin/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            account_id: formData.get('account_id'),
+                            password: formData.get('password'),
+                            remember_me: formData.get('remember_me') ? 'on' : undefined
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.redirect) {
+                        // Success - redirect to dashboard
+                        window.location.href = data.redirect;
+                    } else {
+                        // Error - show message
+                        const alertDiv = document.querySelector('.alert-danger');
+                        if (alertDiv) {
+                            alertDiv.style.display = 'block';
+                            alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (data.error || 'Login failed');
+                        }
+                        
+                        buttonText.classList.remove('d-none');
+                        spinner.classList.add('d-none');
+                        loginButton.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    const alertDiv = document.querySelector('.alert-danger');
+                    if (alertDiv) {
+                        alertDiv.style.display = 'block';
+                        alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Network error. Please try again.';
+                    }
+                    
                     buttonText.classList.remove('d-none');
                     spinner.classList.add('d-none');
                     loginButton.disabled = false;
-                }, 10000);
+                }
             });
 
-            // Auto-focus username field
-            document.getElementById('username').focus();
+            // Auto-focus account_id field
+            document.getElementById('account_id').focus();
 
             // Clear any error messages when user starts typing
             const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');

@@ -43,7 +43,8 @@ class AdminLog extends Model {
       action_type: {
         type: DataTypes.STRING(50),
         allowNull: false,
-        validate: {
+        // Relax validation in dev: allow any action_type to avoid DB enum/check mismatches
+        validate: process.env.NODE_ENV === 'production' ? {
           isIn: {
             args: [[
               'credit_adjustment', 'account_suspension', 'account_activation',
@@ -56,7 +57,7 @@ class AdminLog extends Model {
             ]],
             msg: 'Invalid action type'
           }
-        },
+        } : undefined,
         comment: 'Type of administrative action performed'
       },
 
@@ -103,7 +104,7 @@ class AdminLog extends Model {
       },
 
       severity: {
-        type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
+        type: process.env.NODE_ENV === 'production' ? DataTypes.ENUM('low', 'medium', 'high', 'critical') : DataTypes.STRING(16),
         allowNull: false,
         defaultValue: 'medium',
         validate: {
@@ -116,7 +117,7 @@ class AdminLog extends Model {
       },
 
       result: {
-        type: DataTypes.ENUM('success', 'failure', 'partial', 'pending'),
+        type: process.env.NODE_ENV === 'production' ? DataTypes.ENUM('success', 'failure', 'partial', 'pending') : DataTypes.STRING(16),
         allowNull: false,
         defaultValue: 'success',
         validate: {
@@ -458,6 +459,40 @@ class AdminLog extends Model {
     result = 'success',
     error_message = null
   }) {
+    // Dev environment: avoid DB writes if schema constraints mismatch
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        return await AdminLog.create({
+          admin_id,
+          action_type,
+          target_player_id,
+          details,
+          ip_address,
+          user_agent,
+          severity: severity || 'medium',
+          result,
+          error_message
+        });
+      } catch (e) {
+        // Fallback: return in-memory log object to prevent 500s during development
+        // eslint-disable-next-line no-console
+        console.warn('AdminLog dev write failed, falling back to console only:', e.message);
+        return {
+          id: null,
+          admin_id,
+          action_type,
+          target_player_id,
+          details,
+          ip_address,
+          user_agent,
+          severity: severity || 'medium',
+          result,
+          error_message,
+          created_at: new Date()
+        };
+      }
+    }
+
     return await AdminLog.create({
       admin_id,
       action_type,

@@ -204,6 +204,36 @@ app.use('/api/auth', authRateLimiter, authRoutes);
 // Wallet API routes (temporarily disabled due to Redis dependency)
 // app.use('/api/wallet', walletRoutes);
 
+// ------------------------------------------------------------
+// Dev: Run admin table migration and ensure default admin exists
+// ------------------------------------------------------------
+if (process.env.NODE_ENV !== 'production') {
+  const fs = require('fs');
+  const path = require('path');
+  
+  setImmediate(async () => {
+    try {
+      const modelsIndex = require('./src/models');
+      const { sequelize, Admin } = modelsIndex;
+      
+      // Run admin table migration
+      const migrationPath = path.join(__dirname, 'src/db/migrations/003_create_admins_table.sql');
+      if (fs.existsSync(migrationPath)) {
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        await sequelize.query(migrationSQL);
+        console.log('✓ Admin table migration applied');
+      }
+      
+      // Ensure default admin exists (admin/admin123)
+      if (Admin && typeof Admin.ensureDefaultAdmin === 'function') {
+        await Admin.ensureDefaultAdmin();
+      }
+    } catch (e) {
+      console.warn('⚠ Admin setup failed (dev):', e.message);
+    }
+  });
+}
+
 // API routes (with general API rate limiting)
 app.use('/api', apiRateLimiter);
 
@@ -2152,7 +2182,7 @@ process.on('SIGINT', () => {
 });
 
 const PORT = process.env.PORT || 3000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const CLIENT_URL = process.env.CLIENT_URL || 'http://127.0.0.1:3000';
 
 // server port configuration: port 3000 default
 // Avoid binding to a fixed port when running under Jest/test runner
@@ -2164,9 +2194,9 @@ if (!isTestEnv) {
     console.log(`? Infinity Storm Server running on port ${PORT}`);
     console.log(`?? Client URL: ${CLIENT_URL}`);
     console.log('? WebSocket server ready');
-    console.log(`? Game available at: http://localhost:${PORT}`);
+    console.log(`? Game available at: http://127.0.0.1:${PORT}`);
     console.log('?? Authentication system active');
-    console.log(`??儭?Admin panel available at: http://localhost:${PORT}/admin`);
+    console.log(`??儭?Admin panel available at: http://127.0.0.1:${PORT}/admin`);
 
     // Start real-time metrics broadcasting
     startMetricsBroadcasting();
