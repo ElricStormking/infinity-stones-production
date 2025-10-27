@@ -22,6 +22,10 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
         // FREE PLAY DEMO MODE: Skip auth for demo players
         const authToken = localStorage.getItem('infinity_storm_token');
         if (!authToken) {
+            try {
+                localStorage.removeItem('playerId');
+                localStorage.removeItem('playerUsername');
+            } catch (_) {}
             console.log('🎮 [FREE PLAY] No auth token - auto-starting FREE PLAY demo mode');
             this.showMainMenu(); // Or directly: this.scene.start('GameScene');
             return;

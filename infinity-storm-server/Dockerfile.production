@@ -2,9 +2,26 @@
 # Multi-stage build for optimized image size
 
 # ========================================
-# Stage 1: Build Dependencies
+# Stage 1: Build Client Bundle
 # ========================================
-FROM node:18-alpine AS builder
+FROM node:18-alpine AS client-builder
+
+WORKDIR /build
+
+# Copy root package files (for Parcel)
+COPY ../package*.json ./
+COPY ../index.html ./
+COPY ../assets ./assets
+COPY ../src ./src
+
+# Install dependencies and build client
+RUN npm ci && \
+    npm run build
+
+# ========================================
+# Stage 2: Build Server
+# ========================================
+FROM node:18-alpine AS server-builder
 
 WORKDIR /app
 
@@ -17,8 +34,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build application (if build script exists)
-RUN npm run build 2>/dev/null || echo "No build script found"
+# Build server if build script exists
+RUN npm run build 2>/dev/null || echo "No server build script found"
 
 # ========================================
 # Stage 2: Production Runtime
@@ -46,13 +63,15 @@ COPY --chown=nodejs:nodejs package*.json ./
 RUN npm ci --production --no-optional && \
     npm cache clean --force
 
-# Copy built application from builder
-COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist 2>/dev/null || true
-COPY --chown=nodejs:nodejs --from=builder /app/server.js ./
-COPY --chown=nodejs:nodejs --from=builder /app/src ./src
-COPY --chown=nodejs:nodejs --from=builder /app/game-logic ./game-logic
-COPY --chown=nodejs:nodejs --from=builder /app/views ./views 2>/dev/null || true
-COPY --chown=nodejs:nodejs --from=builder /app/public ./public 2>/dev/null || true
+# Copy built client bundle from client-builder
+COPY --chown=nodejs:nodejs --from=client-builder /build/dist ../dist
+
+# Copy server application from server-builder
+COPY --chown=nodejs:nodejs --from=server-builder /app/server.js ./
+COPY --chown=nodejs:nodejs --from=server-builder /app/src ./src
+COPY --chown=nodejs:nodejs --from=server-builder /app/game-logic ./game-logic
+COPY --chown=nodejs:nodejs --from=server-builder /app/views ./views 2>/dev/null || true
+COPY --chown=nodejs:nodejs --from=server-builder /app/public ./public 2>/dev/null || true
 
 # Create log directory
 RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs

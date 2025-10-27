@@ -187,11 +187,18 @@ pull_latest_code() {
 install_dependencies() {
     log "Installing dependencies..."
     
-    cd "$APP_DIR/infinity-storm-server"
+    # Install root dependencies (for Parcel)
+    cd "$APP_DIR"
+    npm ci || {
+        log_error "Failed to install root dependencies"
+        exit 1
+    }
+    log_success "Root dependencies installed"
     
-    # Install production dependencies only
+    # Install server dependencies
+    cd "$APP_DIR/infinity-storm-server"
     npm ci --production --no-optional || {
-        log_error "Failed to install dependencies"
+        log_error "Failed to install server dependencies"
         exit 1
     }
     
@@ -215,17 +222,29 @@ run_migrations() {
 build_application() {
     log "Building application..."
     
-    cd "$APP_DIR/infinity-storm-server"
+    # Build client with Parcel
+    cd "$APP_DIR"
+    npm run build || {
+        log_error "Client build failed"
+        exit 1
+    }
+    log_success "Client bundle built successfully"
     
-    # Build if build script exists
+    # Verify dist folder exists
+    if [ ! -d "$APP_DIR/dist" ]; then
+        log_error "dist folder not found after build"
+        exit 1
+    fi
+    log_success "Client bundle verified at dist/"
+    
+    # Build server if build script exists
+    cd "$APP_DIR/infinity-storm-server"
     if grep -q '"build"' package.json; then
         npm run build || {
-            log_error "Build failed"
+            log_error "Server build failed"
             exit 1
         }
-        log_success "Application built successfully"
-    else
-        log_warning "No build script found - skipping"
+        log_success "Server built successfully"
     fi
 }
 

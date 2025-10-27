@@ -179,8 +179,16 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js" onerror="this.onerror=null;this.src='phaser.min.js'"></script>
     <!-- Axios for HTTP requests -->
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <!-- socket.io client (served by server on same origin) -->
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- socket.io client (loaded dynamically to avoid Parcel bundling issues) -->
+    <script>
+      // Load socket.io client from server at runtime
+      (function() {
+        var script = document.createElement('script');
+        script.src = '/socket.io/socket.io.js';
+        script.async = false;
+        document.head.appendChild(script);
+      })();
+    </script>
     <!-- Engine primitives (pure logic / RNG) -->
     <script src="src/engine/RNG.js"></script>
     <script src="src/engine/Paytable.js"></script>

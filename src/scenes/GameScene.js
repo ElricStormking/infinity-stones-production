@@ -461,6 +461,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
         // FREE PLAY DEMO MODE: Check for authentication first
         const authToken = localStorage.getItem('infinity_storm_token');
         if (!authToken) {
+            try {
+                localStorage.removeItem('playerId');
+                localStorage.removeItem('playerUsername');
+            } catch (_) {}
             console.log('🎮 [FREE PLAY] No auth token - starting in FREE PLAY DEMO MODE');
             this.serverMode = false;
             this.demoMode = true;
@@ -508,7 +512,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
         }
         
         // Check feature flags for server sync
-        const playerId = localStorage.getItem('playerId');
+        const playerId = (window.NetworkService && window.NetworkService.authToken) ? localStorage.getItem('playerId') : null;
         const featureFlagsEnabled = window.FeatureFlags && window.FeatureFlags.shouldUseServerSync(playerId);
         
         // Initialize server mode and demo mode fallback
@@ -3422,8 +3426,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         loginBtn.on('pointerover', () => loginBtn.setBackgroundColor('#00cc00'));
         loginBtn.on('pointerout', () => loginBtn.setBackgroundColor('#00aa00'));
         loginBtn.on('pointerup', () => {
-            // Open login portal in new tab
-            const portalUrl = 'http://localhost:3000/test-player-login.html';
+            // Open login portal in new tab using current origin
+            const portalUrl = window.location.origin + '/test-player-login.html';
             window.open(portalUrl, '_blank');
         });
         

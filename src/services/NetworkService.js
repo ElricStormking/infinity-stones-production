@@ -41,10 +41,28 @@ window.NetworkService = new (class NetworkService {
         const storedToken = localStorage.getItem('infinity_storm_token');
         console.log(`🔐 [AUTH] Checking localStorage['infinity_storm_token']`);
         if (storedToken) {
-            this.authToken = storedToken;
-            console.log(`✅ [AUTH] Token loaded from localStorage: ${storedToken.substring(0, 30)}...`);
-            // Validate token on next tick to avoid blocking initialization
-            setTimeout(() => this.validateStoredToken(), 100);
+            // Require recent explicit intent flag to auto-use stored token
+            let explicitOk = false;
+            try {
+                const flag = localStorage.getItem('explicit_real') === '1';
+                const exp = parseInt(localStorage.getItem('explicit_real_expires') || '0', 10);
+                explicitOk = flag && exp > Date.now();
+            } catch (_) { explicitOk = false; }
+
+            if (explicitOk) {
+                this.authToken = storedToken;
+                console.log(`✅ [AUTH] Token loaded from localStorage: ${storedToken.substring(0, 30)}...`);
+                // Validate token on next tick to avoid blocking initialization
+                setTimeout(() => this.validateStoredToken(), 100);
+            } else {
+                console.warn('🔐 [AUTH] Stored token present but no recent explicit login flag; clearing');
+                try {
+                    localStorage.removeItem('infinity_storm_token');
+                    localStorage.removeItem('playerId');
+                    localStorage.removeItem('playerUsername');
+                } catch (_) {}
+                this.authToken = null;
+            }
         } else {
             console.warn(`❌ [AUTH] No auth token found - will use demo mode`);
         }
@@ -93,9 +111,17 @@ window.NetworkService = new (class NetworkService {
             },
             async (error) => {
                 const originalRequest = error.config;
+                const url = originalRequest?.url || '';
                 
                 // Handle auth errors
                 if (error.response?.status === 401) {
+                    // IMPORTANT: Do not clear the token when the validation endpoint fails.
+                    // We preserve the token so the game continues in authenticated mode
+                    // while backend validation can be flaky in dev.
+                    if (url && (url.includes('/api/validate-session') || url.includes('/api/auth/validate'))) {
+                        console.warn('?? Auth validation 401 - preserving token for fallback');
+                        return Promise.reject(error);
+                    }
                     console.warn('?? Authentication error, clearing session...');
                     this.handleAuthError();
                     return Promise.reject(error);
@@ -160,17 +186,21 @@ window.NetworkService = new (class NetworkService {
         try {
             const result = await this.post('/api/validate-session', {});
             if (!result.success) {
-                console.warn('[AUTH] Token validation failed - KEEPING token anyway (fallback mode)');
-                // DON'T clear token in fallback mode - just log the failure
-                // this.handleAuthError();
+                console.warn('[AUTH] Token validation failed - clearing token');
+                this.handleAuthError();
+                try { localStorage.removeItem('playerId'); localStorage.removeItem('playerUsername'); localStorage.removeItem('explicit_real'); localStorage.removeItem('explicit_real_expires'); } catch(_) {}
                 return false;
             }
             console.log('[AUTH] Token validated successfully');
             return true;
         } catch (error) {
-            console.warn('[AUTH] Token validation error - KEEPING token anyway (fallback mode):', error.message);
-            // DON'T clear token in fallback mode
-            // this.handleAuthError();
+            if (error?.response?.status === 401) {
+                console.warn('[AUTH] Token validation 401 - clearing token');
+                this.handleAuthError();
+                try { localStorage.removeItem('playerId'); localStorage.removeItem('playerUsername'); localStorage.removeItem('explicit_real'); localStorage.removeItem('explicit_real_expires'); } catch(_) {}
+                return false;
+            }
+            console.warn('[AUTH] Token validation error:', error.message);
             return false;
         }
     }
@@ -850,7 +880,7 @@ window.NetworkService = new (class NetworkService {
                 return false;
             }
             // Default to demo when not authenticated
-            return urlDemo || true;
+            return urlDemo || !this.authToken;
         } catch (_) {
             // Fallback to previous behavior
             return !this.authToken;

@@ -457,9 +457,6 @@ app.use('/api', apiRoutes);
 // Serve admin panel static files
 app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
 
-// Serve static files from the parent directory (game client)
-app.use(express.static(path.join(__dirname, '..')));
-
 // Basic route for health check (legacy endpoint)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Infinity Storm Server is running' });
@@ -1892,15 +1889,171 @@ function startMetricsBroadcasting() {
   console.log('? Real-time metrics broadcasting started');
 }
 
-// Serve client static files from repo root so API and client share origin
-// This avoids CORS and port conflicts while developing.
-const portalStaticPath = path.resolve(__dirname, '..', 'src', 'portal-mock');
-if (fs.existsSync(portalStaticPath)) {
-  app.use('/debug/portal', express.static(portalStaticPath));
+// ==============================================
+// STATIC FILE SERVING - SECURITY CRITICAL
+// ==============================================
+
+// Production Build Check - ensure dist exists
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.resolve(__dirname, '..', 'dist');
+  if (!fs.existsSync(distPath)) {
+    console.error('FATAL: No dist folder in production. Run npm run build first.');
+    process.exit(1);
+  }
 }
 
-const clientRoot = path.resolve(__dirname, '..');
-app.use(express.static(clientRoot));
+// Serve ONLY the built client bundle (secure)
+const distPath = path.resolve(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath, {
+    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+    etag: true,
+    lastModified: true
+  }));
+  console.log('✓ Serving client from dist folder');
+} else {
+  console.warn('⚠ No dist folder found. Run npm run build first.');
+}
+
+// Optional: Debug portal (development only)
+if (process.env.NODE_ENV === 'development') {
+  const portalStaticPath = path.resolve(__dirname, '..', 'src', 'portal-mock');
+  if (fs.existsSync(portalStaticPath)) {
+    app.use('/debug/portal', express.static(portalStaticPath));
+    console.log('✓ Debug portal enabled at /debug/portal');
+  }
+}
+
+// Block sensitive file patterns explicitly
+app.use((req, res, next) => {
+  const blocked = [
+    /\.env/i,
+    /\.git/i,
+    /node_modules/i,
+    /infinity-storm-server/i,
+    /migrations?/i,
+    /\/src\//i,
+    /\/tests?\//i,
+    /\/scripts?\//i,
+    /\.sql$/i,
+    /\.md$/i,
+    /package\.json$/i,
+    /package-lock\.json$/i,
+    /docker/i,
+    /\.config\./i,
+    /supabase/i,
+    /\.sh$/i,
+    /\.ps1$/i
+  ];
+  
+  if (blocked.some(pattern => pattern.test(req.path))) {
+    console.warn(`🚫 Blocked sensitive path: ${req.path}`);
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+});
+
+// ------------------------------------------------------------
+// Mock Portal (DEV ONLY)
+// Serve UI at /debug/portal and handle test credit endpoint
+// ------------------------------------------------------------
+if (process.env.NODE_ENV !== 'production') {
+  // Dev-only credit endpoint used by the mock portal UI
+  app.post('/portal/mock/credit', express.json(), async (req, res) => {
+    try {
+      const providedSecret = req.get('x-portal-secret') || '';
+      const expectedSecret = process.env.PORTAL_DEV_SECRET || 'portal-dev-secret';
+      if (!providedSecret || providedSecret !== expectedSecret) {
+        return res.status(401).json({ success: false, error: 'Unauthorized', message: 'Invalid portal secret' });
+      }
+
+      const { playerId, amount, notes } = req.body || {};
+      if (!playerId || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+        return res.status(400).json({ success: false, error: 'BAD_REQUEST', message: 'playerId and positive amount are required' });
+      }
+
+      const { ensureTestPlayer, getPlayerBalance, updatePlayerBalance, createTransaction } = require('./src/db/supabaseClient');
+
+      // Ensure player exists (dev-only creation allowed)
+      const ensure = await ensureTestPlayer(String(playerId), { allowCreate: true, markDemo: false, returnPassword: false });
+      if (ensure?.error || !ensure?.player) {
+        return res.status(500).json({ success: false, error: 'PLAYER_UNAVAILABLE', message: ensure?.error || 'Unable to ensure test player' });
+      }
+
+      const player = ensure.player;
+      const balInfo = await getPlayerBalance(player.id);
+      if (balInfo?.error) {
+        return res.status(500).json({ success: false, error: 'BALANCE_ERROR', message: balInfo.error });
+      }
+
+      const creditAmount = parseFloat(Number(amount).toFixed(2));
+      const previousBalance = parseFloat(balInfo.balance || 0);
+      const newBalance = parseFloat((previousBalance + creditAmount).toFixed(2));
+
+      const upd = await updatePlayerBalance(player.id, newBalance);
+      if (upd?.error) {
+        return res.status(500).json({ success: false, error: 'UPDATE_FAILED', message: upd.error });
+      }
+
+      // Record transaction as a deposit (mock portal credit)
+      const tx = await createTransaction(
+        player.id,
+        'deposit',
+        creditAmount,
+        previousBalance,
+        newBalance,
+        `Mock portal credit${notes ? `: ${String(notes).slice(0, 120)}` : ''}`
+      );
+
+      if (tx?.error || !tx?.success) {
+        return res.status(500).json({ success: false, error: 'TX_FAILED', message: tx?.error || 'Transaction logging failed' });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          player: { id: player.id, username: player.username },
+          transaction: tx.transaction,
+          balance_before: previousBalance,
+          balance_after: newBalance,
+          amount: creditAmount
+        }
+      });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: 'SERVER_ERROR', message: e.message });
+    }
+  });
+}
+
+// Whitelist: serve test-player-login.html explicitly without exposing repo
+app.get('/test-player-login.html', (req, res) => {
+  try {
+    const rootLoginPath = path.resolve(__dirname, '..', 'test-player-login.html');
+    if (fs.existsSync(rootLoginPath)) {
+      return res.sendFile(rootLoginPath);
+    }
+    const distLoginPath = path.resolve(__dirname, '..', 'dist', 'test-player-login.html');
+    if (fs.existsSync(distLoginPath)) {
+      return res.sendFile(distLoginPath);
+    }
+  } catch (_) {}
+  return res.status(404).send('Not found');
+});
+
+// Whitelist: serve shader asset used by game (moved for prod safety)
+app.get('/assets/shaders/RedLightningShader.js', (req, res) => {
+  try {
+    const distShader = path.resolve(__dirname, '..', 'dist', 'assets', 'shaders', 'RedLightningShader.js');
+    if (fs.existsSync(distShader)) {
+      return res.sendFile(distShader);
+    }
+    const srcShader = path.resolve(__dirname, '..', 'src', 'shaders', 'RedLightningShader.js');
+    if (fs.existsSync(srcShader)) {
+      return res.sendFile(srcShader);
+    }
+  } catch (_) {}
+  return res.status(404).send('Not found');
+});
 
 // Comprehensive health check endpoint
 app.get('/health', async (req, res) => {

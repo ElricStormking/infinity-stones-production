@@ -108,7 +108,13 @@ window.SessionService = new (class SessionService {
                     console.log('🔐 Loaded valid session from storage');
                     return true;
                 } else {
-                    console.log('🔐 Stored session expired');
+                console.log('🔐 Stored session expired');
+                try {
+                    localStorage.removeItem('infinity_storm_session');
+                    localStorage.removeItem('infinity_storm_token');
+                    localStorage.removeItem('playerId');
+                    localStorage.removeItem('playerUsername');
+                } catch (_) {}
                 }
             }
             

@@ -2,10 +2,13 @@
   "name": "infinity-storm",
   "version": "1.0.0",
   "description": "Infinity Storm - Marvel themed casino slot game with Candy Crush mechanics",
-  "main": "src/main.js",
+  "source": "index.html",
   "scripts": {
-    "start": "npm start --prefix infinity-storm-server",
+    "build": "parcel build index.html --dist-dir dist --public-url ./ && node -e \"const fs=require('fs'),path=require('path');if(fs.existsSync('assets'))fs.cpSync('assets','dist/assets',{recursive:true});if(fs.existsSync('test-player-login.html'))fs.copyFileSync('test-player-login.html','dist/test-player-login.html');fs.mkdirSync('dist/assets/shaders',{recursive:true});fs.copyFileSync(path.join('src','shaders','RedLightningShader.js'),path.join('dist','assets','shaders','RedLightningShader.js'));\"",
+    "build:watch": "parcel watch index.html --dist-dir dist --public-url ./",
+    "start": "npm run build && npm start --prefix infinity-storm-server",
     "dev": "npm start --prefix infinity-storm-server",
+    "dev:full": "npm run build:watch & npm run dev",
     "test:integration": "node tests/integration/runIntegrationTests.js",
     "test:integration:client": "cd tests/integration && npm run test:client",
     "test:integration:server": "cd tests/integration && npm run test:server",
@@ -14,7 +17,7 @@
     "test:integration:performance": "cd tests/integration && npm run test:performance",
     "test:integration:coverage": "cd tests/integration && npm run test:coverage",
     "test:integration:watch": "cd tests/integration && npm run test:watch",
-    "test:integration:report": "cd tests/integration && npm run report",
+    "test:integration:report": "cd tests/integration && npm run test:report",
     "test:integration:clean": "cd tests/integration && npm run clean",
     "test:integration:setup": "cd tests/integration && npm install"
   },
@@ -33,6 +36,7 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "parcel": "^2.12.0"
   }
 }

@@ -46,7 +46,7 @@ const extractToken = (req) => {
  * Validates JWT token and attaches user data to request
  */
 const authenticate = async (req, res, next) => {
-  const demoBypassRequested = req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true';
+  const demoBypassRequested = (req.headers['x-demo-bypass'] === 'true' || req.query.demo === 'true') && !!extractToken(req);
   if (demoBypassRequested && process.env.NODE_ENV !== 'production') {
     const bypassIdentifier = resolveBypassIdentifier(req);
     try {

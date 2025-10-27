@@ -116,7 +116,7 @@
             <p><strong>After successful login:</strong></p>
             <ol>
                 <li>Your session token will be saved to localStorage</li>
-                <li>Open <a href="http://localhost:3000/" target="_blank" style="color: #3282b8;">the game</a></li>
+                <li>Open <a id="open-game-link" href="#" target="_blank" style="color: #3282b8;">the game</a></li>
                 <li>The game will use your test player account (real balance tracking)</li>
             </ol>
         </div>
@@ -129,7 +129,8 @@
             window.location.href = 'http://localhost:3000/test-player-login.html';
         }
         
-        const API_BASE = 'http://localhost:3000/api';
+        // Always talk to the same origin you loaded this page from to avoid 127.0.0.1 vs localhost issues
+        const API_BASE = window.location.origin + '/api';
         
         async function registerAndLogin() {
             const username = document.getElementById('username').value;
@@ -206,6 +207,8 @@
                 console.log('✅ Token saved to localStorage');
                 console.log('🔍 Verification check:', verifyToken ? `Token exists (${verifyToken.substring(0, 30)}...)` : '❌ TOKEN NOT FOUND IN LOCALSTORAGE!');
                 
+                const gameHref = window.location.origin + '/';
+                const openGameAnchor = `<a href="${gameHref}" target="_blank" style="color: #3282b8;"><strong>→ Open Game</strong></a>`;
                 resultDiv.innerHTML = `
                     <div class="success">
                         <h3>✅ Login Successful!</h3>
@@ -216,11 +219,15 @@
                         <p><strong>Token saved to localStorage</strong></p>
                         <hr>
                         <p>Now open the game - it will use this test account!</p>
-                        <a href="http://localhost:3000/" target="_blank" style="color: #3282b8;">
-                            <strong>→ Open Game</strong>
-                        </a>
+                        ${openGameAnchor}
                     </div>
                 `;
+
+                // Update the top "Open game" link as well
+                const openLink = document.getElementById('open-game-link');
+                if (openLink) {
+                    openLink.href = gameHref;
+                }
                 
                 // Mark explicit real-mode intent for the game bootstrap (expires in 30 minutes)
                 try {

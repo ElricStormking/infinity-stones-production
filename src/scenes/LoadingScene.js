@@ -812,8 +812,8 @@ window.LoadingScene = class LoadingScene extends Phaser.Scene {
             console.warn('Failed to load win presentation assets:', error);
         }
         
-        // Load shader script
-        this.load.script('redLightningShader', 'src/shaders/RedLightningShader.js');
+        // Load shader script (serve from assets to avoid blocked /src in production)
+        this.load.script('redLightningShader', 'assets/shaders/RedLightningShader.js');
         
         // Set up error handler for shader script
         this.load.once('fileerror-script-redLightningShader', () => {
