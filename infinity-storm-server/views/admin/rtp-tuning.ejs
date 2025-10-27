@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        .rtp-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .section-title {
+            color: #4cc9f0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(76, 201, 240, 0.3);
+        }
+        .symbol-weight-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .symbol-label {
+            min-width: 140px;
+            font-weight: 500;
+        }
+        .weight-input {
+            flex: 1;
+            max-width: 300px;
+        }
+        .weight-slider {
+            flex: 2;
+        }
+        .weight-percent {
+            min-width: 70px;
+            text-align: right;
+            color: #4cc9f0;
+            font-weight: 600;
+        }
+        .multiplier-table {
+            width: 100%;
+            margin-top: 15px;
+        }
+        .multiplier-table td {
+            padding: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4cc9f0 0%, #3a86ff 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3a86ff 0%, #4cc9f0 100%);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #06ffa5 0%, #00d4aa 100%);
+            border: none;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #f72585 0%, #b5179e 100%);
+            border: none;
+        }
+        .btn-warning {
+            background: linear-gradient(135deg, #ffd60a 0%, #ffc300 100%);
+            border: none;
+            color: #000;
+        }
+        .rtp-result {
+            font-size: 3rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .rtp-result.good {
+            color: #06ffa5;
+        }
+        .rtp-result.warning {
+            color: #ffd60a;
+        }
+        .rtp-result.bad {
+            color: #f72585;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4cc9f0;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+        }
+        .spinner-border {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-width: 0.2em;
+        }
+        .comparison-table {
+            width: 100%;
+        }
+        .comparison-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .config-diff-new {
+            background: rgba(6, 255, 165, 0.1);
+            color: #06ffa5;
+            font-weight: 600;
+        }
+        .config-diff-old {
+            color: #aaa;
+        }
+        .form-check-input:checked {
+            background-color: #4cc9f0;
+            border-color: #4cc9f0;
+        }
+        #navBar {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 30px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav id="navBar">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+                <i class="bi bi-graph-up"></i> RTP Tuning Tool
+            </h4>
+            <div>
+                <a href="/admin/dashboard" class="btn btn-outline-light btn-sm me-2">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <span class="text-light me-3">
+                    <i class="bi bi-person-circle"></i> <%= admin.account_id %>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="rtp-container">
+        <!-- Section 1: Configuration Editor -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="bi bi-sliders"></i> Configuration Editor
+            </h2>
+            
+            <h5 class="mb-3">Symbol Weights</h5>
+            <div id="symbolWeightsContainer"></div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5 class="mb-3">Scatter Chance</h5>
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="range" class="form-range weight-slider" 
+                               id="scatterChanceSlider" min="0.001" max="0.2" step="0.001" value="0.035">
+                        <input type="number" class="form-control weight-input" 
+                               id="scatterChanceInput" min="0.001" max="0.2" step="0.001" value="0.035">
+                        <span class="weight-percent" id="scatterChancePercent">3.5%</span>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mb-3 mt-4">Random Multiplier Table</h5>
+            <table class="multiplier-table">
+                <thead>
+                    <tr>
+                        <th>Multiplier</th>
+                        <th>Weight %</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="multiplierTableBody"></tbody>
+            </table>
+            <button class="btn btn-sm btn-outline-light mt-2" onclick="addMultiplierRow()">
+                <i class="bi bi-plus-circle"></i> Add Row
+            </button>
+
+            <h5 class="mb-3 mt-4">Free Spins Configuration</h5>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Spins Awarded (4+ Scatters)</label>
+                    <input type="number" class="form-control" id="scatter4PlusSpins" value="15" min="5" max="50">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Retrigger Spins</label>
+                    <input type="number" class="form-control" id="retriggerSpins" value="5" min="1" max="20">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Buy Feature Cost (x Bet)</label>
+                    <input type="number" class="form-control" id="buyFeatureCost" value="100" min="50" max="500">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Buy Feature Spins</label>
+                    <input type="number" class="form-control" id="buyFeatureSpins" value="15" min="5" max="50">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Accumulated Multiplier Trigger Chance (%)</label>
+                    <input type="number" class="form-control" id="accumTriggerChance" value="35" min="0" max="100" step="1">
+                    <small class="text-muted">Chance per cascade during free spins</small>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button class="btn btn-primary" onclick="loadCurrentConfig()">
+                    <i class="bi bi-arrow-clockwise"></i> Reset to Current Config
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 2: Simulation Controls -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="bi bi-play-circle"></i> Run Simulation
+            </h2>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Spin Count</label>
+                    <select class="form-select" id="spinCountSelect">
+                        <option value="50000">50,000 spins (~15s)</option>
+                        <option value="100000" selected>100,000 spins (~30s)</option>
+                        <option value="1000000">1,000,000 spins (~5min)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-success btn-lg" onclick="runSimulation()" id="runSimBtn">
+                <i class="bi bi-play-fill"></i> Run Simulation
+            </button>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <span id="progressText">Running simulation...</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" id="progressBar" style="width: 0%"></div>
+                </div>
+                <small class="text-muted" id="etaText"></small>
+            </div>
+        </div>
+
+        <!-- Section 3: Results Display -->
+        <div class="section-card" id="resultsSection" style="display: none;">
+            <h2 class="section-title">
+                <i class="bi bi-bar-chart-line"></i> Simulation Results
+            </h2>
+
+            <div class="rtp-result" id="rtpResult">--.--%</div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="winFreq">--%</div>
+                        <div class="stat-label">Win Frequency</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgWin">--x</div>
+                        <div class="stat-label">Average Win</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="largestWin">--x</div>
+                        <div class="stat-label">Largest Win</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="scatterRate">--%</div>
+                        <div class="stat-label">Scatter Trigger Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Free Spins Analysis -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h4 class="mb-3">
+                        <i class="bi bi-gift"></i> Free Spins Analysis
+                    </h4>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="freeSpinsRTP">--%</div>
+                        <div class="stat-label">Free Spins RTP</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="baseGameRTP">--%</div>
+                        <div class="stat-label">Base Game RTP</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="rtpImprovement">+0%</div>
+                        <div class="stat-label">RTP Improvement</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgFSMultiplier">--x</div>
+                        <div class="stat-label">Avg FS Multiplier</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="freeSpinsTriggered">--</div>
+                        <div class="stat-label">Free Spins Triggered</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalFSSpins">--</div>
+                        <div class="stat-label">Total FS Spins</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="buyFeatureROI">--%</div>
+                        <div class="stat-label">Buy Feature ROI</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5>Symbol Distribution</h5>
+                    <div class="chart-container">
+                        <canvas id="symbolChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h5>Multiplier Distribution</h5>
+                    <div class="chart-container">
+                        <canvas id="multiplierChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <h5>Cascade Depth Distribution</h5>
+                    <div class="chart-container">
+                        <canvas id="cascadeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: AI Optimizer -->
+        <div class="section-card">
+            <h2 class="section-title">
+                <i class="bi bi-cpu"></i> AI Optimizer
+            </h2>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Target RTP %</label>
+                    <input type="number" class="form-control" id="targetRTP" 
+                           value="96.5" min="85" max="110" step="0.1">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Max Iterations</label>
+                    <input type="number" class="form-control" id="maxIterations" 
+                           value="10" min="1" max="20">
+                </div>
+            </div>
+
+            <button class="btn btn-warning btn-lg" onclick="runOptimizer()" id="optimizeBtn">
+                <i class="bi bi-magic"></i> Suggest Optimal Weights
+            </button>
+
+            <div id="optimizerResults" style="display: none;" class="mt-4">
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-check-circle"></i> Optimization Complete</h5>
+                    <p class="mb-2">Achieved RTP: <strong id="achievedRTP">--%</strong></p>
+                    <p class="mb-2">Confidence Score: <strong id="confidenceScore">--</strong>/100</p>
+                    <p class="mb-0">Iterations: <strong id="iterationCount">--</strong></p>
+                </div>
+                <button class="btn btn-primary" onclick="applySuggestedConfig()">
+                    <i class="bi bi-check2-square"></i> Apply Suggested Config
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 5: Apply Changes -->
+        <div class="section-card" id="applySection" style="display: none;">
+            <h2 class="section-title">
+                <i class="bi bi-save"></i> Apply Configuration
+            </h2>
+
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Warning:</strong> This will modify the live game configuration!
+            </div>
+
+            <h5>Configuration Comparison</h5>
+            <table class="comparison-table" id="comparisonTable">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Current</th>
+                        <th>New</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div class="mt-4">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="confirmReview">
+                    <label class="form-check-label" for="confirmReview">
+                        I have reviewed the simulation results
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="confirmImpact">
+                    <label class="form-check-label" for="confirmImpact">
+                        I understand this affects live gameplay
+                    </label>
+                </div>
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="confirmBackup">
+                    <label class="form-check-label" for="confirmBackup">
+                        Backup of current config will be created
+                    </label>
+                </div>
+
+                <button class="btn btn-success btn-lg" onclick="applyConfiguration()" 
+                        id="applyBtn" disabled>
+                    <i class="bi bi-upload"></i> Apply Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let currentConfig = null;
+        let optimizedConfig = null;
+        let simulationResults = null;
+        let charts = {};
+
+        // Symbol definitions
+        const symbolNames = {
+            time_gem: 'Time Gem',
+            space_gem: 'Space Gem',
+            mind_gem: 'Mind Gem',
+            power_gem: 'Power Gem',
+            reality_gem: 'Reality Gem',
+            soul_gem: 'Soul Gem',
+            thanos_weapon: 'Thanos Weapon',
+            scarlet_witch: 'Scarlet Witch',
+            thanos: 'Thanos'
+        };
+
+        // Load current config on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCurrentConfig();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Scatter chance sync
+            document.getElementById('scatterChanceSlider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('scatterChanceInput').value = value;
+                document.getElementById('scatterChancePercent').textContent = (value * 100).toFixed(2) + '%';
+            });
+
+            document.getElementById('scatterChanceInput').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('scatterChanceSlider').value = value;
+                document.getElementById('scatterChancePercent').textContent = (value * 100).toFixed(2) + '%';
+            });
+
+            // Apply button enable/disable
+            ['confirmReview', 'confirmImpact', 'confirmBackup'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateApplyButton);
+            });
+        }
+
+        function updateApplyButton() {
+            const allChecked = ['confirmReview', 'confirmImpact', 'confirmBackup']
+                .every(id => document.getElementById(id).checked);
+            document.getElementById('applyBtn').disabled = !allChecked;
+        }
+
+        async function loadCurrentConfig() {
+            try {
+                const response = await fetch('/admin/api/rtp/config');
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentConfig = data.config;
+                    renderSymbolWeights(currentConfig.symbolWeights);
+                    renderMultiplierTable(currentConfig.multiplierTable);
+                    
+                    document.getElementById('scatterChanceSlider').value = currentConfig.scatterChance;
+                    document.getElementById('scatterChanceInput').value = currentConfig.scatterChance;
+                    document.getElementById('scatterChancePercent').textContent = 
+                        (currentConfig.scatterChance * 100).toFixed(2) + '%';
+                    
+                    // Load free spins config
+                    if (currentConfig.freeSpinsConfig) {
+                        document.getElementById('scatter4PlusSpins').value = currentConfig.freeSpinsConfig.scatter4PlusSpins;
+                        document.getElementById('retriggerSpins').value = currentConfig.freeSpinsConfig.retriggerSpins;
+                        document.getElementById('buyFeatureCost').value = currentConfig.freeSpinsConfig.buyFeatureCost;
+                        document.getElementById('buyFeatureSpins').value = currentConfig.freeSpinsConfig.buyFeatureSpins;
+                        document.getElementById('accumTriggerChance').value = (currentConfig.freeSpinsConfig.accumTriggerChance * 100);
+                    }
+                    
+                    showToast('Config loaded successfully', 'success');
+                } else {
+                    showToast('Failed to load config', 'error');
+                }
+            } catch (error) {
+                console.error('Load config error:', error);
+                showToast('Error loading config', 'error');
+            }
+        }
+
+        function renderSymbolWeights(weights) {
+            const container = document.getElementById('symbolWeightsContainer');
+            container.innerHTML = '';
+
+            const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+
+            Object.entries(weights).forEach(([symbol, weight]) => {
+                const percent = ((weight / totalWeight) * 100).toFixed(2);
+                const row = document.createElement('div');
+                row.className = 'symbol-weight-row';
+                row.innerHTML = `
+                    <div class="symbol-label">${symbolNames[symbol] || symbol}</div>
+                    <input type="number" class="form-control weight-input" 
+                           data-symbol="${symbol}" value="${weight}" min="1" max="100"
+                           onchange="updateSymbolWeight('${symbol}', this.value)">
+                    <input type="range" class="form-range weight-slider"
+                           data-symbol="${symbol}-slider" value="${weight}" min="1" max="100"
+                           oninput="syncSymbolSlider('${symbol}', this.value)">
+                    <div class="weight-percent" data-symbol="${symbol}-percent">${percent}%</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function syncSymbolSlider(symbol, value) {
+            document.querySelector(`input[data-symbol="${symbol}"]`).value = value;
+            updateSymbolWeight(symbol, value);
+        }
+
+        function updateSymbolWeight(symbol, value) {
+            const weights = getCurrentSymbolWeights();
+            weights[symbol] = parseInt(value);
+            
+            // Recalculate percentages
+            const total = Object.values(weights).reduce((sum, w) => sum + w, 0);
+            Object.keys(weights).forEach(sym => {
+                const percent = ((weights[sym] / total) * 100).toFixed(2);
+                const elem = document.querySelector(`[data-symbol="${sym}-percent"]`);
+                if (elem) elem.textContent = percent + '%';
+            });
+        }
+
+        function getCurrentSymbolWeights() {
+            const weights = {};
+            document.querySelectorAll('.weight-input').forEach(input => {
+                const symbol = input.dataset.symbol;
+                if (symbol) weights[symbol] = parseInt(input.value);
+            });
+            return weights;
+        }
+
+        function renderMultiplierTable(table) {
+            const tbody = document.getElementById('multiplierTableBody');
+            tbody.innerHTML = '';
+
+            table.forEach((entry, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>
+                        <input type="number" class="form-control" 
+                               data-mult-index="${index}" data-mult-field="multiplier"
+                               value="${entry.multiplier}" min="2" max="1000">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control" 
+                               data-mult-index="${index}" data-mult-field="weight"
+                               value="${entry.weight}" min="0.001" max="100" step="0.001">
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="removeMultiplierRow(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        function addMultiplierRow() {
+            const table = getCurrentMultiplierTable();
+            table.push({ multiplier: 2, weight: 1 });
+            renderMultiplierTable(table);
+        }
+
+        function removeMultiplierRow(index) {
+            const table = getCurrentMultiplierTable();
+            table.splice(index, 1);
+            renderMultiplierTable(table);
+        }
+
+        function getCurrentMultiplierTable() {
+            const table = [];
+            document.querySelectorAll('[data-mult-index]').forEach(input => {
+                const index = parseInt(input.dataset.multIndex);
+                const field = input.dataset.multField;
+                
+                if (!table[index]) table[index] = {};
+                table[index][field] = parseFloat(input.value);
+            });
+            return table.filter(Boolean);
+        }
+
+        async function runSimulation() {
+            const spinCount = parseInt(document.getElementById('spinCountSelect').value);
+            const symbolWeights = getCurrentSymbolWeights();
+            const scatterChance = parseFloat(document.getElementById('scatterChanceInput').value);
+            const multiplierTable = getCurrentMultiplierTable();
+            
+            // Get free spins config
+            const freeSpinsConfig = {
+                SCATTER_4_PLUS: parseInt(document.getElementById('scatter4PlusSpins').value),
+                RETRIGGER_SPINS: parseInt(document.getElementById('retriggerSpins').value),
+                BUY_FEATURE_COST: parseInt(document.getElementById('buyFeatureCost').value),
+                BUY_FEATURE_SPINS: parseInt(document.getElementById('buyFeatureSpins').value),
+                ACCUM_TRIGGER_CHANCE_PER_CASCADE: parseFloat(document.getElementById('accumTriggerChance').value) / 100
+            };
+
+            // Show progress
+            document.getElementById('runSimBtn').disabled = true;
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+
+            try {
+                const response = await fetch('/admin/api/rtp/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        spinCount,
+                        symbolWeights,
+                        scatterChance,
+                        multiplierTable,
+                        freeSpinsConfig
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    simulationResults = data.results;
+                    displayResults(data.results);
+                    showToast('Simulation complete!', 'success');
+                    
+                    // Show apply section
+                    document.getElementById('applySection').style.display = 'block';
+                    showConfigComparison(currentConfig, {
+                        symbolWeights,
+                        scatterChance,
+                        multiplierTable
+                    });
+                } else {
+                    showToast('Simulation failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Simulation error:', error);
+                showToast('Error running simulation', 'error');
+            } finally {
+                document.getElementById('runSimBtn').disabled = false;
+                document.getElementById('progressContainer').style.display = 'none';
+            }
+        }
+
+        function displayResults(results) {
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // RTP result
+            const rtpElem = document.getElementById('rtpResult');
+            rtpElem.textContent = results.overallRTP.toFixed(2) + '%';
+            rtpElem.className = 'rtp-result ' + 
+                (results.overallRTP >= 94 && results.overallRTP <= 98 ? 'good' : 
+                 results.overallRTP >= 90 && results.overallRTP <= 102 ? 'warning' : 'bad');
+
+            // Stats
+            document.getElementById('winFreq').textContent = results.winFrequency.toFixed(1) + '%';
+            document.getElementById('avgWin').textContent = results.averageWin.toFixed(2) + 'x';
+            document.getElementById('largestWin').textContent = results.largestWinMultiplier.toFixed(2) + 'x';
+            document.getElementById('scatterRate').textContent = results.scatterTriggerRate.toFixed(2) + '%';
+
+            // Free Spins Analysis
+            if (results.freeSpinsAnalysis) {
+                const fs = results.freeSpinsAnalysis;
+                const bg = results.baseGameAnalysis;
+                
+                document.getElementById('freeSpinsRTP').textContent = fs.rtp.toFixed(2) + '%';
+                document.getElementById('baseGameRTP').textContent = bg.rtp.toFixed(2) + '%';
+                
+                const improvement = fs.rtpImprovement || 0;
+                const improvementElem = document.getElementById('rtpImprovement');
+                improvementElem.textContent = (improvement >= 0 ? '+' : '') + improvement.toFixed(2) + '%';
+                improvementElem.style.color = improvement > 0 ? '#06ffa5' : '#f72585';
+                
+                document.getElementById('avgFSMultiplier').textContent = fs.averageMultiplier.toFixed(2) + 'x';
+                document.getElementById('freeSpinsTriggered').textContent = fs.triggered || 0;
+                document.getElementById('totalFSSpins').textContent = fs.spins || 0;
+                
+                // Calculate Buy Feature ROI
+                const buyFeatureCost = parseInt(document.getElementById('buyFeatureCost').value);
+                const buyFeatureSpins = parseInt(document.getElementById('buyFeatureSpins').value);
+                const expectedReturn = fs.averageWin * buyFeatureSpins;
+                const roi = ((expectedReturn - buyFeatureCost) / buyFeatureCost) * 100;
+                const roiElem = document.getElementById('buyFeatureROI');
+                roiElem.textContent = roi.toFixed(1) + '%';
+                roiElem.style.color = roi > 0 ? '#06ffa5' : '#f72585';
+            }
+
+            // Charts
+            renderCharts(results);
+        }
+
+        function renderCharts(results) {
+            // Symbol distribution chart
+            if (charts.symbol) charts.symbol.destroy();
+            const symbolCtx = document.getElementById('symbolChart').getContext('2d');
+            charts.symbol = new Chart(symbolCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(results.symbolProbabilities).map(s => symbolNames[s] || s),
+                    datasets: [{
+                        label: 'Appearance %',
+                        data: Object.values(results.symbolProbabilities),
+                        backgroundColor: 'rgba(76, 201, 240, 0.6)',
+                        borderColor: 'rgba(76, 201, 240, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#fff' } },
+                        x: { ticks: { color: '#fff' } }
+                    }
+                }
+            });
+
+            // Multiplier distribution chart
+            if (charts.multiplier) charts.multiplier.destroy();
+            const multCtx = document.getElementById('multiplierChart').getContext('2d');
+            charts.multiplier = new Chart(multCtx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(results.multiplierDistribution).map(m => m + 'x'),
+                    datasets: [{
+                        data: Object.values(results.multiplierDistribution),
+                        backgroundColor: [
+                            '#4cc9f0', '#3a86ff', '#06ffa5', '#ffd60a', 
+                            '#f72585', '#b5179e', '#7209b7', '#560bad', '#480ca8', '#3f37c9'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+
+            // Cascade depth chart
+            if (charts.cascade) charts.cascade.destroy();
+            const cascadeCtx = document.getElementById('cascadeChart').getContext('2d');
+            charts.cascade = new Chart(cascadeCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(results.cascadesByDepth),
+                    datasets: [{
+                        label: 'Count',
+                        data: Object.values(results.cascadesByDepth),
+                        backgroundColor: 'rgba(6, 255, 165, 0.6)',
+                        borderColor: 'rgba(6, 255, 165, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#fff' } },
+                        x: { ticks: { color: '#fff' }, title: { display: true, text: 'Cascade Depth', color: '#fff' } }
+                    }
+                }
+            });
+        }
+
+        async function runOptimizer() {
+            const targetRTP = parseFloat(document.getElementById('targetRTP').value);
+            const maxIterations = parseInt(document.getElementById('maxIterations').value);
+            const currentConfigData = {
+                symbolWeights: getCurrentSymbolWeights(),
+                scatterChance: parseFloat(document.getElementById('scatterChanceInput').value),
+                multiplierTable: getCurrentMultiplierTable()
+            };
+
+            document.getElementById('optimizeBtn').disabled = true;
+            showToast('Running optimizer...', 'info');
+
+            try {
+                const response = await fetch('/admin/api/rtp/optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        targetRTP,
+                        currentConfig: currentConfigData,
+                        maxIterations
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    optimizedConfig = data.optimizedConfig;
+                    
+                    document.getElementById('optimizerResults').style.display = 'block';
+                    document.getElementById('achievedRTP').textContent = data.achievedRTP.toFixed(2) + '%';
+                    document.getElementById('confidenceScore').textContent = data.confidenceScore;
+                    document.getElementById('iterationCount').textContent = data.iterations;
+                    
+                    showToast('Optimization complete!', 'success');
+                } else {
+                    showToast('Optimization failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Optimizer error:', error);
+                showToast('Error running optimizer', 'error');
+            } finally {
+                document.getElementById('optimizeBtn').disabled = false;
+            }
+        }
+
+        function applySuggestedConfig() {
+            if (!optimizedConfig) return;
+
+            renderSymbolWeights(optimizedConfig.symbolWeights);
+            renderMultiplierTable(optimizedConfig.multiplierTable);
+            document.getElementById('scatterChanceInput').value = optimizedConfig.scatterChance;
+            document.getElementById('scatterChanceSlider').value = optimizedConfig.scatterChance;
+            document.getElementById('scatterChancePercent').textContent = 
+                (optimizedConfig.scatterChance * 100).toFixed(2) + '%';
+
+            showToast('Suggested config applied to editor', 'success');
+        }
+
+        function showConfigComparison(oldConfig, newConfig) {
+            const tbody = document.querySelector('#comparisonTable tbody');
+            tbody.innerHTML = '';
+
+            // Compare symbol weights
+            Object.keys(newConfig.symbolWeights).forEach(symbol => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${symbolNames[symbol] || symbol}</td>
+                    <td class="config-diff-old">${oldConfig.symbolWeights[symbol]}</td>
+                    <td class="config-diff-new">${newConfig.symbolWeights[symbol]}</td>
+                `;
+            });
+
+            // Scatter chance
+            const scatterRow = tbody.insertRow();
+            scatterRow.innerHTML = `
+                <td>Scatter Chance</td>
+                <td class="config-diff-old">${oldConfig.scatterChance}</td>
+                <td class="config-diff-new">${newConfig.scatterChance}</td>
+            `;
+        }
+
+        async function applyConfiguration() {
+            if (!confirm('Are you absolutely sure you want to apply this configuration to the live server?')) {
+                return;
+            }
+
+            const newConfig = {
+                symbolWeights: getCurrentSymbolWeights(),
+                scatterChance: parseFloat(document.getElementById('scatterChanceInput').value),
+                multiplierTable: getCurrentMultiplierTable()
+            };
+
+            document.getElementById('applyBtn').disabled = true;
+
+            try {
+                const response = await fetch('/admin/api/rtp/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        newConfig,
+                        adminConfirmation: 'true'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Configuration applied successfully! Backup: ' + data.backupPath, 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showToast('Failed to apply config: ' + data.error, 'error');
+                    document.getElementById('applyBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Apply error:', error);
+                showToast('Error applying configuration', 'error');
+                document.getElementById('applyBtn').disabled = false;
+            }
+        }
+
+        function showToast(message, type) {
+            // Simple toast notification
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'}`;
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
+

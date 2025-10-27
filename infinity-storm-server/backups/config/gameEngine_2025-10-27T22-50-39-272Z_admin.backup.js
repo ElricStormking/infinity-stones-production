@@ -48,19 +48,19 @@ const GAME_CONFIG = {
 
   // Symbol weights for 96.5% RTP
   SYMBOL_WEIGHTS: {
-    time_gem: 24,
-    space_gem: 24,
-    mind_gem: 23,
-    power_gem: 22,
-    reality_gem: 21,
+    time_gem: 26,
+    space_gem: 26,
+    mind_gem: 22,
+    power_gem: 20,
+    reality_gem: 20,
     soul_gem: 19,
-    thanos_weapon: 19,
-    scarlet_witch: 18,
+    thanos_weapon: 17,
+    scarlet_witch: 12,
     thanos: 11
   },
 
   // Official scatter symbol chance (base game)
-  SCATTER_CHANCE: 0.026,
+  SCATTER_CHANCE: 0.035,
 
   // Free spins configuration
   FREE_SPINS: {
@@ -81,16 +81,16 @@ const GAME_CONFIG = {
     // Each entry: { multiplier: value, weight: probability }
     // Weights are cumulative percentages (0-100)
     WEIGHTED_TABLE: [
-      { multiplier: 2,   weight: 69.9098 },
-      { multiplier: 3,   weight: 24 },
-      { multiplier: 4,   weight: 4 },
-      { multiplier: 5,   weight: 3 },
-      { multiplier: 6,   weight: 2 },
-      { multiplier: 8,   weight: 1 },
-      { multiplier: 10,   weight: 1 },
-      { multiplier: 20,   weight: 1 },
-      { multiplier: 100,   weight: 0.0001 },
-      { multiplier: 500,   weight: 0.000001 }
+      { multiplier: 2,   weight: 48.7 },    // 48.7% - Most common
+      { multiplier: 3,   weight: 20.0 },    // 20.0% - Common
+      { multiplier: 4,   weight: 9.0 },     //  9.0% - Uncommon
+      { multiplier: 5,   weight: 7.0 },     //  7.0% - Uncommon
+      { multiplier: 6,   weight: 7.0 },     //  7.0% - Uncommon
+      { multiplier: 8,   weight: 4.0 },     //  4.0% - Rare
+      { multiplier: 10,  weight: 2.0 },     //  2.0% - Rare
+      { multiplier: 20,  weight: 1.2989 },  //  1.2989% - Very rare
+      { multiplier: 100, weight: 0.001 },   //  0.001% - ULTRA RARE (1 in 100,000)
+      { multiplier: 500, weight: 0.0001 }   //  0.0001% - MEGA RARE (1 in 1,000,000)
     ],
     // Legacy TABLE for backwards compatibility (will be ignored if WEIGHTED_TABLE exists)
     TABLE: null

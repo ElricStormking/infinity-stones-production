@@ -652,4 +652,314 @@ router.post('/api/feature-flags/category/:category',
   }
 );
 
+// =====================================================
+// RTP TUNING TOOL ROUTES
+// =====================================================
+
+const rtpSimulator = require('../services/rtpSimulator');
+const rtpOptimizer = require('../services/rtpOptimizer');
+const configManager = require('../services/configManager');
+
+/**
+ * GET /admin/rtp-tuning
+ * RTP Tuning Tool Page
+ */
+router.get('/rtp-tuning',
+  authenticateAdmin,
+  checkAdminSessionTimeout,
+  async (req, res) => {
+    try {
+      res.render('admin/rtp-tuning', {
+        title: 'RTP Tuning Tool - Infinity Storm Admin',
+        admin: req.admin
+      });
+    } catch (error) {
+      logger.error('RTP tuning page error', {
+        admin: req.admin?.account_id,
+        error: error.message
+      });
+      res.status(500).render('admin/error', {
+        title: 'Error',
+        error: 'Failed to load RTP tuning tool'
+      });
+    }
+  }
+);
+
+/**
+ * GET /admin/api/rtp/config
+ * Get current game configuration
+ */
+router.get('/api/rtp/config',
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const config = await configManager.readCurrentConfig();
+      res.json({
+        success: true,
+        config
+      });
+    } catch (error) {
+      logger.error('Get RTP config error', {
+        admin: req.admin?.account_id,
+        error: error.message
+      });
+      res.status(500).json({
+        success: false,
+        error: 'Failed to read current configuration'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/rtp/simulate
+ * Run RTP simulation with custom config
+ */
+router.post('/api/rtp/simulate',
+  authenticateAdmin,
+  [
+    body('spinCount')
+      .optional()
+      .isInt({ min: 1000, max: 1000000 })
+      .withMessage('Spin count must be between 1,000 and 1,000,000'),
+    body('symbolWeights')
+      .optional()
+      .isObject()
+      .withMessage('Symbol weights must be an object'),
+    body('scatterChance')
+      .optional()
+      .isFloat({ min: 0.001, max: 0.2 })
+      .withMessage('Scatter chance must be between 0.001 and 0.2'),
+    body('multiplierTable')
+      .optional()
+      .isArray()
+      .withMessage('Multiplier table must be an array'),
+    body('freeSpinsConfig')
+      .optional()
+      .isObject()
+      .withMessage('Free spins config must be an object')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const {
+        symbolWeights,
+        scatterChance,
+        multiplierTable,
+        freeSpinsConfig,
+        spinCount = 100000
+      } = req.body;
+
+      logger.info('Starting RTP simulation', {
+        admin: req.admin?.account_id,
+        spinCount
+      });
+
+      // Run simulation
+      const results = await rtpSimulator.runSimulation({
+        symbolWeights,
+        scatterChance,
+        multiplierTable,
+        freeSpinsConfig,
+        spinCount
+      });
+
+      res.json({
+        success: true,
+        results
+      });
+    } catch (error) {
+      logger.error('RTP simulation error', {
+        admin: req.admin?.account_id,
+        error: error.message,
+        stack: error.stack
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Simulation failed'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/rtp/optimize
+ * Get optimal weights for target RTP
+ */
+router.post('/api/rtp/optimize',
+  authenticateAdmin,
+  [
+    body('targetRTP')
+      .isFloat({ min: 85, max: 110 })
+      .withMessage('Target RTP must be between 85% and 110%'),
+    body('currentConfig')
+      .isObject()
+      .withMessage('Current config must be provided'),
+    body('maxIterations')
+      .optional()
+      .isInt({ min: 1, max: 20 })
+      .withMessage('Max iterations must be between 1 and 20')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const {
+        targetRTP,
+        currentConfig,
+        maxIterations = 10
+      } = req.body;
+
+      logger.info('Starting RTP optimization', {
+        admin: req.admin?.account_id,
+        targetRTP,
+        maxIterations
+      });
+
+      // Run optimization
+      const results = await rtpOptimizer.optimize({
+        targetRTP,
+        currentConfig,
+        maxIterations
+      });
+
+      res.json({
+        success: true,
+        ...results
+      });
+    } catch (error) {
+      logger.error('RTP optimization error', {
+        admin: req.admin?.account_id,
+        error: error.message,
+        stack: error.stack
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Optimization failed'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/rtp/apply
+ * Apply new configuration to server
+ */
+router.post('/api/rtp/apply',
+  authenticateAdmin,
+  sensitiveRateLimit,
+  [
+    body('newConfig')
+      .isObject()
+      .withMessage('New config must be provided'),
+    body('adminConfirmation')
+      .equals('true')
+      .withMessage('Admin confirmation required')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const { newConfig } = req.body;
+
+      logger.info('Applying new RTP config', {
+        admin: req.admin?.account_id,
+        changes: Object.keys(newConfig)
+      });
+
+      // Apply config
+      const result = await configManager.applyConfig(
+        newConfig,
+        req.admin.account_id
+      );
+
+      res.json({
+        success: true,
+        ...result,
+        message: 'Configuration applied successfully'
+      });
+    } catch (error) {
+      logger.error('Apply RTP config error', {
+        admin: req.admin?.account_id,
+        error: error.message,
+        stack: error.stack
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to apply configuration'
+      });
+    }
+  }
+);
+
+/**
+ * POST /admin/api/rtp/rollback
+ * Rollback to previous backup
+ */
+router.post('/api/rtp/rollback',
+  authenticateAdmin,
+  sensitiveRateLimit,
+  [
+    body('backupPath')
+      .isString()
+      .withMessage('Backup path required')
+  ],
+  validateErrors,
+  async (req, res) => {
+    try {
+      const { backupPath } = req.body;
+
+      logger.info('Rolling back RTP config', {
+        admin: req.admin?.account_id,
+        backupPath
+      });
+
+      await configManager.rollback(backupPath, req.admin.account_id);
+
+      res.json({
+        success: true,
+        message: 'Configuration rolled back successfully'
+      });
+    } catch (error) {
+      logger.error('RTP rollback error', {
+        admin: req.admin?.account_id,
+        error: error.message,
+        stack: error.stack
+      });
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Rollback failed'
+      });
+    }
+  }
+);
+
+/**
+ * GET /admin/api/rtp/history
+ * Get config change history
+ */
+router.get('/api/rtp/history',
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const history = configManager.getHistory();
+      const backups = await configManager.listBackups();
+
+      res.json({
+        success: true,
+        history,
+        backups
+      });
+    } catch (error) {
+      logger.error('Get RTP history error', {
+        admin: req.admin?.account_id,
+        error: error.message
+      });
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve history'
+      });
+    }
+  }
+);
+
 module.exports = router;
