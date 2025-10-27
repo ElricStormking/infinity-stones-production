@@ -6,6 +6,16 @@ window.AudioInitialized = false;
 
 // Safe sound system - handles missing audio gracefully
 window.SafeSound = {
+    isMusicEnabled: function(scene) {
+        try {
+            return !!(scene && scene.stateManager && scene.stateManager.gameData && scene.stateManager.gameData.musicEnabled !== false);
+        } catch (_) { return true; }
+    },
+    isSoundEnabled: function(scene) {
+        try {
+            return !!(scene && scene.stateManager && scene.stateManager.gameData && scene.stateManager.gameData.soundEnabled !== false);
+        } catch (_) { return true; }
+    },
     initAudio: function(scene) {
         if (!window.AudioInitialized && scene.sound && scene.sound.context) {
             console.log('🔊 Initializing audio context after user interaction');
@@ -28,6 +38,11 @@ window.SafeSound = {
     play: function(scene, key, config = {}) {
         // Try to initialize audio if not done yet
         this.initAudio(scene);
+        // Gate SFX by user setting
+        if (!this.isSoundEnabled(scene)) {
+            console.log(`🔇 SFX disabled - skip '${key}'`);
+            return null;
+        }
         
         try {
             console.log(`🔊 Attempting to play '${key}'`);
@@ -143,10 +158,20 @@ window.SafeSound = {
     },
     
     startMainBGM: function(scene) {
+        if (!this.isMusicEnabled(scene)) {
+            console.log('🔇 Music disabled - not starting main BGM');
+            this.stopBGM();
+            return;
+        }
         this.switchBGM(scene, 'bgm_infinity_storm');
     },
     
     startFreeSpinsBGM: function(scene) {
+        if (!this.isMusicEnabled(scene)) {
+            console.log('🔇 Music disabled - not starting free spins BGM');
+            this.stopBGM();
+            return;
+        }
         this.switchBGM(scene, 'bgm_free_spins');
     },
     

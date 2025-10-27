@@ -752,17 +752,21 @@ window.UIManager = class UIManager {
         this.settingsContainer.add(exitBtn);
 
         // Simple click handlers for rules/history (placeholder behaviour for now)
-        if (rulesBtn) {
-            rulesBtn.on('pointerup', () => {
-                if (this.scene.showMessage) this.scene.showMessage('Rules coming soon');
-            });
-        }
-        if (historyBtn) {
-            historyBtn.on('pointerup', () => {
-                window.SafeSound.play(this.scene, 'click');
-                this.openTransactionHistory();
-            });
-        }
+		if (rulesBtn) {
+			rulesBtn.on('pointerup', () => {
+				// Close settings panel if it was left open
+				this.closeSettingsPanel?.();
+				if (this.scene.showMessage) this.scene.showMessage('Rules coming soon');
+			});
+		}
+		if (historyBtn) {
+			historyBtn.on('pointerup', () => {
+				// Close settings panel if it was left open
+				this.closeSettingsPanel?.();
+				window.SafeSound.play(this.scene, 'click');
+				this.openTransactionHistory();
+			});
+		}
 
         // Block input behind settings, but avoid immediate auto-close (debounce)
         dim.setInteractive();
@@ -777,14 +781,27 @@ window.UIManager = class UIManager {
         this.setButtonsEnabled(false);
     }
 
-    closeSettingsUI() {
-        if (this.settingsContainer) {
-            this.settingsContainer.destroy();
-            this.settingsContainer = null;
-        }
-        // Re-enable gameplay UI
-        this.setButtonsEnabled(true);
-    }
+	closeSettingsUI() {
+		// Ensure the settings panel cannot remain on screen when the menu closes
+		if (this.settingsPanel) {
+			this.settingsPanel.destroy();
+			this.settingsPanel = null;
+		}
+		if (this.settingsContainer) {
+			this.settingsContainer.destroy();
+			this.settingsContainer = null;
+		}
+		// Re-enable gameplay UI
+		this.setButtonsEnabled(true);
+	}
+
+	// Close only the inner Settings panel (keep side menu open)
+	closeSettingsPanel() {
+		if (this.settingsPanel) {
+			this.settingsPanel.destroy();
+			this.settingsPanel = null;
+		}
+	}
     
     // Dedicated Settings panel with Sound/Music toggles
     openSettingsPanel() {
@@ -840,17 +857,16 @@ window.UIManager = class UIManager {
         };
 
         makeToggle((height / 2) - 50 * scaleY, 'SOUND', () => this.scene.stateManager.gameData.soundEnabled, () => {
-            this.scene.stateManager.gameData.soundEnabled = !this.scene.stateManager.gameData.soundEnabled;
+			this.scene.stateManager.gameData.soundEnabled = !this.scene.stateManager.gameData.soundEnabled;
         });
         makeToggle((height / 2) + 20 * scaleY, 'MUSIC', () => this.scene.stateManager.gameData.musicEnabled, () => {
             const gd = this.scene.stateManager.gameData;
             gd.musicEnabled = !gd.musicEnabled;
-            if (gd.musicEnabled) {
-                window.SafeSound.startMainBGM(this.scene);
-            } else if (window.SafeSound.currentBGM) {
-                try { window.SafeSound.currentBGM.stop(); } catch (_) {}
-                window.SafeSound.currentBGM = null;
-            }
+			if (gd.musicEnabled) {
+				window.SafeSound.startMainBGM(this.scene);
+			} else {
+				window.SafeSound.stopBGM();
+			}
         });
 
         // Close button
