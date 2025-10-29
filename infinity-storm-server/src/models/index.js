@@ -40,7 +40,7 @@ const sequelize = new Sequelize({
   // Logging settings
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
 
-  // SSL settings
+  // SSL settings (normalized via PGSSLMODE/DATABASE_URL)
   dialectOptions: {
     ssl: dbConfig.config.ssl
   },

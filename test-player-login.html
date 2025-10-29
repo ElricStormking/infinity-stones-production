@@ -207,8 +207,14 @@
                 console.log('✅ Token saved to localStorage');
                 console.log('🔍 Verification check:', verifyToken ? `Token exists (${verifyToken.substring(0, 30)}...)` : '❌ TOKEN NOT FOUND IN LOCALSTORAGE!');
                 
-                const gameHref = window.location.origin + '/';
+                const gameHref = window.location.origin + '/?token=' + encodeURIComponent(verifyToken);
                 const openGameAnchor = `<a href="${gameHref}" target="_blank" style="color: #3282b8;"><strong>→ Open Game</strong></a>`;
+                
+                // Auto-redirect in same tab (better for InPrivate windows)
+                setTimeout(() => {
+                    window.location.href = gameHref;
+                }, 2000);
+                
                 resultDiv.innerHTML = `
                     <div class="success">
                         <h3>✅ Login Successful!</h3>

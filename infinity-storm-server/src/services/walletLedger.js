@@ -18,6 +18,8 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 const assertDbClient = (client) => {
   if (!client || typeof client.query !== 'function') {
     throw new Error('A pg client instance is required for atomic wallet operations');
@@ -26,6 +28,10 @@ const assertDbClient = (client) => {
 
 const setTransactionReference = async (client, transactionId, referenceId, referenceType = SPIN_REFERENCE_TYPE) => {
   if (!transactionId || !referenceId) {
+    return;
+  }
+  if (!uuidRegex.test(String(referenceId))) {
+    // Ignore non-UUID references (e.g., 'spin_...'); we'll backfill the real spin UUID later
     return;
   }
   await client.query(
@@ -67,7 +73,7 @@ async function processBet({
   const betDescription = description || `Spin bet of ${normalizedAmount} credits`;
 
   const { rows } = await client.query(
-    'SELECT process_bet_transaction($1, $2, $3) AS transaction_id',
+    'SELECT public.process_bet_transaction($1::uuid, $2::numeric, $3::text) AS transaction_id',
     [playerId, normalizedAmount, betDescription]
   );
 
@@ -76,9 +82,7 @@ async function processBet({
     throw new Error('Failed to record bet transaction');
   }
 
-  if (referenceId) {
-    await setTransactionReference(client, transactionId, referenceId);
-  }
+  // Do not set reference here; we'll backfill the real spin_result UUID after saving the spin
 
   const balanceRes = await client.query(
     'SELECT credits::numeric AS credits FROM players WHERE id = $1',
@@ -115,7 +119,7 @@ async function processWin({
   const winDescription = description || `Spin win of ${normalizedAmount} credits`;
 
   const { rows } = await client.query(
-    'SELECT process_win_transaction($1, $2, $3, $4) AS transaction_id',
+    'SELECT public.process_win_transaction($1::uuid, $2::numeric, $3::uuid, $4::text) AS transaction_id',
     [playerId, normalizedAmount, referenceId, winDescription]
   );
 
@@ -124,9 +128,7 @@ async function processWin({
     throw new Error('Failed to record win transaction');
   }
 
-  if (referenceId) {
-    await setTransactionReference(client, transactionId, referenceId);
-  }
+  // Do not set reference here; we'll backfill the real spin_result UUID after saving the spin
 
   const balanceRes = await client.query(
     'SELECT credits::numeric AS credits FROM players WHERE id = $1',
@@ -144,6 +146,13 @@ async function processWin({
     currentBalance,
     referenceId
   );
+}
+
+async function linkTransactionToSpin({ client, transactionId, spinUuid, referenceType = SPIN_REFERENCE_TYPE }) {
+  if (!client || typeof client.query !== 'function') { throw new Error('pg client required'); }
+  if (!transactionId || !spinUuid) { return; }
+  if (!uuidRegex.test(String(spinUuid))) { return; }
+  await setTransactionReference(client, transactionId, spinUuid, referenceType);
 }
 
 async function getBalance(playerId, { client = null } = {}) {
@@ -214,5 +223,6 @@ async function getBalance(playerId, { client = null } = {}) {
 module.exports = {
   processBet,
   processWin,
-  getBalance
+  getBalance,
+  linkTransactionToSpin
 };

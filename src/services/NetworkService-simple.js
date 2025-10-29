@@ -34,7 +34,7 @@ window.NetworkService = {
         if (!this.authToken) return false;
         
         try {
-            const result = await this.post('/api/validate-session');
+            const result = await this.post('/api/auth/validate', { token: this.authToken });
             if (!result.success) {
                 console.warn('Stored token is invalid, clearing...');
                 this.setAuthToken(null);
@@ -203,7 +203,7 @@ window.NetworkService = {
         }
         
         try {
-            return await this.post('/api/validate-session');
+            return await this.post('/api/auth/validate', { token: this.authToken });
         } catch (error) {
             console.error('Session validation failed:', error);
             return { 

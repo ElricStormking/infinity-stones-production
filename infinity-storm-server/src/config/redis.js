@@ -71,6 +71,7 @@ if (shouldSkipRedis) {
 
   const config = {
     development: {
+      // Prefer REDIS_URL if provided; otherwise host/port
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT || 6379,
       password: process.env.REDIS_PASSWORD || undefined,
@@ -112,8 +113,8 @@ if (shouldSkipRedis) {
     if (!redisClient) {
       const redisConfig = config[environment];
 
-      // Handle Redis URL if provided
-      if (process.env.REDIS_URL && environment !== 'development') {
+      // Handle Redis URL if provided (always preferred)
+      if (process.env.REDIS_URL) {
         redisClient = new Redis(process.env.REDIS_URL, {
           maxRetriesPerRequest: 3,
           lazyConnect: true

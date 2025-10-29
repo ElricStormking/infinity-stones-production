@@ -43,6 +43,16 @@ window.SessionService = new (class SessionService {
             // Check localStorage for existing session
             this.loadStoredSession();
         }
+
+        // Always prefer the game client's token as the single source of truth
+        try {
+            const networkToken = (window.NetworkService && window.NetworkService.getStoredToken && window.NetworkService.getStoredToken()) || localStorage.getItem('infinity_storm_token');
+            if (networkToken) {
+                this.sessionToken = networkToken;
+                // Purge any stale session blob to avoid parallel validations with old tokens
+                localStorage.removeItem('infinity_storm_session');
+            }
+        } catch (_) {}
         
         // Validate current session
         const isValid = await this.validateSession();
@@ -223,6 +233,14 @@ window.SessionService = new (class SessionService {
             return true; // Always return valid in fallback mode
         }
         
+        // Resolve the most current token from NetworkService/localStorage
+        try {
+            const current = (window.NetworkService && window.NetworkService.getStoredToken && window.NetworkService.getStoredToken()) || localStorage.getItem('infinity_storm_token');
+            if (current) {
+                this.sessionToken = current;
+            }
+        } catch (_) {}
+
         if (!this.sessionToken) {
             console.log('🔐 No session token to validate');
             return false;
@@ -246,7 +264,7 @@ window.SessionService = new (class SessionService {
             }
             
             // Validate with server
-            const response = await fetch('http://localhost:3000/api/validate-session', {
+            const response = await fetch('http://localhost:3000/api/auth/validate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

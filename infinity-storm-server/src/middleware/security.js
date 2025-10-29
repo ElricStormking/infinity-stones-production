@@ -20,28 +20,36 @@ const { logger } = require('../utils/logger');
 // Environment-based configuration
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+// Explicit flag so we can run plain HTTP in containers without TLS
+const FORCE_HTTPS = (process.env.FORCE_HTTPS || 'false').toLowerCase() === 'true';
+// Never force HTTPS on loopback hosts used for local/dev access
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 /**
  * HTTPS Enforcement Middleware
  * Redirects all HTTP requests to HTTPS in production
  */
 const enforceHttps = (req, res, next) => {
-  // Skip in development
-  if (IS_DEVELOPMENT) {
+  // Hostname-based bypass for local development even if FORCE_HTTPS is true
+  const hostHeader = req.get('host') || '';
+  const hostname = hostHeader.split(':')[0];
+
+  // Skip unless explicitly forced OR when on loopback
+  if (!FORCE_HTTPS || LOOPBACK_HOSTS.has(hostname)) {
     return next();
   }
 
-  // Check if request is secure
+  // Check if request is secure (behind proxy)
   const isSecure = req.secure || req.get('x-forwarded-proto') === 'https';
 
-  if (!isSecure && IS_PRODUCTION) {
+  if (!isSecure) {
     logger.warn('Insecure HTTP request redirected to HTTPS', {
       ip: req.ip,
       url: req.url,
       userAgent: req.get('user-agent')
     });
 
-    return res.redirect(301, `https://${req.get('host')}${req.url}`);
+    return res.redirect(301, `https://${hostHeader}${req.url}`);
   }
 
   next();
@@ -51,7 +59,7 @@ const enforceHttps = (req, res, next) => {
  * Security Headers Configuration
  * Using Helmet.js for comprehensive header management
  */
-const securityHeaders = IS_DEVELOPMENT
+const securityHeaders = IS_DEVELOPMENT || !FORCE_HTTPS
   ? helmet({
     // In development, disable CSP to avoid blocking Phaser/dev assets
     contentSecurityPolicy: false,
@@ -127,14 +135,13 @@ const ALLOWED_ORIGINS = [
   'https://www.infinitystorm.com',
   'https://portal.infinitystorm.com',
   'https://admin.infinitystorm.com',
-  ...(IS_DEVELOPMENT ? [
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://localhost:5500',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:8080',
-    'http://127.0.0.1:5500'
-  ] : [])
+  // Always allow loopback for local testing/dev
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'http://localhost:5500',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:5500'
 ];
 
 const corsOptions = {
@@ -190,6 +197,10 @@ const globalRateLimiter = rateLimit({
   skip: (req) => {
     // Skip rate limiting for health checks and in development mode
     if (IS_DEVELOPMENT) {return true;}
+    // Skip for loopback (testing via curl/browser on same machine)
+    const hostHeader = req.get('host') || '';
+    const hostname = hostHeader.split(':')[0];
+    if (LOOPBACK_HOSTS.has(hostname)) {return true;}
     return req.path === '/health' || req.path === '/api/health';
   },
   handler: (req, res) => {
@@ -222,7 +233,18 @@ const apiRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => IS_DEVELOPMENT, // Skip API rate limiting in development
+  skip: (req) => {
+    // Always bypass API limiter for spin endpoints; a dedicated limiter applies separately
+    if (req.path.startsWith('/api/spin') || req.path.startsWith('/api/demo-spin')) {return true;}
+    // Bypass in development completely
+    if (IS_DEVELOPMENT) {return true;}
+    // Skip loopback and health endpoints even in production to avoid flaps in local env
+    const hostHeader = req.get('host') || '';
+    const hostname = hostHeader.split(':')[0];
+    if (LOOPBACK_HOSTS.has(hostname)) {return true;}
+    if (req.path === '/api/health' || req.path === '/health') {return true;}
+    return false;
+  },
   keyGenerator: (req) => {
     // Rate limit by player ID if authenticated, else by IP
     return req.user?.id || req.ip;
@@ -247,6 +269,10 @@ const spinRateLimiter = rateLimit({
   skip: (req) => {
     // Skip in development mode or for demo spins
     if (IS_DEVELOPMENT) {return true;}
+    // Skip for loopback hosts to allow local testing without throttling
+    const hostHeader = req.get('host') || '';
+    const hostname = hostHeader.split(':')[0];
+    if (LOOPBACK_HOSTS.has(hostname)) {return true;}
     return req.path.includes('/demo-spin');
   }
 });
@@ -263,7 +289,13 @@ const demoSpinRateLimiter = rateLimit({
     error: 'DEMO_RATE_LIMIT_EXCEEDED',
     message: 'Demo mode rate limit exceeded. Please wait before spinning again.'
   },
-  skip: (req) => IS_DEVELOPMENT, // Skip demo rate limiting in development
+  skip: (req) => {
+    if (IS_DEVELOPMENT) {return true;}
+    // Skip for loopback (testing via browser on same machine)
+    const hostHeader = req.get('host') || '';
+    const hostname = hostHeader.split(':')[0];
+    return LOOPBACK_HOSTS.has(hostname);
+  },
   keyGenerator: (req) => req.ip
 });
 

@@ -37,6 +37,13 @@ async function logFinancialTransaction({
     return { success: true, skipped: true, reason: 'demo_player' };
   }
 
+  // Guard: allow disabling via env (default disabled for local/dev Docker)
+  const enableSupabaseLog = (process.env.ENABLE_SUPABASE_FINANCIAL_LOG ?? 'false').toLowerCase() === 'true';
+  if (!enableSupabaseLog) {
+    logger.debug('Skipping Supabase financial log (ENABLE_SUPABASE_FINANCIAL_LOG=false)');
+    return { success: true, skipped: true, reason: 'dev_skip' };
+  }
+
   try {
     const { data, error } = await supabaseAdmin
       .from('financial_transactions')

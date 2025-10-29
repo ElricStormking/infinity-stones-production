@@ -22,7 +22,11 @@ class AuthController {
      */
   async validateSession(req, res) {
     try {
-      const { token } = req.body;
+      // Prefer Authorization header; fallback to JSON body token
+      const authHeader = req.headers.authorization || '';
+      const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      const bodyToken = req.body?.token;
+      const token = bearerToken || bodyToken;
 
       if (!token) {
         return res.status(400).json({
@@ -32,9 +36,12 @@ class AuthController {
         });
       }
 
+      console.log(`[VALIDATE] Token received (first 50 chars): ${token.substring(0, 50)}...`);
       const validation = await SessionManager.validateSession(token);
+      console.log('[VALIDATE] Validation result:', validation);
 
       if (!validation.valid) {
+        console.error('❌ VALIDATION ERROR:', validation.error);
         return res.status(401).json({
           error: 'Session invalid',
           code: 'INVALID_SESSION',
@@ -492,6 +499,7 @@ class AuthController {
       const passwordHash = await bcrypt.hash(password, 10);
 
       // Create new player using Supabase
+      const now = new Date().toISOString();
       const { data: playerData, error: insertError } = await supabaseAdmin
         .from('players')
         .insert({
@@ -502,7 +510,8 @@ class AuthController {
           is_demo: false,
           is_admin: false,
           status: 'active',
-          created_at: new Date().toISOString()
+          created_at: now,
+          updated_at: now
         })
         .select('id, username, email, credits')
         .single();
@@ -530,22 +539,54 @@ class AuthController {
         // Continue with registration even if transaction logging fails
       }
 
-      // Generate JWT token
-      const token = JWTAuth.generateAccessToken({
+      // Create proper session with Redis
+    let sessionResult, token;
+    try {
+      console.log('[REGISTER] Creating session for player:', player.id);
+      sessionResult = await SessionManager.createSession(player.id, {
+        player_id: player.id,
+        username: player.username,
+        email: player.email,
+        is_demo: false,
+        is_admin: false
+      });
+      
+      // Check if session creation failed
+      if (!sessionResult.success) {
+        throw new Error(sessionResult.error || 'Session creation failed');
+      }
+      
+      token = sessionResult.token;  // ← Correct property name
+      
+      console.log('[REGISTER] Session created successfully:', {
+        player_id: player.id,
+        session_id: sessionResult.session.id,  // ← Correct property path
+        token_length: token ? token.length : 0
+      });
+      
+      logger.info('Session created with Redis', {
+        player_id: player.id,
+        session_id: sessionResult.session.id
+      });
+    } catch (sessionError) {
+      console.error('[REGISTER] Session creation failed:', sessionError.message);
+      console.error('[REGISTER] Session error stack:', sessionError.stack);
+      // Fallback to JWT-only (no Redis session)
+      token = JWTAuth.generateAccessToken({
         player_id: player.id,
         username: player.username,
         is_demo: false
       });
-
-      // TEMPORARY FIX: Skip session database record due to "stack depth limit exceeded" error
-      // Sessions will be validated by JWT token only
-      // Create session data without saving to database (JWT-only validation)
-      const sessionData = {
-        id: crypto.randomUUID(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      sessionResult = {
+        success: false,
+        token: token,
+        session: {
+          id: 'fallback_' + Date.now(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        }
       };
-
-      logger.info('Using JWT-only session (database session skipped due to trigger issues)');
+      console.log('[REGISTER] Using fallback JWT-only token');
+    }
 
       logger.info('New player registered', {
         player_id: player.id,
@@ -566,13 +607,15 @@ class AuthController {
           is_admin: false
         },
         session: {
-          id: sessionData.id,
-          expires_at: sessionData.expires_at
+          id: sessionResult.session.id,
+          expires_at: sessionResult.session.expires_at
         },
         token
       });
 
     } catch (error) {
+      console.error('❌ REGISTRATION ERROR:', error.message);
+      console.error('Stack:', error.stack);
       logger.error('Registration error', {
         error: error.message,
         stack: error.stack,
@@ -603,11 +646,45 @@ class AuthController {
         .limit(1);
 
       if (findError || !players || players.length === 0) {
-        return res.status(401).json({
-          error: 'Authentication failed',
-          code: 'INVALID_CREDENTIALS',
-          message: 'Invalid username or password'
-        });
+        // Dev convenience: auto-provision test player if missing
+        const autoCreate = (process.env.AUTO_CREATE_TEST_PLAYERS ?? 'true').toLowerCase() === 'true';
+        if (autoCreate && process.env.NODE_ENV !== 'production') {
+          const now = new Date().toISOString();
+          const email = `${username}@test.com`;
+          const passwordHash = await bcrypt.hash(password, 10);
+
+          const { data: created, error: createErr } = await supabaseAdmin
+            .from('players')
+            .insert({
+              username,
+              email,
+              password_hash: passwordHash,
+              credits: 1000.00,
+              is_demo: false,
+              is_admin: false,
+              status: 'active',
+              created_at: now,
+              updated_at: now
+            })
+            .select('id, username, email, password_hash, credits, is_demo, is_admin, status')
+            .single();
+
+          if (!createErr && created) {
+            players = [created];
+          } else {
+            return res.status(401).json({
+              error: 'Authentication failed',
+              code: 'INVALID_CREDENTIALS',
+              message: 'Invalid username or password'
+            });
+          }
+        } else {
+          return res.status(401).json({
+            error: 'Authentication failed',
+            code: 'INVALID_CREDENTIALS',
+            message: 'Invalid username or password'
+          });
+        }
       }
 
       const player = players[0];
@@ -637,33 +714,35 @@ class AuthController {
         });
       }
 
-      // Generate JWT token
-      const token = JWTAuth.generateAccessToken({
-        player_id: player.id,
-        username: player.username,
-        is_demo: player.is_demo,
-        is_admin: player.is_admin
-      });
+      // Create proper session with Redis + DB
+      console.log('[LOGIN] Creating session for player:', player.id);
+      const sessionResult = await SessionManager.createSession(
+        player.id,
+        {
+          player_id: player.id,
+          username: player.username,
+          is_admin: player.is_admin,
+          is_demo: player.is_demo,
+          ip_address: req.ip,
+          user_agent: req.get('User-Agent')
+        }
+      );
 
-      // TEMPORARY FIX: Skip session database record due to "stack depth limit exceeded" error
-      // Sessions will be validated by JWT token only
-      // Delete old sessions (if any exist)
-      try {
-        await supabaseAdmin
-          .from('sessions')
-          .delete()
-          .eq('player_id', player.id);
-      } catch (deleteError) {
-        logger.warn('Failed to delete old sessions (non-critical)', { error: deleteError.message });
+      if (!sessionResult.success) {
+        console.error('[LOGIN] Session creation failed:', sessionResult.error);
+        return res.status(500).json({
+          error: 'Login failed',
+          code: 'SESSION_CREATION_ERROR',
+          message: sessionResult.error || 'Unable to create session'
+        });
       }
 
-      // Create session data without saving to database (JWT-only validation)
-      const sessionData = {
-        id: crypto.randomUUID(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      };
-
-      logger.info('Using JWT-only session (database session skipped due to trigger issues)');
+      const token = sessionResult.token;
+      console.log('[LOGIN] Session created successfully:', {
+        player_id: player.id,
+        session_id: sessionResult.session.id,
+        token_length: token ? token.length : 0
+      });
 
       // Update last login using Supabase
       await supabaseAdmin
@@ -688,10 +767,7 @@ class AuthController {
           is_demo: player.is_demo,
           is_admin: player.is_admin
         },
-        session: {
-          id: sessionData.id,
-          expires_at: sessionData.expires_at
-        },
+        session: sessionResult.session,
         token
       });
 

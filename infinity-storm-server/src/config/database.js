@@ -16,6 +16,12 @@
 const { Pool } = require('pg');
 const { logger } = require('../utils/logger');
 
+// Normalize SSL handling via PGSSLMODE/DATABASE_URL
+const sslModeEnv = (process.env.PGSSLMODE || process.env.SSLMODE || '').toLowerCase();
+const normalizedSsl = (sslModeEnv === 'require' || sslModeEnv === 'verify-full' || /sslmode=require/i.test(String(process.env.DATABASE_URL || '')))
+  ? { rejectUnauthorized: false }
+  : false;
+
 /**
  * Database Configuration based on environment
  */
@@ -37,8 +43,8 @@ const config = {
     statement_timeout: 10000,   // 10 second query timeout
     query_timeout: 8000,        // 8 second individual query timeout
 
-    // SSL Settings
-    ssl: false
+    // SSL controlled by PGSSLMODE/DATABASE_URL only
+    ssl: normalizedSsl
   },
 
   production: {
@@ -58,11 +64,8 @@ const config = {
     statement_timeout: 30000,   // 30 second timeout for complex queries
     query_timeout: 25000,       // 25 second individual query timeout
 
-    // Production SSL Settings
-    ssl: {
-      rejectUnauthorized: false, // Configure based on your SSL setup
-      sslmode: 'require'
-    }
+    // SSL controlled by PGSSLMODE/DATABASE_URL only
+    ssl: normalizedSsl
   },
 
   test: {
@@ -82,7 +85,8 @@ const config = {
     statement_timeout: 5000,
     query_timeout: 3000,
 
-    ssl: false
+    // SSL controlled by PGSSLMODE/DATABASE_URL only
+    ssl: normalizedSsl
   }
 };
 

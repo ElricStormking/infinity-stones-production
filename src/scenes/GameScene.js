@@ -29,6 +29,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 window.WalletAPI.currentBalance = 10000;
                 console.log('🎮 [DEMO] Balance initialized: $10,000');
             }
+        } else {
+            // Authenticated: avoid showing stale demo balance before server sync
+            if (this.stateManager) {
+                this.stateManager.gameData.balance = 0;
+            }
+            if (window.WalletAPI) {
+                window.WalletAPI.currentBalance = 0;
+            }
         }
         
         // Initialize cascade synchronization system
@@ -614,6 +622,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
                 console.log('✅ Balance updated on game entry:', balanceValue);
             } else {
                 console.warn('⚠️ No valid balance found in server response');
+                // Fallback: fetch wallet balance explicitly and update UI
+                if (window.WalletAPI && typeof window.WalletAPI.getBalance === 'function') {
+                    try {
+                        const res = await window.WalletAPI.getBalance();
+                        const b = res && res.data && typeof res.data.balance === 'number' ? res.data.balance : null;
+                        if (b !== null) {
+                            this.stateManager.setBalanceFromServer(b);
+                            window.WalletAPI.setBalance(b);
+                            this.updateBalanceDisplay();
+                            console.log('✅ Balance recovered via /api/wallet/balance:', b);
+                        }
+                    } catch (_) {}
+                }
             }
         } catch (error) {
             console.warn('Initial server state fetch failed:', error);

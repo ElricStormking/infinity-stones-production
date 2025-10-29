@@ -25,14 +25,14 @@ FROM node:18-alpine AS server-builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy server package files (paths are relative to repo root build context)
+COPY infinity-storm-server/package*.json ./
 
 # Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy server source code
+COPY infinity-storm-server/ ./
 
 # Build server if build script exists
 RUN npm run build 2>/dev/null || echo "No server build script found"
@@ -56,22 +56,25 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
-COPY --chown=nodejs:nodejs package*.json ./
+# Copy server package files from server-builder (ensures using server's package.json)
+COPY --chown=nodejs:nodejs --from=server-builder /app/package*.json ./
 
 # Install production dependencies only
 RUN npm ci --production --no-optional && \
     npm cache clean --force
 
-# Copy built client bundle from client-builder
-COPY --chown=nodejs:nodejs --from=client-builder /build/dist ../dist
+# Copy built client bundle from client-builder to /app/dist
+RUN mkdir -p /dist
+COPY --chown=nodejs:nodejs --from=client-builder /build/dist /dist
 
-# Copy server application from server-builder
+# Copy test-player-login.html from repo root
+COPY --chown=nodejs:nodejs ../test-player-login.html ./test-player-login.html
+
+# Copy server runtime files from server-builder
 COPY --chown=nodejs:nodejs --from=server-builder /app/server.js ./
 COPY --chown=nodejs:nodejs --from=server-builder /app/src ./src
+COPY --chown=nodejs:nodejs --from=server-builder /app/views ./views
 COPY --chown=nodejs:nodejs --from=server-builder /app/game-logic ./game-logic
-COPY --chown=nodejs:nodejs --from=server-builder /app/views ./views 2>/dev/null || true
-COPY --chown=nodejs:nodejs --from=server-builder /app/public ./public 2>/dev/null || true
 
 # Create log directory
 RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
@@ -79,12 +82,12 @@ RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
 # Switch to non-root user
 USER nodejs
 
-# Expose port
-EXPOSE 8080
+# Expose port 3000 (align with existing endpoints)
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Use tini to handle signals properly
 ENTRYPOINT ["/sbin/tini", "--"]

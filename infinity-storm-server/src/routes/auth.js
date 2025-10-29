@@ -43,19 +43,8 @@ router.use(authRateLimit);
  * Validate existing session token
  * Public endpoint - no authentication required
  */
-router.post('/validate',
-  [
-    body('token')
-      .notEmpty()
-      .withMessage('Token is required')
-      .isString()
-      .withMessage('Token must be a string')
-      .isLength({ min: 10 })
-      .withMessage('Token appears to be invalid')
-  ],
-  validateRequest,
-  AuthController.validateSession
-);
+// Accept either Authorization: Bearer <token> or JSON { token }
+router.post('/validate', AuthController.validateSession);
 
 /**
  * POST /api/auth/session

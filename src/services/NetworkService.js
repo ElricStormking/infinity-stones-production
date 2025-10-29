@@ -10,7 +10,7 @@ window.NetworkService = new (class NetworkService {
         this.isConnected = false;
         this.isRetrying = false;
         this.retryCount = 0;
-        this.maxRetries = 3;
+        this.maxRetries = 1; // Reduce retries to avoid 401 spam
         this.retryDelay = 1000; // Start with 1 second
         this.eventHandlers = new Map();
         
@@ -34,6 +34,11 @@ window.NetworkService = new (class NetworkService {
             console.log(`✅ [AUTH] Token found in URL parameter`);
             this.authToken = urlToken;
             localStorage.setItem('infinity_storm_token', urlToken);
+            // Set explicit real mode flag for 30 minutes
+            localStorage.setItem('explicit_real', '1');
+            localStorage.setItem('explicit_real_expires', (Date.now() + 30 * 60 * 1000).toString());
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
             return;
         }
         
@@ -118,7 +123,7 @@ window.NetworkService = new (class NetworkService {
                     // IMPORTANT: Do not clear the token when the validation endpoint fails.
                     // We preserve the token so the game continues in authenticated mode
                     // while backend validation can be flaky in dev.
-                    if (url && (url.includes('/api/validate-session') || url.includes('/api/auth/validate'))) {
+                    if (url && url.includes('/api/auth/validate')) {
                         console.warn('?? Auth validation 401 - preserving token for fallback');
                         return Promise.reject(error);
                     }
@@ -184,7 +189,10 @@ window.NetworkService = new (class NetworkService {
         
         console.log('[AUTH] Validating token...');
         try {
-            const result = await this.post('/api/validate-session', {});
+            // Prefer Authorization header, keep body as fallback for CORS-smoothed servers
+            const result = await this.api.post('/api/auth/validate', { token: this.authToken }, {
+                headers: { Authorization: `Bearer ${this.authToken}` }
+            });
             if (!result.success) {
                 console.warn('[AUTH] Token validation failed - clearing token');
                 this.handleAuthError();
@@ -544,7 +552,7 @@ window.NetworkService = new (class NetworkService {
         }
         
         try {
-            return await this.post('/api/validate-session');
+            return await this.post('/api/auth/validate', { token: this.authToken });
         } catch (error) {
             console.error('Session validation failed:', error);
             return { 

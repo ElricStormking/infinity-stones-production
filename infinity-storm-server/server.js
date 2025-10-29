@@ -202,7 +202,7 @@ app.use('/admin', adminRoutes);
 app.use('/api/auth', authRateLimiter, authRoutes);
 
 // Wallet API routes (temporarily disabled due to Redis dependency)
-// app.use('/api/wallet', walletRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // ------------------------------------------------------------
 // Dev: Run admin table migration and ensure default admin exists
@@ -234,6 +234,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// Apply dedicated rate limits for spin endpoints first (skip in loopback/dev per security.js)
+app.use('/api/spin', spinRateLimiter);
+app.use('/api/demo-spin', demoSpinRateLimiter);
+
 // API routes (with general API rate limiting)
 app.use('/api', apiRateLimiter);
 
@@ -241,7 +245,8 @@ app.use('/api', apiRateLimiter);
 app.use('/portal/mock', portalRoutes);
 
 // Demo balance endpoint (no auth required)
-app.get('/api/wallet/balance', async (req, res) => {
+// Dev helper (moved away from /api/wallet/* to avoid shadowing real wallet routes)
+app.get('/api/dev/wallet/balance', async (req, res) => {
   try {
     const origin = req.headers.origin || '';
     const isDemoRequest =
@@ -254,20 +259,20 @@ app.get('/api/wallet/balance', async (req, res) => {
       try {
         const { getDemoPlayer, getPlayerBalance, updatePlayerBalance } = require('./src/db/supabaseClient');
         const demoPlayer = await getDemoPlayer();
-        let finalBalance = 5000.00;
+        let finalBalance = 10000.00;
         try {
           const bal = await getPlayerBalance(demoPlayer.id);
           if (!bal.error) {
-            if (typeof bal.balance === 'number' && bal.balance < 5000) {
-              await updatePlayerBalance(demoPlayer.id, 5000.00);
-              finalBalance = 5000.00;
+            if (typeof bal.balance === 'number' && bal.balance < 10000) {
+              await updatePlayerBalance(demoPlayer.id, 10000.00);
+              finalBalance = 10000.00;
             } else if (typeof bal.balance === 'number') {
               finalBalance = bal.balance;
             }
           }
         } catch (e) {
-          // Fallback to 5000 if balance fetch fails
-          finalBalance = 5000.00;
+          // Fallback to 10000 if balance fetch fails
+          finalBalance = 10000.00;
         }
 
         return res.json({
@@ -279,7 +284,7 @@ app.get('/api/wallet/balance', async (req, res) => {
         // If Supabase not available, still serve demo balance
         return res.json({
           success: true,
-          data: { balance: 5000.00, currency: 'USD' },
+          data: { balance: 10000.00, currency: 'USD' },
           message: 'Demo balance (fallback)'
         });
       }
@@ -288,7 +293,7 @@ app.get('/api/wallet/balance', async (req, res) => {
     // Non-demo request default (development): serve demo balance
     return res.json({
       success: true,
-      data: { balance: 5000.00, currency: 'USD' },
+      data: { balance: 10000.00, currency: 'USD' },
       message: 'Demo balance'
     });
   } catch (err) {
@@ -1936,8 +1941,8 @@ if (process.env.NODE_ENV === 'production') {
 const distPath = path.resolve(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {
-    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
-    etag: true,
+    maxAge: 0, // Disable caching for testing
+    etag: false,
     lastModified: true
   }));
   console.log('✓ Serving client from dist folder');
@@ -2058,6 +2063,12 @@ if (process.env.NODE_ENV !== 'production') {
 // Whitelist: serve test-player-login.html explicitly without exposing repo
 app.get('/test-player-login.html', (req, res) => {
   try {
+    // In Docker container, file is in /app/test-player-login.html
+    const appLoginPath = path.resolve(__dirname, 'test-player-login.html');
+    if (fs.existsSync(appLoginPath)) {
+      return res.sendFile(appLoginPath);
+    }
+    // Fallback for local dev (repo root)
     const rootLoginPath = path.resolve(__dirname, '..', 'test-player-login.html');
     if (fs.existsSync(rootLoginPath)) {
       return res.sendFile(rootLoginPath);

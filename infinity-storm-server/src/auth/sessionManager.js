@@ -86,13 +86,36 @@ class SessionManager {
 
       const expiresAt = new Date(Date.now() + sessionDuration);
 
-      const dbSession = await Session.createSession({
-        player_id: playerId,
-        token: accessToken,
-        ip_address: sessionData.ipAddress || sessionData.ip_address,
-        user_agent: sessionData.userAgent || sessionData.user_agent,
-        expiryMinutes: Math.floor(sessionDuration / (60 * 1000))
-      });
+      let dbSession;
+      try {
+        dbSession = await Session.createSession({
+          player_id: playerId,
+          token: accessToken,
+          ip_address: sessionData.ipAddress || sessionData.ip_address,
+          user_agent: sessionData.userAgent || sessionData.user_agent,
+          expiryMinutes: Math.floor(sessionDuration / (60 * 1000))
+        });
+      } catch (dbErr) {
+        const msg = String(dbErr?.message || '').toLowerCase();
+        const isUniqueViolation =
+          msg.includes('duplicate key') ||
+          msg.includes('unique constraint') ||
+          msg.includes('token hash already exists') ||
+          String(dbErr?.name || '').toLowerCase().includes('unique');
+        if (isUniqueViolation) {
+          // Extremely rare: token collision (same iat). Regenerate once and retry.
+          accessToken = this.jwtAuth.generateAccessToken({ player_id: playerId, type: options.isAdminSession ? 'admin' : 'player' });
+          dbSession = await Session.createSession({
+            player_id: playerId,
+            token: accessToken,
+            ip_address: sessionData.ipAddress || sessionData.ip_address,
+            user_agent: sessionData.userAgent || sessionData.user_agent,
+            expiryMinutes: Math.floor(sessionDuration / (60 * 1000))
+          });
+        } else {
+          throw dbErr;
+        }
+      }
 
       // 5. Update player's last login
       await player.updateLastLogin();
@@ -129,132 +152,86 @@ class SessionManager {
      */
   async validateSession(accessToken, options = {}) {
     try {
-      // 1. Validate with JWT Auth (checks Redis cache)
-      const validation = await this.jwtAuth.validateAccessToken(accessToken);
-
-      if (!validation.valid) {
-        return {
-          valid: false,
-          error: validation.error
-        };
-      }
-
-      // Check if Redis is disabled - use JWT-only validation
-      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
-
-      if (skipRedis) {
-        // JWT-only validation mode - skip database session checks
-        // Use supabaseAdmin to bypass Row Level Security (RLS) policies
-        const { supabaseAdmin } = require('../db/supabaseClient');
-
-        // Get player data from Supabase
-        console.log('[SessionManager] Querying player from Supabase, player_id:', validation.player_id);
-        const { data: player, error: playerError } = await supabaseAdmin
-          .from('players')
-          .select('*')
-          .eq('id', validation.player_id)
-          .single();
-
-        if (playerError) {
-          console.error('[SessionManager] Supabase query error:', playerError);
-          return {
-            valid: false,
-            error: 'Player query failed: ' + playerError.message
-          };
-        }
-
-        if (!player) {
-          console.error('[SessionManager] Player not found for ID:', validation.player_id);
-          return {
-            valid: false,
-            error: 'Player not found in database'
-          };
-        }
-
-        console.log('[SessionManager] Player found:', player.username, player.id);
-
-        if (player.status !== 'active') {
-          return {
-            valid: false,
-            error: `Account is ${player.status}`
-          };
-        }
-
-        // Return validation with player data
-        return {
-          valid: true,
-          player: {
-            id: player.id,
-            username: player.username,
-            email: player.email,
-            credits: player.credits,
-            is_demo: player.is_demo,
-            is_admin: player.is_admin,
-            status: player.status
-          },
-          session: {
-            id: 'fallback_session_' + player.id.substring(0, 8),
-            player_id: player.id,
-            last_activity: new Date(),
-            expires_at: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-            needs_refresh: false
-          }
-        };
-      }
-
-      // 2. Verify against database session (double-check) - only when Redis is enabled
+      // First, verify JWT signature/expiry
+      const decoded = this.jwtAuth.verifyAccessToken(accessToken);
       const tokenHash = this.jwtAuth.generateTokenHash(accessToken);
-      const dbSession = await Session.findByToken(accessToken);
+      const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      console.log('[VALIDATE/sessionManager] start', {
+        player_id: decoded.player_id,
+        skipRedis,
+        token_hash_prefix: tokenHash.substring(0, 12)
+      });
 
-      if (!dbSession || !dbSession.isValid()) {
-        // Clean up Redis session if DB session is invalid
-        await this.jwtAuth.invalidateSession(validation.player_id);
-        return {
-          valid: false,
-          error: 'Database session not found or expired'
-        };
+      // Try Redis first (if enabled)
+      let redisSession = null;
+      if (!skipRedis) {
+        redisSession = await this.jwtAuth.getSessionByTokenHash(tokenHash);
+        console.log('[VALIDATE/sessionManager] redis lookup', { found: Boolean(redisSession) });
       }
 
-      // 3. Additional admin validation if required
-      if (options.requireAdmin) {
-        const player = await Player.findByPk(validation.player_id);
-        if (!player || !player.isAdmin()) {
-          return {
-            valid: false,
-            error: 'Admin privileges required'
-          };
+      // Fallback to DB session if Redis miss
+      let dbSession = null;
+      if (!redisSession) {
+        dbSession = await Session.findByToken(accessToken);
+        console.log('[VALIDATE/sessionManager] db lookup', { found: Boolean(dbSession) });
+        if (!dbSession || !dbSession.isValid()) {
+          return { valid: false, error: 'Session not found or expired' };
+        }
+        // Rehydrate Redis cache for faster subsequent validation
+        if (!skipRedis) {
+          await this.jwtAuth.storeSession(decoded.player_id, accessToken, {
+            ip_address: dbSession.ip_address,
+            user_agent: dbSession.user_agent,
+            player: dbSession.player?.getSafeData?.() || undefined
+          });
+          console.log('[VALIDATE/sessionManager] redis rehydrated');
         }
       }
 
-      // 4. IP consistency check for admin sessions
-      if (options.checkIPConsistency && dbSession.ip_address) {
-        // This would be implemented based on request IP
-        // For now, just note that IP checking is available
+      // Optional admin check
+      if (options.requireAdmin) {
+        const player = await Player.findByPk(decoded.player_id);
+        if (!player || !player.isAdmin()) {
+          return { valid: false, error: 'Admin privileges required' };
+        }
       }
 
-      // 3. Update activity in both Redis and DB
-      await Promise.all([
-        this.jwtAuth.updateActivity(validation.player_id),
-        dbSession.updateActivity()
-      ]);
+      // Update activity
+      if (!skipRedis) {
+        await this.jwtAuth.updateActivity(decoded.player_id);
+      }
+      if (dbSession) {
+        await dbSession.updateActivity();
+      }
+
+      // Resolve player data
+      let playerData = dbSession?.player?.getSafeData?.();
+      if (!playerData) {
+        // Load minimal player for response
+        const player = await Player.findByPk(decoded.player_id);
+        playerData = player ? player.getSafeData() : { id: decoded.player_id, username: decoded.username };
+      }
 
       return {
         valid: true,
-        player: validation.session.player || dbSession.player.getSafeData(),
-        session: {
+        player: playerData,
+        session: dbSession ? {
           id: dbSession.id,
-          player_id: validation.player_id,
+          player_id: decoded.player_id,
           last_activity: new Date(),
           expires_at: dbSession.expires_at,
           needs_refresh: dbSession.needsRefresh()
+        } : {
+          id: 'redis_only_' + decoded.player_id.substring(0, 8),
+          player_id: decoded.player_id,
+          last_activity: new Date(),
+          expires_at: new Date(Date.now() + 30 * 60 * 1000),
+          needs_refresh: false
         }
       };
 
     } catch (error) {
-      return {
-        valid: false,
-        error: error.message
-      };
+      return { valid: false, error: error.message };
     }
   }
 

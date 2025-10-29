@@ -36,7 +36,8 @@ class JWTAuth {
      */
   verifyAccessToken(token) {
     try {
-      return jwt.verify(token, this.accessTokenSecret);
+      // Allow small clock skew between containers/browsers
+      return jwt.verify(token, this.accessTokenSecret, { clockTolerance: 60 });
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         throw new Error('Access token expired');
@@ -74,10 +75,13 @@ class JWTAuth {
      * @returns {string} JWT access token
      */
   generateAccessToken(payload) {
+    // Ensure tokens are unique even when generated in the same second by adding a jti
+    const jti = crypto.randomUUID();
     return jwt.sign(payload, this.accessTokenSecret, {
       expiresIn: this.accessTokenExpiry,
       issuer: 'infinity-storm-portal',
-      audience: 'infinity-storm-game'
+      audience: 'infinity-storm-game',
+      jwtid: jti
     });
   }
 

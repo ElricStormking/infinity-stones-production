@@ -175,8 +175,11 @@ class StateValidator {
       const contextResult = this.validateTransitionContext(currentState, stateUpdates, reason);
       this.mergeValidationResults(validationResult, contextResult);
 
-      // Create hypothetical new state for full validation
-      const hypotheticalState = { ...currentState, ...stateUpdates };
+      // Create hypothetical new state for full validation (ensure plain object)
+      const baseState = (currentState && typeof currentState.toJSON === 'function')
+        ? currentState.toJSON()
+        : currentState || {};
+      const hypotheticalState = { ...baseState, ...stateUpdates };
       const newStateResult = await this.validateState(hypotheticalState, this.validationContexts.TRANSITION);
       this.mergeValidationResults(validationResult, newStateResult);
 
@@ -294,10 +297,12 @@ class StateValidator {
   validateMultiplier(gameState) {
     const errors = [];
     const warnings = [];
-    const multiplier = gameState.accumulated_multiplier;
+    const multiplier = typeof gameState.accumulated_multiplier === 'number'
+      ? gameState.accumulated_multiplier
+      : Number(gameState.accumulated_multiplier);
 
     // Check multiplier range
-    if (multiplier < this.validationRules.multiplier.min) {
+    if (Number.isFinite(multiplier) && multiplier < this.validationRules.multiplier.min) {
       errors.push({
         field: 'accumulated_multiplier',
         message: `Multiplier cannot be less than ${this.validationRules.multiplier.min}`,
@@ -305,7 +310,7 @@ class StateValidator {
       });
     }
 
-    if (multiplier > this.validationRules.multiplier.max) {
+    if (Number.isFinite(multiplier) && multiplier > this.validationRules.multiplier.max) {
       errors.push({
         field: 'accumulated_multiplier',
         message: `Multiplier cannot exceed ${this.validationRules.multiplier.max}`,
@@ -324,7 +329,7 @@ class StateValidator {
     }
 
     // Check for unusual multiplier values
-    if (multiplier > 10.00) {
+    if (Number.isFinite(multiplier) && multiplier > 10.00) {
       warnings.push({
         field: 'accumulated_multiplier',
         message: `Unusually high multiplier value: ${multiplier}`,
@@ -720,8 +725,9 @@ class StateValidator {
      * @returns {number} Number of decimal places
      */
   getDecimalPlaces(number) {
+    if (typeof number !== 'number' || !Number.isFinite(number)) {return 0;}
     if (Math.floor(number) === number) {return 0;}
-    const str = number.toString();
+    const str = String(number);
     if (str.indexOf('.') !== -1 && str.indexOf('e-') === -1) {
       return str.split('.')[1].length;
     } else if (str.indexOf('e-') !== -1) {
