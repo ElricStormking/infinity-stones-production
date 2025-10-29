@@ -10,9 +10,6 @@ This manual shows how to tune Return-To-Player (RTP) and measure results using t
 
 ## 1) RTP 101 (quick refresher)
 
-- RTP is the long‑run expected payout as a percentage of total bets: \( RTP = E[win] / bet \times 100\% \).
-- Variance matters: larger jackpots and heavy tails require larger sample sizes for a tight estimate.
-- Our game’s RTP is the sum of base‑game EV and the EV contribution from free spins and multipliers.
 - Acceptance bands (guidance):
   - Quick pass (100k spins): within ±0.8% of target
   - Full pass (1M spins): within ±0.2% of target
@@ -32,7 +29,7 @@ All primary RTP knobs are centralized in:
   - `GAME_CONFIG.RANDOM_MULTIPLIER` (trigger chance and weighted table of multipliers)
   - `GAME_CONFIG.CASCADE_RANDOM_MULTIPLIER` (cascading multiplier behavior)
 
-Do NOT tune `infinity-storm-server/src/game/gameEngineDemo.js` — it is a demo/free‑play engine with boosted RTP.
+- `infinity-storm-server/src/game/gameEngineDemo.js` — it is a demo/free‑play engine with boosted RTP.
 
 ### Practical knob effects
 - Increase low‑tier symbol weights → more frequent small wins → higher RTP, lower variance.
@@ -59,12 +56,6 @@ Use these when iterating on math:
   - Validates multiplier progression, retrigger frequency, and free‑spins EV.
   - Adjusts counts via `TEST_CONFIG` at the top of the file (sessions × spins per session).
 
-- End‑to‑end Monte Carlo (base+features): ad‑hoc runner (example below). This is the quickest way to measure overall RTP without touching network or wallet.
-
-- System/load sanity (performance, not RTP):
-  - `infinity-storm-server/tests/load/load-test.js` (concurrency/latency on demo‑spin)
-  - `test-system-comprehensive.js` (broad endpoint/integration checks)
-
 > Note: Our production container doesn’t copy `tests/` into the image by default. Run the RTP tests from the host workstation (Node.js), not inside the server container.
 
 ---
@@ -85,52 +76,6 @@ What to watch in the output:
 - `Hit Frequency`, `Multiplier Trigger Rate`, `Retrigger Rate`
 - `Largest Win` and `Max Multiplier Reached` (tail risk)
 
-### 5.2 Overall RTP (fast Monte Carlo, no network)
-
-Use a small ad‑hoc script to spin the engine in memory. Save as `rtp-montecarlo.js` (repo root):
-
-```javascript
-// rtp-montecarlo.js
-const GameEngine = require('./infinity-storm-server/src/game/gameEngine');
-
-(async () => {
-  const spins = parseInt(process.env.RTP_SPINS || '100000', 10); // 100k default
-  const bet = parseFloat(process.env.RTP_BET || '1');
-  const engine = new GameEngine();
-  let totalWon = 0;
-
-  for (let i = 0; i < spins; i++) {
-    const r = await engine.processCompleteSpin({ betAmount: bet, quickSpinMode: true });
-    totalWon += r.totalWin || 0;
-  }
-
-  const rtp = (totalWon / (spins * bet)) * 100;
-  console.log(JSON.stringify({ spins, bet, totalWon: Number(totalWon.toFixed(2)), rtp: Number(rtp.toFixed(4)) }));
-})();
-```
-
-Quick iteration (100k spins):
-```powershell
-node .\rtp-montecarlo.js
-```
-
-Full validation (1M spins):
-```powershell
-$env:RTP_SPINS = 1000000
-node .\rtp-montecarlo.js
-```
-
-Adjust bet if needed:
-```powershell
-$env:RTP_SPINS = 200000
-$env:RTP_BET = 2
-node .\rtp-montecarlo.js
-```
-
-Optional: dump to file
-```powershell
-node .\rtp-montecarlo.js | Out-File -Encoding utf8 .\rtp-results.json
-```
 
 ---
 
@@ -155,7 +100,7 @@ If you’re consistently high/low across multiple 1M‑spin runs, change knobs c
 ```mermaid
 flowchart TD
   A[Set Targets\nRTP 96% / 94%] --> B[Baseline Run\n100k/1M]
-  B --> C{RTP within band?}
+  B --> C{RTP within bandwidth?}
   C -- No --> D[Adjust Knobs\nweights, scatters, paytable, multipliers]
   D --> B
   C -- Yes --> E[Freeze Config\nCommit + Tag]
@@ -186,4 +131,4 @@ flowchart TD
 
 ---
 
-Keep this manual close when adjusting math. If you plan to ship, also review `production_Ready_Skipped.md` and enable the production‑grade checks.
+Keep this manual close when adjusting math.

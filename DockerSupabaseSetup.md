@@ -277,16 +277,10 @@ docker compose -f docker-compose.production.yml up -d
 
 See `production_Ready_Skipped.md` and ensure:
 
-- Enforce HTTPS + HSTS; strict CSP
 - Restrict CORS to production domains
 - Restore strict rate limits (no loopback bypass)
-- Disable demo/dev endpoints and test pages
-- Restore admin CSRF + auditing; remove default admin
-- Remove token-in-URL flows; use headers/cookies
-- Enable full state validation + anti-cheat
-- Enable RTP validation; no demo engine in prod
+- Enable full state validation
 - Enable financial logging
-- Re-enable asset caching / hashed bundles
 - Do not expose Supabase Studio publicly
 
 ---
