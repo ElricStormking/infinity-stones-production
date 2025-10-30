@@ -2,6 +2,33 @@
 
 This document explains how to run Infinity Storm locally using Supabase and Docker, and how to deploy it online.
 
+### Simplest steps in short:
+
+1) Prep env
+Create/update .env with JWT, Redis, Supabase, DB vars (see “3) Environment (.env)”).
+Ensure ports 3000, 54321–54323, 6379 are free.
+2) Start local Supabase (if using local DB)
+3) Apply DB schema (first run)
+4) Build client (optional; Docker can build it too)
+5) Configure compose (local)
+Edit infinity-storm-server\docker-compose.production.yml:
+ports: - "${PORT:-3000}:3000"
+SKIP_REDIS=false
+REDIS_URL=redis://redis:6379
+DB_HOST=127.0.0.1, DB_PORT=54322, PGSSLMODE=disable
+SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+6) Build the server image
+7) Run the server container
+If client assets seem stale
+Verify
+Health: http://127.0.0.1:3000/health
+Game: http://127.0.0.1:3000/
+Login page: http://127.0.0.1:3000/test-player-login.html
+Reference: see the same steps in DockerSupabaseSetup.md (sections 3, 5, 6, 7).
+
+
+More details for each steps below:
+
 #### Architecture
 
 ```mermaid
@@ -175,11 +202,23 @@ Edit `infinity-storm-server/docker-compose.production.yml` for local dev:
 ## 7) Build and run the server
 
 ```powershell
+
+```
 cd D:\infinity-gauntlet\infinity-storm-server
 docker compose -f docker-compose.production.yml build infinity-storm
-docker compose -f docker-compose.production.yml up -d infinity-storm
+# force a clean rebuild
+docker compose -f docker-compose.production.yml build --no-cache infinity-storm
+# run it
+docker compose
 docker logs -f infinity-storm-server
-```
+# What this does
+Builds the service named infinity-storm using Dockerfile.production and the build context defined in the compose file.
+Raw docker build (if you want to build without compose), run from repo root:
+cd D:\infinity-gauntlet
+docker build -f infinity-storm-server/Dockerfile.production -t infinity-storm-server-infinity-storm .
+
+Verify the image:
+docker images | findstr infinity-storm
 
 If client assets seem stale:
 

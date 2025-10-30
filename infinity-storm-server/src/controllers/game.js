@@ -80,11 +80,20 @@ class GameController {
         });
       }
 
-      // Anti-cheat validation (skip in fallback mode to avoid Redis timeouts)
+      // Anti-cheat validation (skip in fallback mode or loopback dev)
       const skipRedis = (process.env.SKIP_REDIS ?? 'false').toLowerCase() === 'true';
+      logger.info('[GameController] Env branch', {
+        skipRedis,
+        envValue: process.env.SKIP_REDIS || 'undefined'
+      });
       let antiCheatResult;
+      const hostHeaderForAC = req.get('host') || '';
+      const hostnameForAC = hostHeaderForAC.split(':')[0];
+      const isLoopbackForAC = hostnameForAC === '127.0.0.1' || hostnameForAC === 'localhost' || req.ip === '::1' || (req.ip || '').startsWith('127.');
 
-      if (!skipRedis) {
+      if (skipRedis || isLoopbackForAC) {
+        antiCheatResult = { valid: true, confidenceScore: 1.0, violations: [] };
+      } else {
         antiCheatResult = await this.antiCheat.validateSpinRequest(
           playerId,
           req.body,
@@ -101,9 +110,6 @@ class GameController {
             code: 'SECURITY_VIOLATION'
           });
         }
-      } else {
-        // In fallback mode, skip anti-cheat (requires Redis)
-        antiCheatResult = { valid: true, confidenceScore: 1.0, violations: [] };
       }
 
       // Start database transaction for atomic operations (skip in fallback mode)
@@ -201,15 +207,40 @@ class GameController {
         }
 
         const rawFreeSpinsRemaining = gameState ? gameState.free_spins_remaining : 0;
-        const serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
+        let serverFreeSpinsRemaining = typeof rawFreeSpinsRemaining === 'number'
           ? rawFreeSpinsRemaining
           : parseInt(rawFreeSpinsRemaining, 10) || 0;
         const rawAccumulatedMultiplier = gameState ? gameState.accumulated_multiplier : 1;
-        const serverAccumulatedMultiplier = typeof rawAccumulatedMultiplier === 'number'
+        let serverAccumulatedMultiplier = typeof rawAccumulatedMultiplier === 'number'
           ? rawAccumulatedMultiplier
           : parseFloat(rawAccumulatedMultiplier) || 1;
         let serverFreeSpinsActive = (gameState ? gameState.game_mode : 'base') === 'free_spins'
           && serverFreeSpinsRemaining > 0;
+
+        // If Redis-backed state says base but Supabase shows pending free spins (e.g., purchase path),
+        // trust Supabase to avoid mislabeling the first purchased spin as 'base'.
+        if (!serverFreeSpinsActive && !skipRedis && !player.is_demo) {
+          try {
+            const { supabaseAdmin } = require('../db/supabaseClient');
+            const { data: supState } = await supabaseAdmin
+              .from('game_states')
+              .select('game_mode, free_spins_remaining, accumulated_multiplier')
+              .eq('player_id', playerId)
+              .single();
+            const supRem = Number(supState?.free_spins_remaining || 0);
+            if ((supState?.game_mode === 'free_spins' && supRem > 0) || supRem > 0) {
+              serverFreeSpinsActive = true;
+              serverFreeSpinsRemaining = supRem;
+              if (Number.isFinite(Number(supState?.accumulated_multiplier))) {
+                serverAccumulatedMultiplier = Number(supState.accumulated_multiplier);
+              }
+              logger.info('[GameController] Supabase indicates free spins active; overriding Redis state for first spin', {
+                supRem,
+                supMode: supState?.game_mode
+              });
+            }
+          } catch (_) { /* non-fatal */ }
+        }
 
         // SAVE ORIGINAL VALUE before modification (critical for state update logic)
         const originalServerFreeSpinsActive = serverFreeSpinsActive;
@@ -320,13 +351,14 @@ class GameController {
         // CRITICAL: Trust server state first! Only use client values when server is out of sync.
         // If server says we're in free spins, use server values.
         // If client says we're in free spins but server doesn't know, trust client (including when remaining=0, which is the ending spin).
-        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientFreeSpinsActive && !serverFreeSpinsActive);
+        const clientClaimsFreeSpins = Boolean(clientFreeSpinsActive) || (Number(clientFreeSpinsRemaining) > 0);
+        const effectiveFreeSpinsActive = serverFreeSpinsActive || (clientClaimsFreeSpins && !serverFreeSpinsActive);
         const effectiveFreeSpinsRemaining = serverFreeSpinsActive
           ? serverFreeSpinsRemaining  // Trust server when it knows we're in free spins
-          : (clientFreeSpinsActive ? Math.max(0, clientFreeSpinsRemaining) : 0);  // Trust client even if remaining=0 (ending spin)
+          : (clientClaimsFreeSpins ? Math.max(0, clientFreeSpinsRemaining) : 0);  // Trust client even if remaining=0 (ending spin)
         const effectiveAccumulatedMultiplier = serverFreeSpinsActive
           ? serverAccumulatedMultiplier  // Trust server when it knows we're in free spins
-          : (clientFreeSpinsActive && clientAccumulatedMultiplier >= 1 ? clientAccumulatedMultiplier : 1);  // Trust client's accumulated multiplier
+          : (clientClaimsFreeSpins && clientAccumulatedMultiplier >= 1 ? clientAccumulatedMultiplier : 1);  // Trust client's accumulated multiplier
 
         const spinRequest = {
           betAmount: normalizedBetAmount,
@@ -569,11 +601,39 @@ class GameController {
 
         const cascadesPayload = spinResult.cascadeSteps || spinResult.cascades || [];
         const multipliersPayload = spinResult.multipliers || [];
-        const spinGameMode = stateResult?.gameState?.game_mode || (gameState ? gameState.game_mode : 'base');
+        // If the updated state is unavailable or still shows 'base' on the first purchased free spin,
+        // fall back to the effectiveFreeSpinsActive flag for this spin so the row is recorded correctly.
+        // Robust classification for THIS spin:
+        // - free_spins if currently in FS (effective flag)
+        // - OR if purchase started FS (bonusMode) and next state is FS
+        // - BUT keep scatter-triggering spin as base (freeSpinsTriggered on this spin)
+        const scatterTriggeredThisSpin = Boolean(spinResult?.bonusFeatures?.freeSpinsTriggered);
+        const nextStateIsFreeSpins = (stateResult?.gameState?.game_mode || (gameState ? gameState.game_mode : 'base')) === 'free_spins';
+        const purchaseStarted = Boolean(bonusMode);
+        const spinGameMode = (
+          effectiveFreeSpinsActive
+          || (purchaseStarted && nextStateIsFreeSpins)
+          || (!scatterTriggeredThisSpin && nextStateIsFreeSpins)
+        ) ? 'free_spins' : 'base';
+        console.log('[GameController] Persist decision: { effectiveFreeSpinsActive:', effectiveFreeSpinsActive,
+          ', bonusMode:', Boolean(bonusMode), ', scatterTriggeredThisSpin:', scatterTriggeredThisSpin,
+          ', nextStateIsFreeSpins:', nextStateIsFreeSpins, ', spinGameMode:', spinGameMode, ' }');
 
-        // Skip PostgreSQL insert in fallback mode (using Supabase instead)
+        let savedSpinUuid = null;
+        // Use ONE persistence path: direct SQL when Redis mode is active; Supabase SDK when in fallback
         if (!skipRedis) {
-          await client.query(
+          logger.info('[GameController] Persist path: SQL', { rngSeed: spinResult.rngSeed });
+          // Idempotency: avoid duplicate rows when the same rng_seed is retried
+          const dupeCheck = await client.query(
+            'SELECT id FROM spin_results WHERE player_id = $1 AND rng_seed = $2 LIMIT 1',
+            [playerId, spinResult.rngSeed]
+          );
+
+          if (dupeCheck.rows && dupeCheck.rows.length > 0) {
+            savedSpinUuid = dupeCheck.rows[0].id;
+            await client.query('COMMIT');
+          } else {
+            const insertRes = await client.query(
             `
               INSERT INTO spin_results (
                 player_id,
@@ -587,6 +647,7 @@ class GameController {
                 game_mode
               )
               VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7::jsonb, $8, $9)
+              RETURNING id
             `,
             [
               playerId,
@@ -601,38 +662,50 @@ class GameController {
             ]
           );
 
-          // Commit transaction
-          await client.query('COMMIT');
-        }
-
-        // Save spin result to Supabase and capture the UUID for client debug
-        console.log('[GameController] Saving spin result, sessionId:', validSessionId, 'playerId:', playerId.substring(0, 20));
-        // Use the UPDATED game state (after spin), not the initial state
-        const actualGameMode = stateResult.gameState.game_mode;
-        const isFreeSpinMode = actualGameMode === 'free_spins';
-        console.log('[GameController] Game mode for Supabase:', actualGameMode, 'isFreeSpins:', isFreeSpinMode);
-
-        let savedSpinUuid = null;
-        try {
-          const saveRes = await saveSpinResult(playerId, {
-            sessionId: validSessionId,
-            bet: normalizedBetAmount,
-            initialGrid: spinResult.initialGrid,
-            cascades: spinResult.cascadeSteps || spinResult.cascades || [], // Use cascadeSteps if available, fallback to cascades or empty array
-            totalWin: spinResult.totalWin,
-            multipliers: spinResult.multipliers || [],
-            rngSeed: spinResult.rngSeed,
-            freeSpinsActive: isFreeSpinMode // Use the updated state, not the initial state
-          });
-          if (saveRes && saveRes.success) {
-            savedSpinUuid = saveRes.spinResultId || null;
+            savedSpinUuid = insertRes?.rows?.[0]?.id || null;
+            // Commit transaction
+            await client.query('COMMIT');
           }
-        } catch (err) {
-          logger.error('Failed to save spin result to Supabase', {
-            player_id: playerId,
-            spin_id: spinId,
-            error: err.message
-          });
+        } else {
+          logger.info('[GameController] Persist path: Supabase SDK (fallback mode)', { rngSeed: spinResult.rngSeed });
+          // Fallback path (no Redis): use Supabase SDK to persist and return UUID
+          console.log('[GameController] Saving spin result via Supabase SDK (fallback mode)');
+          const scatterTriggeredThisSpin = Boolean(spinResult?.bonusFeatures?.freeSpinsTriggered);
+          const nextStateIsFreeSpins = (stateResult?.gameState?.game_mode || gameState?.game_mode || 'base') === 'free_spins';
+          const purchaseStarted = Boolean(bonusMode);
+          const actualGameMode = (
+            effectiveFreeSpinsActive
+            || (purchaseStarted && nextStateIsFreeSpins)
+            || (!scatterTriggeredThisSpin && nextStateIsFreeSpins)
+          ) ? 'free_spins' : 'base';
+          const isFreeSpinMode = actualGameMode === 'free_spins';
+          console.log('[GameController] Persist decision (SDK): { effectiveFreeSpinsActive:', effectiveFreeSpinsActive,
+            ', bonusMode:', Boolean(bonusMode), ', scatterTriggeredThisSpin:', scatterTriggeredThisSpin,
+            ', nextStateIsFreeSpins:', nextStateIsFreeSpins, ', actualGameMode:', actualGameMode, ' }');
+
+          try {
+            const saveRes = await saveSpinResult(playerId, {
+              sessionId: validSessionId,
+              bet: normalizedBetAmount,
+              initialGrid: spinResult.initialGrid,
+              cascades: spinResult.cascadeSteps || spinResult.cascades || [],
+              totalWin: spinResult.totalWin,
+              multipliers: spinResult.multipliers || [],
+              rngSeed: spinResult.rngSeed,
+              freeSpinsActive: isFreeSpinMode,
+              freeSpinsRemaining: effectiveFreeSpinsRemaining,
+              bonusMode: Boolean(bonusMode)
+            });
+            if (saveRes && saveRes.success) {
+              savedSpinUuid = saveRes.spinResultId || null;
+            }
+          } catch (err) {
+            logger.error('Failed to save spin result to Supabase', {
+              player_id: playerId,
+              spin_id: spinId,
+              error: err.message
+            });
+          }
         }
 
         // Backfill transaction references with the real spin UUID (only if valid)

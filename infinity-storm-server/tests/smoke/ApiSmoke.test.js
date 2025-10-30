@@ -3,9 +3,14 @@ const request = require('supertest');
 const { app, server } = require('../../server');
 
 describe('Smoke: API health and spin', () => {
-  afterAll((done) => {
+afterAll((done) => {
+  // In Jest, server isn't bound (PORT=0, isTestEnv=true). Only close if actually listening.
+  if (server && server.listening) {
     server.close(done);
-  });
+  } else {
+    done();
+  }
+});
 
   it('GET /api/health', async () => {
     const res = await request(app).get('/api/health');

@@ -324,9 +324,28 @@ async function saveSpinResult(playerId, spinData) {
       actualSessionId = null;
     }
 
+    // Idempotency: skip if this (player_id, rng_seed) already exists (retry/duplicate)
+    if (spinData.rngSeed) {
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from('spin_results')
+          .select('id')
+          .eq('player_id', actualPlayerId)
+          .eq('rng_seed', spinData.rngSeed)
+          .limit(1)
+          .maybeSingle();
+        if (existing?.id) {
+          return { success: true, spinResultId: existing.id, skipped: true, reason: 'duplicate_rng_seed' };
+        }
+      } catch (_) {}
+    }
+
     // Save to spin_results table
     // Ensure cascades is always an array (not null/undefined) to satisfy NOT NULL constraint
     const cascadesArray = Array.isArray(spinData.cascades) ? spinData.cascades : [];
+
+    // Derive a robust free-spins flag that covers purchase and client-remaining counters
+    const freeSpinsFlag = Boolean(spinData.freeSpinsActive) || (Number(spinData.freeSpinsRemaining) > 0) || Boolean(spinData.bonusMode);
 
     const { data: spinResult, error: spinError } = await supabaseAdmin
       .from('spin_results')
@@ -339,7 +358,7 @@ async function saveSpinResult(playerId, spinData) {
         total_win: spinData.totalWin,
         multipliers_applied: spinData.multipliers || [],
         rng_seed: spinData.rngSeed || 'demo_seed_' + Date.now(),
-        game_mode: spinData.freeSpinsActive ? 'free_spins' : 'base'
+        game_mode: freeSpinsFlag ? 'free_spins' : 'base'
       })
       .select()
       .single();
