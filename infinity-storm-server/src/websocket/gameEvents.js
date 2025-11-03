@@ -19,9 +19,9 @@ const SpinResult = require('../models/SpinResult');
 const crypto = require('crypto');
 
 class GameEvents {
-  constructor(io, gridEngine, cascadeSynchronizer, cascadeValidator) {
+  constructor(io, gameController, cascadeSynchronizer, cascadeValidator) {
     this.io = io;
-    this.gridEngine = gridEngine;
+    this.gameController = gameController; // Changed from gridEngine to gameController
     this.cascadeSynchronizer = cascadeSynchronizer || new CascadeSynchronizer();
     this.cascadeValidator = cascadeValidator || new CascadeValidator();
 

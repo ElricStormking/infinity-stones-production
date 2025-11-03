@@ -89,10 +89,24 @@ class MultiplierEngine {
      * Process random multiplier for base game wins
      * @param {number} totalWin - Current total win amount
      * @param {number} betAmount - Current bet amount
+     * @param {Object} options - Options including freeSpinsActive and multiplierCount
      * @returns {Object} Random multiplier result
      */
   async processRandomMultiplier(totalWin, betAmount, options = {}) {
-    const { freeSpinsActive = false } = options;
+    const { freeSpinsActive = false, multiplierCount = 0 } = options;
+    
+    // CAP: Stop generating multipliers after 25 multipliers have appeared in free spins
+    const MULTIPLIER_COUNT_CAP = 25;
+    if (freeSpinsActive && multiplierCount >= MULTIPLIER_COUNT_CAP) {
+      return {
+        triggered: false,
+        reason: 'multiplier_count_cap_reached',
+        cap: MULTIPLIER_COUNT_CAP,
+        currentCount: multiplierCount,
+        message: `Maximum ${MULTIPLIER_COUNT_CAP} multipliers reached for this free spins session`
+      };
+    }
+    
     // Check minimum win requirement
     if (totalWin < this.config.randomMultiplier.minWinRequired) {
       return {
@@ -102,9 +116,12 @@ class MultiplierEngine {
       };
     }
 
-    // Check trigger probability (boosted during free spins)
+    // Check trigger probability (boosted during free spins, but capped)
     const baseChance = this.config.randomMultiplier.triggerChance;
-    const effectiveChance = Math.min(1, freeSpinsActive ? baseChance * 1.3 : baseChance);
+    // Free spins boost: 1.5x but don't exceed 30% total
+    const effectiveChance = freeSpinsActive 
+      ? Math.min(0.30, baseChance * 1.5) 
+      : baseChance;
     const triggerRoll = this.rng.random();
     if (triggerRoll > effectiveChance) {
       return {
@@ -170,11 +187,24 @@ class MultiplierEngine {
      * @param {Object} options - Additional options
      * @param {number} options.betAmount - Current bet amount
      * @param {boolean} options.freeSpinsActive - Whether free spins are active
+     * @param {number} options.multiplierCount - Current count of multipliers that have appeared
      * @returns {Object} Cascading multiplier result
      */
   async processCascadingRandomMultipliers(totalWin, cascadeCount, options = {}) {
     const config = this.config.cascadeRandomMultiplier;
-    const { betAmount = 0, freeSpinsActive = false } = options;
+    const { betAmount = 0, freeSpinsActive = false, multiplierCount = 0 } = options;
+
+    // CAP: Stop generating multipliers after 25 multipliers have appeared in free spins
+    const MULTIPLIER_COUNT_CAP = 25;
+    if (freeSpinsActive && multiplierCount >= MULTIPLIER_COUNT_CAP) {
+      return {
+        triggered: false,
+        reason: 'multiplier_count_cap_reached',
+        cap: MULTIPLIER_COUNT_CAP,
+        currentCount: multiplierCount,
+        message: `Maximum ${MULTIPLIER_COUNT_CAP} multipliers reached for this free spins session`
+      };
+    }
 
     if (cascadeCount <= 0) {
       return {
@@ -201,13 +231,13 @@ class MultiplierEngine {
       };
     }
 
-    const multiplierCount = this.rng.randomInt(config.minMultipliers, config.maxMultipliers);
+    const numMultipliers = this.rng.randomInt(config.minMultipliers, config.maxMultipliers);
     const usedPositions = new Set();
     const multipliers = [];
     const appearDelayStep = 300;
     const animationDuration = this.config.randomMultiplier.animationDuration;
 
-    for (let index = 0; index < multiplierCount; index++) {
+    for (let index = 0; index < numMultipliers; index++) {
       const multiplier = this.selectRandomMultiplier();
       const position = this.selectUniquePosition(usedPositions);
       const character = this.selectCharacterForMultiplier();

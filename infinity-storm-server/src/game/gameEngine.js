@@ -23,7 +23,29 @@ const BonusFeatures = require('./bonusFeatures');
 const { getRNG } = require('./rng');
 const GridGenerator = require('./gridGenerator');
 
-// Game configuration constants
+// ============================================================================
+// GAME CONFIGURATION
+// ============================================================================
+// ⚠️ IMPORTANT NOTE ABOUT SYMBOL DISTRIBUTION:
+//
+// This GAME_CONFIG is used for:
+//   ✅ Payout tables (SYMBOLS)
+//   ✅ Free spins configuration
+//   ✅ Multiplier settings
+//   ✅ Game mechanics configuration
+//
+// This GAME_CONFIG is NOT used for:
+//   ❌ Symbol generation during spins
+//   ❌ Scatter probability
+//   ❌ Symbol weights/distribution
+//
+// 🎯 SOURCE OF TRUTH for symbol generation:
+//    symbolDistribution.js (current scatter: 3.8%)
+//
+// Symbol generation path:
+//    gameEngine → gridGenerator → symbolDistribution.js
+//
+// ============================================================================
 const GAME_CONFIG = {
   GRID_COLS: 6,
   GRID_ROWS: 5,
@@ -32,7 +54,7 @@ const GAME_CONFIG = {
   RTP: 0.965,
   MAX_WIN_MULTIPLIER: 5000,
 
-  // Symbol payout tables (identical to client GameConfig.js)
+  // Symbol payout tables (✅ USED by WinCalculator)
   SYMBOLS: {
     time_gem: { payouts: { 8: 8, 10: 15, 12: 40 }, type: 'low' },
     space_gem: { payouts: { 8: 9, 10: 18, 12: 80 }, type: 'low' },
@@ -46,7 +68,11 @@ const GAME_CONFIG = {
     infinity_glove: { payouts: { 4: 60, 5: 100, 6: 2000 }, type: 'scatter' }
   },
 
-  // Symbol weights for 96.5% RTP
+  // ❌ NOT USED FOR SYMBOL GENERATION - See symbolDistribution.js instead!
+  // These legacy values are kept for reference only.
+  // ✅ CONFIRMED: cascadeProcessor now uses symbolDistribution.js (fixed!)
+  // Symbol weights for 96.5% RTP (REFERENCE ONLY - NOT USED)
+  /*
   SYMBOL_WEIGHTS: {
     time_gem: 24,
     space_gem: 24,
@@ -58,9 +84,11 @@ const GAME_CONFIG = {
     scarlet_witch: 18,
     thanos: 11
   },
+  */
 
-  // Official scatter symbol chance (base game)
-  SCATTER_CHANCE: 0.026,
+  // ❌ NOT USED FOR SYMBOL GENERATION - See symbolDistribution.js (actual: 4.2%)
+  // Official scatter symbol chance (REFERENCE ONLY - NOT USED)
+  // SCATTER_CHANCE: 0.026,
 
   // Free spins configuration
   FREE_SPINS: {
@@ -74,7 +102,7 @@ const GAME_CONFIG = {
 
   // Random multiplier configuration
   RANDOM_MULTIPLIER: {
-    TRIGGER_CHANCE: 0.8,
+    TRIGGER_CHANCE: 0.165,  // 16.5% chance in base game, 24.75% in free spins (capped at 30%)
     MIN_WIN_REQUIRED: 0.01,
     ANIMATION_DURATION: 2000,
     // WEIGHTED PROBABILITY TABLE (efficient - no large arrays!)
@@ -98,7 +126,7 @@ const GAME_CONFIG = {
 
   // Cascading random multiplier configuration
   CASCADE_RANDOM_MULTIPLIER: {
-    TRIGGER_CHANCE: 0.40,
+    TRIGGER_CHANCE: 0.11,  // 11% chance
     MIN_MULTIPLIERS: 1,
     MAX_MULTIPLIERS: 3,
     MIN_WIN_REQUIRED: 0.01
@@ -153,6 +181,7 @@ class GameEngine {
       freeSpinsActive = false,
       freeSpinsRemaining = 0,
       accumulatedMultiplier = 1,
+      multiplierCount = 0,
       quickSpinMode = false,
       spinId = this.generateSpinId(),
       rngSeed: providedSeed
@@ -378,8 +407,8 @@ class GameEngine {
 
       // Check for scatter-triggered free spins on initial grid
       const scatterCount = this.countScatters(initialGridSnapshot);
-      console.log(`🎰 FREE SPINS CHECK (initial): Found ${scatterCount} scatters on initial grid (need 4+)`);
-      console.log('  Initial grid:', this.gridToString(initialGridSnapshot));
+      // console.log(`🎰 FREE SPINS CHECK (initial): Found ${scatterCount} scatters on initial grid (need 4+)`);
+      // console.log('  Initial grid:', this.gridToString(initialGridSnapshot));
       if (scatterCount >= 4 && !freeSpinsActive) {
         console.log(`✨ ${scatterCount} scatters found on INITIAL grid! Triggering free spins...`);
         const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(scatterCount, freeSpinsActive);
@@ -402,9 +431,11 @@ class GameEngine {
           const scatterPayout = this.winCalculator.calculateScatterPayout(scatterCount, betAmount);
           totalWin += scatterPayout;
           
-          // Set flag to block random multipliers (visual conflict prevention)
-          hasScatterTrigger = true;
-          console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
+          // Set flag to block random multipliers ONLY in base game (visual conflict prevention)
+          if (!freeSpinsActive) {
+            hasScatterTrigger = true;
+            console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
+          }
         }
       }
 
@@ -412,8 +443,8 @@ class GameEngine {
       // This allows scatters that appear during cascades to trigger free spins
       if (!freeSpinsActive && !pendingFreeSpinsCount) {
         const postCascadeScatterCount = this.countScatters(currentGrid);
-        console.log(`🎰 FREE SPINS CHECK (post-cascade): Found ${postCascadeScatterCount} scatters on final grid (need 4+)`);
-        console.log('  Final grid:', this.gridToString(currentGrid));
+        // console.log(`🎰 FREE SPINS CHECK (post-cascade): Found ${postCascadeScatterCount} scatters on final grid (need 4+)`);
+        // console.log('  Final grid:', this.gridToString(currentGrid));
         if (postCascadeScatterCount >= 4) {
           console.log(`✨ ${postCascadeScatterCount} scatters found on FINAL grid! Triggering free spins...`);
           const freeSpinsResult = this.freeSpinsEngine.checkFreeSpinsTrigger(postCascadeScatterCount, false);
@@ -436,9 +467,11 @@ class GameEngine {
             const scatterPayout = this.winCalculator.calculateScatterPayout(postCascadeScatterCount, betAmount);
             totalWin += scatterPayout;
             
-            // Set flag to block random multipliers (visual conflict prevention)
-            hasScatterTrigger = true;
-            console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
+            // Set flag to block random multipliers ONLY in base game (visual conflict prevention)
+            if (!freeSpinsActive) {
+              hasScatterTrigger = true;
+              console.log('  🚫 Random multipliers will be BLOCKED for this spin (scatter trigger in NORMAL mode)');
+            }
           }
         }
       }
@@ -482,6 +515,7 @@ class GameEngine {
       const baseWinBeforeMultipliers = totalWin;
       let accumulatedRandomMultiplier = 0; // Sum of all RANDOM multipliers (additive, not multiplicative)
       // NOTE: DO NOT confuse with `accumulatedMultiplier` parameter which is the FREE SPINS multiplier!
+      let newMultipliersThisSpin = 0; // Count of new multipliers that appeared this spin
 
       // Skip cascading multipliers if 4+ scatters triggered free spins in NORMAL mode
       if (cascadeSteps.length > 0 && !hasScatterTrigger) {
@@ -489,7 +523,7 @@ class GameEngine {
         const cascadingMultiplierResult = await this.multiplierEngine.processCascadingRandomMultipliers(
           totalWin,
           cascadeSteps.length,
-          { betAmount, freeSpinsActive }
+          { betAmount, freeSpinsActive, multiplierCount }
         );
 
         if (cascadingMultiplierResult.triggered) {
@@ -501,6 +535,7 @@ class GameEngine {
           });
           // CRITICAL FIX: Don't apply yet, just accumulate the multiplier value
           accumulatedRandomMultiplier += cascadingMultiplierResult.totalMultiplier;
+          newMultipliersThisSpin += cascadingMultiplierResult.multipliers.length; // Track count
           spinResult.bonusFeatures.randomMultipliers.push(...cascadingMultiplierResult.multipliers);
           multiplierEvents.push({
             type: 'cascade_random_multiplier',
@@ -518,11 +553,12 @@ class GameEngine {
 
       // Skip random multipliers if 4+ scatters triggered free spins in NORMAL mode
       if (totalWin > GAME_CONFIG.RANDOM_MULTIPLIER.MIN_WIN_REQUIRED && !hasScatterTrigger) {
-        const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount, { freeSpinsActive });
+        const randomMultiplierResult = await this.multiplierEngine.processRandomMultiplier(totalWin, betAmount, { freeSpinsActive, multiplierCount });
 
         if (randomMultiplierResult.triggered) {
           // CRITICAL FIX: Don't apply yet, just accumulate the multiplier value
           accumulatedRandomMultiplier += randomMultiplierResult.multiplier;
+          newMultipliersThisSpin += 1; // Track count
           spinResult.bonusFeatures.randomMultipliers.push(randomMultiplierResult);
           multiplierEvents.push({
             type: 'random_multiplier',
@@ -637,7 +673,7 @@ class GameEngine {
       // Update session statistics
       this.updateSessionStats(spinResult);
 
-      // CRITICAL: Calculate new accumulated multiplier for free spins
+      // CRITICAL: Calculate new accumulated multiplier and count for free spins
       // The new accumulated multiplier includes both the existing accumulated + new random multipliers from this spin
       // ALWAYS set this during free spins to maintain the accumulated value across spins
       if (freeSpinsActive) {
@@ -647,7 +683,9 @@ class GameEngine {
 
           console.log('🎰 FREE SPINS: Processing multiplier accumulation:', {
             previousAccumulated: accumulatedMultiplier,
+            previousCount: multiplierCount,
             newMultipliersFromThisSpin: newMultipliersSum,
+            newMultipliersCount: newMultipliersThisSpin,
             randomMultipliersCount: spinResult.bonusFeatures.randomMultipliers.length,
             randomMultipliers: spinResult.bonusFeatures.randomMultipliers.map(m => ({
               multiplier: m.multiplier,
@@ -658,20 +696,26 @@ class GameEngine {
           // New accumulated = existing accumulated + new multipliers from this spin
           // This was ALREADY applied to the current spin's win (see line 490-492)
           const newAccumulatedMultiplier = accumulatedMultiplier + newMultipliersSum;
+          const newMultiplierCount = multiplierCount + newMultipliersThisSpin;
 
           spinResult.newAccumulatedMultiplier = newAccumulatedMultiplier;
+          spinResult.newMultiplierCount = newMultiplierCount;
           console.log('🎰 GAME ENGINE: New accumulated multiplier for NEXT spin:', {
             previousAccumulated: accumulatedMultiplier,
+            previousCount: multiplierCount,
             newMultipliersFromCurrentSpin: spinResult.bonusFeatures.randomMultipliers.map(m => m.multiplier),
             newAccumulated: newAccumulatedMultiplier,
+            newCount: newMultiplierCount,
             note: 'This total was ALREADY applied to current spin win'
           });
         } else {
           // No new multipliers this spin, but MUST maintain the accumulated value
           spinResult.newAccumulatedMultiplier = accumulatedMultiplier;
+          spinResult.newMultiplierCount = multiplierCount;
           console.log('🎰 GAME ENGINE: No new multipliers, maintaining accumulated:', {
             accumulatedMultiplier: accumulatedMultiplier,
-            note: 'Accumulated multiplier preserved for next spin'
+            multiplierCount: multiplierCount,
+            note: 'Accumulated multiplier and count preserved for next spin'
           });
         }
       }

@@ -299,11 +299,7 @@ class Player extends Model {
       as: 'adminLogsAsAdmin'
     });
 
-    // Player can win jackpots
-    Player.hasMany(models.Jackpot, {
-      foreignKey: 'last_winner_id',
-      as: 'jackpotsWon'
-    });
+    // Removed: Jackpot associations (tables dropped in migration 004)
   }
 
   /**

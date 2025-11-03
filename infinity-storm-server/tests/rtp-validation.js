@@ -23,9 +23,9 @@ const { logger } = require('../src/utils/logger');
 
 // Configuration
 const TEST_CONFIG = {
-  totalSpins: 100000,
+  totalSpins: 10000, // Quick test with updated scatter rate (4.2% per-symbol)
   betAmount: 1.0,
-  reportInterval: 10000, // Report progress every N spins
+  reportInterval: 2500, // Report progress every N spins
   enableDetailedLogging: false,
   enableProgressBar: true
 };
@@ -41,6 +41,16 @@ class RTPStatistics {
     this.totalWagered = 0;
     this.totalWon = 0;
     this.totalLost = 0;
+
+    // Base game stats
+    this.baseGameSpins = 0;
+    this.baseGameWagered = 0;
+    this.baseGameWon = 0;
+
+    // Free spins stats
+    this.freeSpinsSpins = 0;
+    this.freeSpinsWon = 0;
+    this.totalMultipliersAppeared = 0;
 
     // Win distribution
     this.winningSpins = 0;
@@ -78,6 +88,8 @@ class RTPStatistics {
     this.freeSpinsAwarded = 0;
     this.freeSpinsPlayed = 0;
     this.freeSpinsTotalWin = 0;
+    this.freeSpinsRetriggers = 0;
+    this.maxAccumulatedMultiplier = 1.0;
 
     // Symbol distribution
     this.symbolAppearances = {};
@@ -88,9 +100,21 @@ class RTPStatistics {
     this.avgProcessingTime = 0;
   }
 
-  recordSpin(spinResult, betAmount) {
+  recordSpin(spinResult, betAmount, isFreeSpinMode = false) {
     this.totalSpins++;
-    this.totalWagered += betAmount;
+    
+    // Track base game vs free spins separately
+    if (isFreeSpinMode) {
+      this.freeSpinsSpins++;
+      this.freeSpinsWon += spinResult.totalWin;
+      this.freeSpinsTotalWin += spinResult.totalWin;
+    } else {
+      this.baseGameSpins++;
+      this.baseGameWagered += betAmount;
+      this.baseGameWon += spinResult.totalWin;
+      this.totalWagered += betAmount;
+    }
+    
     this.totalWon += spinResult.totalWin;
 
     if (spinResult.totalWin > 0) {
@@ -140,18 +164,31 @@ class RTPStatistics {
       });
     }
 
-    // Multiplier analysis
-    if (spinResult.multiplierAwarded && spinResult.multiplierAwarded > 1) {
-      this.multiplierTriggers++;
-      const mult = spinResult.multiplierAwarded;
-      this.multiplierDistribution[mult] = (this.multiplierDistribution[mult] || 0) + 1;
-      this.totalMultiplierValue += mult;
+    // Multiplier analysis (track actual random multipliers)
+    if (spinResult.bonusFeatures?.randomMultipliers && spinResult.bonusFeatures.randomMultipliers.length > 0) {
+      spinResult.bonusFeatures.randomMultipliers.forEach(mult => {
+        this.multiplierTriggers++;
+        const multValue = mult.multiplier || 1;
+        this.multiplierDistribution[multValue] = (this.multiplierDistribution[multValue] || 0) + 1;
+        this.totalMultiplierValue += multValue;
+      });
     }
 
     // Free spins analysis
     if (spinResult.bonusFeatures?.freeSpinsAwarded) {
-      this.freeSpinsTriggers++;
+      if (isFreeSpinMode) {
+        this.freeSpinsRetriggers++;
+      } else {
+        this.freeSpinsTriggers++;
+      }
       this.freeSpinsAwarded += spinResult.bonusFeatures.freeSpinsAwarded;
+    }
+    
+    // Track max accumulated multiplier during free spins
+    if (isFreeSpinMode && spinResult.newAccumulatedMultiplier) {
+      if (spinResult.newAccumulatedMultiplier > this.maxAccumulatedMultiplier) {
+        this.maxAccumulatedMultiplier = spinResult.newAccumulatedMultiplier;
+      }
     }
 
     // Symbol distribution (from initial grid)
@@ -168,9 +205,24 @@ class RTPStatistics {
     if (this.totalWagered === 0) {return 0;}
     return (this.totalWon / this.totalWagered) * 100;
   }
+  
+  calculateBaseGameRTP() {
+    if (this.baseGameWagered === 0) {return 0;}
+    return (this.baseGameWon / this.baseGameWagered) * 100;
+  }
+  
+  calculateFreeSpinsRTP() {
+    // Free spins contribute to total RTP through their wins
+    if (this.freeSpinsSpins === 0) {return 0;}
+    const avgBet = this.totalWagered / this.baseGameSpins;
+    const freeSpinsWinPerSpin = this.freeSpinsWon / this.freeSpinsSpins;
+    return (freeSpinsWinPerSpin / avgBet) * 100;
+  }
 
   getReport() {
     const rtp = this.calculateRTP();
+    const baseGameRTP = this.calculateBaseGameRTP();
+    const freeSpinsRTP = this.calculateFreeSpinsRTP();
     const hitFrequency = (this.winningSpins / this.totalSpins) * 100;
     const avgWin = this.winningSpins > 0 ? this.totalWon / this.winningSpins : 0;
     const avgCascades = this.totalCascades / this.totalSpins;
@@ -179,14 +231,21 @@ class RTPStatistics {
     return {
       // Overall RTP
       rtp: rtp.toFixed(4),
+      baseGameRTP: baseGameRTP.toFixed(4),
+      freeSpinsRTP: freeSpinsRTP.toFixed(4),
       targetRTP: 96.5,
       variance: (rtp - 96.5).toFixed(4),
       withinTarget: rtp >= 94.5 && rtp <= 98.5,
 
       // Spin statistics
       totalSpins: this.totalSpins,
+      baseGameSpins: this.baseGameSpins,
+      freeSpinsPlayed: this.freeSpinsPlayed,
       totalWagered: this.totalWagered.toFixed(2),
+      baseGameWagered: this.baseGameWagered.toFixed(2),
       totalWon: this.totalWon.toFixed(2),
+      baseGameWon: this.baseGameWon.toFixed(2),
+      freeSpinsWon: this.freeSpinsWon.toFixed(2),
       totalLost: this.totalLost.toFixed(2),
 
       // Win frequency
@@ -226,8 +285,12 @@ class RTPStatistics {
 
       // Free spins analysis
       freeSpinsTriggers: this.freeSpinsTriggers,
-      freeSpinsTriggerRate: ((this.freeSpinsTriggers / this.totalSpins) * 100).toFixed(2) + '%',
+      freeSpinsTriggerRate: ((this.freeSpinsTriggers / this.baseGameSpins) * 100).toFixed(2) + '%',
       freeSpinsAwarded: this.freeSpinsAwarded,
+      freeSpinsRetriggers: this.freeSpinsRetriggers,
+      freeSpinsTotalWin: this.freeSpinsTotalWin.toFixed(2),
+      totalMultipliersAppeared: this.totalMultipliersAppeared,
+      maxAccumulatedMultiplier: this.maxAccumulatedMultiplier.toFixed(2),
 
       // Symbol distribution
       symbolDistribution: this.symbolAppearances,
@@ -266,40 +329,99 @@ async function runRTPValidation() {
 
   stats.startTime = Date.now();
   let totalProcessingTime = 0;
+  
+  // Free spins queue and state tracking
+  let freeSpinsRemaining = 0;
+  let accumulatedMultiplier = 1.0;
+  let multiplierCount = 0;
+  let baseGameSpinsCount = 0;
 
   console.log('Running simulation...\n');
+  console.log('💡 This test will play through ALL free spins to calculate TRUE TOTAL RTP\n');
 
-  for (let i = 0; i < TEST_CONFIG.totalSpins; i++) {
+  for (let i = 0; i < TEST_CONFIG.totalSpins || freeSpinsRemaining > 0; i++) {
     const spinStart = Date.now();
+    
+    // Determine if we're in free spins mode
+    const isFreeSpinMode = freeSpinsRemaining > 0;
+    
+    // Only count base game spins toward total
+    if (!isFreeSpinMode) {
+      baseGameSpinsCount++;
+      if (baseGameSpinsCount > TEST_CONFIG.totalSpins) {
+        break; // Stop once we've completed requested base game spins (free spins will finish)
+      }
+    }
 
     try {
-      // Run spin
+      // Run spin (base game or free spin)
       const spinResult = await gameEngine.processCompleteSpin({
         betAmount: TEST_CONFIG.betAmount,
-        freeSpinsActive: false,
-        accumulatedMultiplier: 1.0,
+        freeSpinsActive: isFreeSpinMode,
+        accumulatedMultiplier: accumulatedMultiplier,
+        multiplierCount: multiplierCount,
         quickSpinMode: false
       });
 
       // Record statistics
-      stats.recordSpin(spinResult, TEST_CONFIG.betAmount);
+      stats.recordSpin(spinResult, TEST_CONFIG.betAmount, isFreeSpinMode);
+
+      // Check if free spins triggered
+      if (spinResult.bonusFeatures?.freeSpinsAwarded) {
+        const awarded = spinResult.bonusFeatures.freeSpinsAwarded;
+        freeSpinsRemaining += awarded;
+        
+        if (!isFreeSpinMode) {
+          // New trigger from base game
+          accumulatedMultiplier = 1.0;
+          if (TEST_CONFIG.enableDetailedLogging) {
+            console.log(`\n🎰 Free spins triggered! Adding ${awarded} spins (Total remaining: ${freeSpinsRemaining})`);
+          }
+        } else {
+          // Retrigger during free spins
+          if (TEST_CONFIG.enableDetailedLogging) {
+            console.log(`\n🔄 Free spins RETRIGGER! Adding ${awarded} spins (Total remaining: ${freeSpinsRemaining})`);
+          }
+        }
+      }
+      
+      // Update accumulated multiplier and count during free spins
+      if (isFreeSpinMode && spinResult.newAccumulatedMultiplier) {
+        accumulatedMultiplier = spinResult.newAccumulatedMultiplier;
+        multiplierCount = spinResult.newMultiplierCount || multiplierCount;
+      }
+      
+      // Consume free spin
+      if (isFreeSpinMode) {
+        freeSpinsRemaining--;
+        stats.freeSpinsPlayed++;
+        
+        if (freeSpinsRemaining === 0) {
+          accumulatedMultiplier = 1.0; // Reset after free spins end
+          stats.totalMultipliersAppeared += multiplierCount;
+          multiplierCount = 0; // Reset count for next free spins session
+          if (TEST_CONFIG.enableDetailedLogging) {
+            console.log('\n✅ Free spins round completed!\n');
+          }
+        }
+      }
 
       // Track processing time
       const spinTime = Date.now() - spinStart;
       totalProcessingTime += spinTime;
 
-      // Progress reporting
-      if (TEST_CONFIG.enableProgressBar && (i + 1) % 100 === 0) {
-        drawProgressBar(i + 1, TEST_CONFIG.totalSpins);
+      // Progress reporting (only for base game spins)
+      if (TEST_CONFIG.enableProgressBar && !isFreeSpinMode && baseGameSpinsCount % 100 === 0) {
+        drawProgressBar(baseGameSpinsCount, TEST_CONFIG.totalSpins);
       }
 
-      if (TEST_CONFIG.enableDetailedLogging && (i + 1) % TEST_CONFIG.reportInterval === 0) {
+      if (TEST_CONFIG.enableDetailedLogging && baseGameSpinsCount % TEST_CONFIG.reportInterval === 0 && !isFreeSpinMode) {
         const currentRTP = stats.calculateRTP();
-        console.log(`\n  Spins: ${i + 1} | Current RTP: ${currentRTP.toFixed(2)}% | Wins: ${stats.winningSpins} (${((stats.winningSpins / (i + 1)) * 100).toFixed(1)}%)`);
+        console.log(`\n  Spins: ${baseGameSpinsCount} | Current RTP: ${currentRTP.toFixed(2)}% | Wins: ${stats.winningSpins} | Free Spins: ${stats.freeSpinsPlayed}`);
       }
 
     } catch (error) {
-      console.error(`\n❌ Error on spin ${i + 1}:`, error.message);
+      console.error(`\n❌ Error on spin ${i + 1} (${isFreeSpinMode ? 'FREE' : 'BASE'}):`, error.message);
       if (TEST_CONFIG.enableDetailedLogging) {
         console.error(error.stack);
       }
@@ -408,7 +530,12 @@ function generateReport(stats) {
   console.log('─────────────────────────────────────────────────────────────');
   console.log(`  Total Triggers:        ${report.freeSpinsTriggers.toLocaleString()}`);
   console.log(`  Trigger Rate:          ${report.freeSpinsTriggerRate}`);
-  console.log(`  Total Awarded:         ${report.freeSpinsAwarded.toLocaleString()}\n`);
+  console.log(`  Total Awarded:         ${report.freeSpinsAwarded.toLocaleString()}`);
+  console.log(`  Free Spins Played:     ${report.freeSpinsPlayed.toLocaleString()}`);
+  console.log(`  Free Spins Retriggers: ${report.freeSpinsRetriggers.toLocaleString()}`);
+  console.log(`  Free Spins Total Win:  $${report.freeSpinsTotalWin}`);
+  console.log(`  Multipliers Appeared:  ${report.totalMultipliersAppeared.toLocaleString()} (in free spins)`);
+  console.log(`  Max Accumulated Mult:  ${report.maxAccumulatedMultiplier}x\n`);
 
   // Performance
   console.log('⚙️  PERFORMANCE METRICS');

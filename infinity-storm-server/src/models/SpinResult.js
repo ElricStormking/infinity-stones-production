@@ -340,11 +340,7 @@ class SpinResult extends Model {
       }
     });
 
-    // SpinResult has many jackpot contributions
-    SpinResult.hasMany(models.JackpotContribution, {
-      foreignKey: 'spin_id',
-      as: 'jackpotContributions'
-    });
+    // Removed: JackpotContribution associations (tables dropped in migration 004)
   }
 
   /**

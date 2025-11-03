@@ -600,7 +600,16 @@ class GameController {
         }
 
         const cascadesPayload = spinResult.cascadeSteps || spinResult.cascades || [];
-        const multipliersPayload = spinResult.multipliers || [];
+        
+        // Extract and format multipliers from bonusFeatures for database storage
+        const multipliersPayload = (spinResult.bonusFeatures?.randomMultipliers || []).map(rm => ({
+          multiplier: rm.multiplier,
+          position: rm.position || { col: 0, row: 0 },
+          character: rm.character || 'thanos',
+          type: rm.type || 'random',
+          cascadeIndex: rm.cascadeCount || 0,
+          triggered: rm.triggered !== false
+        }));
         // If the updated state is unavailable or still shows 'base' on the first purchased free spin,
         // fall back to the effectiveFreeSpinsActive flag for this spin so the row is recorded correctly.
         // Robust classification for THIS spin:
@@ -684,13 +693,29 @@ class GameController {
             ', nextStateIsFreeSpins:', nextStateIsFreeSpins, ', actualGameMode:', actualGameMode, ' }');
 
           try {
+            // Extract and format multipliers for database storage
+            // Map from spinResult.bonusFeatures.randomMultipliers to simplified format for multipliers_applied column
+            console.log('[GameController] DEBUG bonusFeatures:', JSON.stringify(spinResult.bonusFeatures, null, 2));
+            console.log('[GameController] DEBUG randomMultipliers array:', spinResult.bonusFeatures?.randomMultipliers);
+            
+            const multipliers_applied = (spinResult.bonusFeatures?.randomMultipliers || []).map(rm => ({
+              multiplier: rm.multiplier,
+              position: rm.position || { col: 0, row: 0 },
+              character: rm.character || 'thanos',
+              type: rm.type || 'random',
+              cascadeIndex: rm.cascadeCount || 0,
+              triggered: rm.triggered !== false
+            }));
+
+            console.log('[GameController] DEBUG multipliers_applied:', JSON.stringify(multipliers_applied, null, 2));
+
             const saveRes = await saveSpinResult(playerId, {
               sessionId: validSessionId,
               bet: normalizedBetAmount,
               initialGrid: spinResult.initialGrid,
               cascades: spinResult.cascadeSteps || spinResult.cascades || [],
               totalWin: spinResult.totalWin,
-              multipliers: spinResult.multipliers || [],
+              multipliers: multipliers_applied,
               rngSeed: spinResult.rngSeed,
               freeSpinsActive: isFreeSpinMode,
               freeSpinsRemaining: effectiveFreeSpinsRemaining,

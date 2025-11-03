@@ -67,11 +67,9 @@ const modelFiles = [
   'GameState.js',
   'SpinResult.js',
   'Transaction.js',
-  'Jackpot.js',
-  'JackpotContribution.js',
   'AdminLog.js',
-  'RTPMetrics.js',
   'Admin.js'
+  // Removed: Jackpot.js, JackpotContribution.js, RTPMetrics.js (tables dropped in migration 004)
 ];
 
 // Initialize models
@@ -257,26 +255,11 @@ function getTestData(modelName) {
       balance_before: 1000.00,
       balance_after: 999.00
     },
-    Jackpot: {
-      name: 'test_jackpot',
-      seed_value: 1000.00,
-      contribution_rate: 0.01
-    },
-    JackpotContribution: {
-      jackpot_id: '123e4567-e89b-12d3-a456-426614174000',
-      contribution_amount: 0.50
-    },
     AdminLog: {
       action_type: 'balance_inquiry',
       details: { test: true }
-    },
-    RTPMetrics: {
-      period_start: new Date(Date.now() - 86400000), // 24 hours ago
-      period_end: new Date(),
-      total_bets: 1000.00,
-      total_wins: 965.00,
-      spin_count: 100
     }
+    // Removed: Jackpot, JackpotContribution, RTPMetrics test data (models removed)
   };
 
   return testDataMap[modelName] || null;

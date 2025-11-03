@@ -10,11 +10,13 @@
  */
 
 const { getRNG } = require('./rng');
+const SymbolDistribution = require('./symbolDistribution');
 
 class CascadeProcessor {
   constructor(gameConfig, rng = null) {
     this.gameConfig = gameConfig;
     this.rng = rng || getRNG();
+    this.symbolDistribution = new SymbolDistribution(); // Use single source of truth
 
     // Timing constants (identical to client GameConfig.js)
     this.timing = {
@@ -297,19 +299,25 @@ class CascadeProcessor {
 
   /**
      * Get random symbol using weighted distribution
+     * 
+     * 🎯 UPDATED: Now uses symbolDistribution.js (single source of truth)
+     * Previously used GAME_CONFIG.SYMBOL_WEIGHTS which was inconsistent
+     * 
      * @param {Function} rng - Random number generator function
+     * @param {boolean} freeSpinsMode - Whether in free spins mode
      * @returns {string} Symbol type
      */
-  getRandomSymbol(rng = null) {
+  getRandomSymbol(rng = null, freeSpinsMode = false) {
     const randomFunc = rng || (() => this.rng.random());
 
-    // Check for scatter symbols first
-    if (randomFunc() < this.gameConfig.SCATTER_CHANCE) {
+    // Use symbolDistribution for scatter chance (single source of truth)
+    const scatterChance = this.symbolDistribution.getScatterChance(freeSpinsMode);
+    if (randomFunc() < scatterChance) {
       return 'infinity_glove';
     }
 
-    // Use weighted selection for regular symbols
-    const weights = this.gameConfig.SYMBOL_WEIGHTS;
+    // Use symbolDistribution for symbol weights (single source of truth)
+    const weights = this.symbolDistribution.getWeightedDistribution(freeSpinsMode);
     const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
     const randomValue = randomFunc() * totalWeight;
 
@@ -476,10 +484,10 @@ class CascadeProcessor {
   validateIntegrity() {
     const hasValidTiming = this.timing.CASCADE_SPEED > 0;
     const hasValidGridSize = this.gameConfig.GRID_COLS > 0 && this.gameConfig.GRID_ROWS > 0;
-    const hasSymbolWeights = Object.keys(this.gameConfig.SYMBOL_WEIGHTS).length > 0;
+    const hasSymbolDistribution = this.symbolDistribution && this.symbolDistribution.getAllSymbols().length > 0;
 
     return {
-      valid: hasValidTiming && hasValidGridSize && hasSymbolWeights,
+      valid: hasValidTiming && hasValidGridSize && hasSymbolDistribution,
       checks: {
         validTiming: hasValidTiming,
         validGridSize: hasValidGridSize,

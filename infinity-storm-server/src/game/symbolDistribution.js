@@ -1,13 +1,29 @@
 /**
  * Symbol Distribution Management System
  *
+ * 🎯 SOURCE OF TRUTH FOR ALL SYMBOL GENERATION
+ *
  * Task 4.1: Implement server-side RNG - Symbol Distribution Component
  *
+ * ⚠️ CRITICAL: This file controls ALL symbol distribution during production gameplay!
+ *
  * This manages the weighted probability tables that maintain the 96.5% RTP:
- * - Symbol weights from GameConfig.js
- * - Scatter probability management
+ * - Symbol weights for all symbols
+ * - Scatter probability management (base game & free spins)
  * - Free spins mode adjustments
  * - RTP validation and monitoring
+ *
+ * Changes to this file directly affect:
+ * - Player win rates
+ * - Scatter trigger frequency
+ * - Game RTP (Return To Player)
+ * - Regulatory compliance
+ *
+ * ⚠️ IMPORTANT: Always run RTP validation tests after modifying:
+ *    node tests/rtp-validation.js
+ *
+ * Production spin path:
+ *    POST /api/spin → GameController → GameEngine → gridGenerator → THIS FILE
  */
 
 /**
@@ -34,24 +50,39 @@ class SymbolDistribution {
       'thanos': 11         // 6.0% - Rarest, highest payout
     };
 
-    // Scatter probabilities (independent of regular symbol weights)
+    // ============================================================================
+    // SCATTER PROBABILITIES (Per-Symbol, NOT Trigger Rate!)
+    // ============================================================================
+    // ⚠️ IMPORTANT: These values represent the probability for EACH INDIVIDUAL
+    // grid position to become a scatter symbol, NOT the probability of triggering
+    // free spins!
+    //
+    // Grid: 6 columns × 5 rows = 30 positions
+    // Trigger requirement: 4+ scatter symbols on grid
+    //
+    // PROBABILITY MATH:
+    // - Per-symbol chance: 4.2% (0.042)
+    // - Probability of 4+ scatters: ~3.8% (actual trigger rate)
+    //
+    // To change trigger rate: Adjust per-symbol chance using lookup table above
+    // ============================================================================
     this.scatterChance = {
-      base_game: 0.035,    //  3.5% in base game
-      free_spins: 0.04 // upped from 3.5% (kept same as base for clarity)
+      base_game: 0.029,    // 4.2% per symbol → ~3.8% trigger rate (4+ scatters)
+      free_spins: 0.035    // 5.0% per symbol → ~4.5% trigger rate (retrigger)
     };
 
     // Free spins mode adjustments (multipliers to base weights)
     this.freeSpinAdjustments = {
       // Slightly favor higher-paying symbols during free spins
-      'time_gem': 1.2,        // Slightly less common 0.95
-      'space_gem': 1.2,       // Slightly less common 0.95
-      'mind_gem': 0.7,        // Slightly less common 0.98
-      'power_gem': 0.7,       // Slightly more common 1.02
-      'reality_gem': 0.7,     // More common 1.05
-      'soul_gem': 0.7,        // More common 1.08
-      'thanos_weapon': 1.5,   // More common (better free spin value) 1.15
-      'scarlet_witch': 1.5,   // More common (better free spin value) 1.20
-      'thanos': 1.5           // More common (best free spin value) 1.25
+      'time_gem': 1.2,        
+      'space_gem': 1.2,       
+      'mind_gem': 0.7,        
+      'power_gem': 0.7,       
+      'reality_gem': 0.7,     
+      'soul_gem': 0.7,        
+      'thanos_weapon': 1.5,   
+      'scarlet_witch': 1.5,   
+      'thanos': 1.5           
     };
 
     // Symbol definitions with types and payout info

@@ -45,16 +45,20 @@ async function logFinancialTransaction({
   }
 
   try {
+    // Generate unique transaction ID
+    const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const { data, error } = await supabaseAdmin
       .from('financial_transactions')
       .insert({
+        transaction_id: transactionId,
         player_id: playerId,
         transaction_type: transactionType,
         amount: parseFloat(amount),
         balance_before: parseFloat(balanceBefore),
         balance_after: parseFloat(balanceAfter),
         reference_id: referenceId,
-        reference_type: referenceType,
+        // reference_type column doesn't exist in table - removed
         description,
         metadata
       })
